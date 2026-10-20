@@ -1,0 +1,37 @@
+{
+	"name": "eumenes-pursuit",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.ts",
+		"./sqlite": "./src/sqlite.ts"
+	},
+	"scripts": {
+		"verify": "bun scripts/verify.ts",
+		"typecheck": "tsc --noEmit",
+		"lint": "oxlint --deny-warnings",
+		"format": "oxfmt --write",
+		"format:check": "oxfmt --check",
+		"check:boundaries": "bun scripts/check-boundaries.ts",
+		"test": "bun test ./src ./test ./standalone ./eval",
+		"build": "tsc -p tsconfig.build.json",
+		"pursuit": "bun standalone/cli.ts",
+		"eval": "bun eval/main.ts",
+		"label": "bun eval/label/main.ts"
+	},
+	"dependencies": {
+		"zod": "4.4.3"
+	},
+	"devDependencies": {
+		"@anthropic-ai/sdk": "0.131.0",
+		"@types/bun": "1.3.14",
+		"@types/node": "25.9.3",
+		"katex": "0.16.22",
+		"oxfmt": "0.71.0",
+		"oxlint": "1.86.0",
+		"typescript": "5.9.3"
+	},
+	"packageManager": "bun@1.4.2"
+}

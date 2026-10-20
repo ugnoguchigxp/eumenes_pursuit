@@ -1,0 +1,26 @@
+{
+	"larm.controlOrigin": "http://192.168.0.130:9810",
+	"larm.decisionProfile": "decisionGeneral",
+	"larm.audience": "saaa-desktop",
+	"llm.generator": {
+		"model": "claude-haiku-5-5",
+		"effort": "medium",
+		"thinkingHeadroom": 6000
+	},
+	"llm.reviewer": {
+		"model": "claude-sonnet-5-5",
+		"effort": "medium",
+		"thinkingHeadroom": 6000
+	},
+	"llm.strong": {
+		"model": "claude-opus-5-5",
+		"effort": "medium",
+		"thinkingHeadroom": 8000
+	},
+	"spend.limitUsd": 90,
+	"spend.pricing": {
+		"claude-haiku-5-5": { "input": 0.1, "output": 0.5 },
+		"claude-sonnet-5-5": { "input": 2, "output": 10 },
+		"claude-opus-5-5": { "input": 4, "output": 20 }
+	}
+}

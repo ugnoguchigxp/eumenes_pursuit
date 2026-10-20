@@ -1,0 +1,159 @@
+import type {
+	Answer,
+	ArtifactRef,
+	CriterionResult,
+	DecidedBy,
+	DecisionKind,
+	JsonObject,
+	JsonValue,
+	PursuitStatus,
+	Report,
+	StartInput,
+	VersionRef,
+} from "../../contracts/index.ts";
+
+export interface Prediction {
+	readonly expectedStatus: "ok" | "error";
+	readonly expectedObservation: string;
+}
+
+export interface AcceptanceRow {
+	readonly id: string;
+	readonly text: string;
+	readonly method: "machine" | "human";
+}
+
+export interface StrategyRow {
+	readonly id: string;
+	readonly seq: number;
+	readonly body: string;
+	readonly rationale: string;
+	readonly alternatives: readonly string[];
+	readonly status: "active" | "closed";
+	readonly closeReason: string | null;
+	readonly previousId: string | null;
+}
+
+export interface HypothesisRow {
+	readonly id: string;
+	readonly strategyId: string;
+	readonly seq: number;
+	readonly body: string;
+	readonly rationale: string;
+	readonly tools: readonly string[];
+	readonly expected: string;
+	readonly budget: number;
+	readonly checkpoint: string | null;
+	readonly status: "active" | "closed";
+	readonly result: string | null;
+}
+
+/** Rule codes are stable identifiers; detail is for the generator and the report. */
+export interface Rejection {
+	readonly rule: string;
+	readonly detail: string;
+}
+
+export interface Observation {
+	readonly status: "ok" | "error";
+	readonly output: JsonValue;
+	readonly errorCode: string | null;
+}
+
+/** Host-computed facts about one attempt (plan §8.3). */
+export interface AttemptFeatures {
+	readonly filesTouched: readonly string[];
+	readonly linesChanged: number;
+	readonly protectedTouched: readonly string[];
+	/** D3 normalized to 0..1, null without a usable judgement. */
+	readonly match: number | null;
+	/** D5 normalized to 0..1, null without a usable judgement. */
+	readonly progress: number | null;
+}
+
+export interface AttemptRow {
+	readonly id: string;
+	readonly hypothesisId: string;
+	readonly seq: number;
+	readonly state: "rejected" | "started" | "settled" | "interrupted";
+	readonly tool: string;
+	readonly input: JsonObject;
+	readonly prediction: Prediction;
+	readonly whatChanged: string;
+	readonly fingerprint: string;
+	readonly rejection: readonly Rejection[] | null;
+	readonly observation: Observation | null;
+	readonly outcome: "success" | "failure" | null;
+	readonly refs: readonly ArtifactRef[];
+	readonly features: AttemptFeatures | null;
+}
+
+export interface JudgementRow {
+	readonly attemptId: string | null;
+	readonly stage: "pre" | "post" | "review";
+	readonly questionSet: VersionRef;
+	readonly questionId: string;
+	readonly answer: Answer;
+	readonly threshold: number;
+	readonly fired: boolean;
+	readonly usable: boolean;
+	readonly model: string;
+	readonly adapter: VersionRef | null;
+}
+
+export interface DecisionRow {
+	readonly seq: number;
+	readonly kind: DecisionKind;
+	readonly reason: string;
+	readonly basis: JsonObject;
+	readonly decidedBy: DecidedBy;
+}
+
+export interface ConsultationRow {
+	readonly id: string;
+	readonly question: string;
+	readonly missing: string;
+	readonly options: readonly string[];
+	readonly answer: string | null;
+	readonly askedAt: number;
+	readonly answeredAt: number | null;
+}
+
+export interface VerificationRow {
+	readonly attemptId: string | null;
+	readonly trigger: "attempt" | "claim" | "final";
+	readonly passed: boolean;
+	readonly criteria: readonly CriterionResult[];
+}
+
+export interface InferenceRow {
+	readonly purpose: string;
+	readonly model: string;
+	readonly inputTokens: number;
+	readonly outputTokens: number;
+	readonly cacheReadTokens: number;
+	readonly latencyMs: number;
+}
+
+/** Everything the loop needs, rebuilt from the ledger on every step. */
+export interface PursuitView {
+	readonly id: string;
+	readonly goal: string;
+	readonly status: PursuitStatus;
+	readonly revision: number;
+	readonly input: StartInput;
+	readonly currentStrategyId: string | null;
+	readonly currentHypothesisId: string | null;
+	readonly startedAt: number;
+	readonly updatedAt: number;
+	readonly acceptance: readonly AcceptanceRow[];
+	readonly strategies: readonly StrategyRow[];
+	readonly hypotheses: readonly HypothesisRow[];
+	readonly attempts: readonly AttemptRow[];
+	readonly judgements: readonly JudgementRow[];
+	readonly decisions: readonly DecisionRow[];
+	readonly consultations: readonly ConsultationRow[];
+	readonly verifications: readonly VerificationRow[];
+	readonly inference: readonly InferenceRow[];
+	readonly report: Report | null;
+}
