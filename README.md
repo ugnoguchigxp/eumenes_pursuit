@@ -93,6 +93,7 @@ bun eval/trace.ts base <task>           # 一つの追求の経緯
 | `--self-check` | off、parts（方針を部品に分け、方針を捨てる前に部品ごとの自己評価を求める。やりきるまで規則層が方針を保つ） |
 | `--critic` | 群 E に途中の査読の道具 `review_draft` を足す（採点基準を見ない別の文脈が飛躍を指摘する） |
 | `--verify-on` | attempt（作業領域を変える試行のたびに照合する）、claim（完了の申告のときと、終わるときだけ照合する） |
+| `--completion-check` | off、acceptance（一段上へ戻る・断念する前に、成果物を読み直して受入条件ごとに判断させる。すべて満たしていれば申告を促す） |
 | `--prediction` | status（状態と観測を予測する）、falsifiable（どんな観測が出たら仮説が誤りかも書かせる） |
 | `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる）、`config/policy.v3.json`（v2 に加え、一段上へ戻る予算を 8 回にして、方針 3 × 仮説 3 と釣り合わせる） |
 

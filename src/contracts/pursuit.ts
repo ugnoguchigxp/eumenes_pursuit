@@ -45,6 +45,11 @@ export const conditionsSchema = z.strictObject({
 	 * observation would refute the hypothesis (spec/verification-design.md §3).
 	 */
 	prediction: z.enum(["status", "falsifiable"]).default("status"),
+	/**
+	 * Before stepping back or giving up: off, or acceptance (re-read the
+	 * deliverable and judge each acceptance criterion; all met means claim).
+	 */
+	completionCheck: z.enum(["off", "acceptance"]).default("off"),
 });
 export type Conditions = z.infer<typeof conditionsSchema>;
 

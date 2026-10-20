@@ -807,3 +807,92 @@ describe("verification timing and predictions", () => {
 		expect(view.attempts.at(-1)?.prediction.refutedIf).toBe("エラーになる");
 	});
 });
+
+describe("completion check (acceptance)", () => {
+	const writer: ToolDescriptor = {
+		name: "write",
+		description: "",
+		inputSchema: {},
+		sideEffect: "workspace",
+		permission: "data.read",
+	};
+	const reader: ToolDescriptor = {
+		name: "read_back",
+		description: "",
+		inputSchema: {},
+		sideEffect: "none",
+		readsWorkspace: true,
+		readsBack: true,
+		permission: "data.read",
+	};
+	const rt: PursuitRuntime = {
+		tools: {
+			list: () => [writer, reader],
+			invoke: async () => ({
+				status: "ok",
+				output: { content: "全文" },
+				refs: [],
+			}),
+		},
+		workspace: null,
+		acceptance: {
+			verify: async () => [{ id: "total", passed: true, evidence: "ok" }],
+		},
+	};
+	const use = (name: string) =>
+		proposal("tool", {
+			tool: name,
+			inputJson: "{}",
+			expectedStatus: "ok",
+			expectedObservation: "書ける",
+			acceptanceCheck: [],
+		});
+	const stepBack = (met: boolean | null) =>
+		proposal("step_back", {
+			acceptanceCheck:
+				met === null ? [] : [{ id: "total", met, where: "第2節" }],
+		});
+
+	test("re-read first, judge every criterion, and claim when all are met", async () => {
+		const { engine } = setup(
+			scripted({
+				plan: [plan],
+				hypothesize: [hypothesis],
+				propose: [
+					use("write"),
+					stepBack(false),
+					use("read_back"),
+					stepBack(null),
+					stepBack(true),
+					proposal("done", { acceptanceCheck: [] }),
+				],
+			}),
+		);
+		const base = startInput();
+		const { pursuitId } = await engine.start(
+			{
+				...base,
+				conditions: {
+					...base.conditions,
+					verifyOn: "claim",
+					completionCheck: "acceptance",
+				},
+			},
+			"k",
+		);
+		await drive(engine, pursuitId, rt);
+		const view = (await engine.view(pursuitId))!;
+		expect(view.attempts.map((a) => a.rejection?.[0]?.rule ?? a.tool)).toEqual([
+			"write",
+			"reread_required",
+			"read_back",
+			"acceptance_check_missing",
+			"claim_suggested",
+		]);
+		expect(view.verifications.map((v) => v.trigger)).toEqual([
+			"claim",
+			"final",
+		]);
+		expect(view.status).toBe("completed");
+	});
+});

@@ -28,6 +28,7 @@ export function startInput(overrides: Partial<StartInput> = {}): StartInput {
 			selfCheck: "off",
 			verifyOn: "attempt",
 			prediction: "status",
+			completionCheck: "off",
 		},
 		goalRef: null,
 		label: "unit",

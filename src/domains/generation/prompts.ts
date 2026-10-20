@@ -7,7 +7,9 @@ import type {
 import type { AttemptRow, PursuitView } from "../ledger/types.ts";
 
 const clip = (text: string, limit: number) =>
-	text.length <= limit ? text : `${text.slice(0, limit)}…(省略)`;
+	text.length <= limit
+		? text
+		: `${text.slice(0, limit)}…［この一覧での表示はここまで。実物は省略されていない］`;
 const show = (value: JsonValue, limit: number) =>
 	clip(JSON.stringify(value), limit);
 
@@ -66,6 +68,14 @@ const partAssessment = z.strictObject({
 });
 const assessmentField = { assessment: z.array(partAssessment).max(6) };
 const refutationField = { refutedIf: z.string().nullable() };
+const acceptanceCheck = z.strictObject({
+	id: z.string(),
+	met: z.boolean(),
+	where: z.string(),
+});
+const acceptanceCheckField = {
+	acceptanceCheck: z.array(acceptanceCheck).max(20),
+};
 
 export type Proposal = z.infer<typeof proposalSchema> &
 	Partial<
@@ -76,6 +86,7 @@ export type Proposal = z.infer<typeof proposalSchema> &
 	> & {
 		assessment?: z.infer<typeof partAssessment>[];
 		refutedIf?: string | null;
+		acceptanceCheck?: z.infer<typeof acceptanceCheck>[];
 	};
 
 /** The proposal fields depend on the conditions, so "off" stays the baseline. */
@@ -87,6 +98,9 @@ function proposalSchemaFor(
 	return base.extend({
 		...(conditions.selfCheck === "parts" ? assessmentField : {}),
 		...(conditions.prediction === "falsifiable" ? refutationField : {}),
+		...(conditions.completionCheck === "acceptance"
+			? acceptanceCheckField
+			: {}),
 	}) as z.ZodType<Proposal>;
 }
 
@@ -343,6 +357,31 @@ function lastAttemptsBlock(view: PursuitView, n: number) {
 	return ["## 直近の試行", ...shown.map((a) => attemptLine(a, 300))].join("\n");
 }
 
+/** The latest re-read of the deliverable, in full, for judging completion (spec/completion-design.md). */
+function readBackBlock(view: PursuitView, tools: readonly ToolDescriptor[]) {
+	if (view.input.conditions.completionCheck !== "acceptance") return "";
+	const readers = new Set(tools.filter((t) => t.readsBack).map((t) => t.name));
+	const last = [...view.attempts]
+		.reverse()
+		.find(
+			(a) =>
+				a.state === "settled" &&
+				readers.has(a.tool) &&
+				a.observation?.status === "ok",
+		);
+	if (!last?.observation) return "";
+	const changedSince = view.attempts.some(
+		(a) =>
+			a.seq > last.seq &&
+			a.state === "settled" &&
+			tools.some((t) => t.name === a.tool && t.sideEffect === "workspace"),
+	);
+	return [
+		`## 最後に読み返した成果物（試行 #${last.seq}${changedSince ? "。そのあと書き換えたので古い" : ""}）`,
+		show(last.observation.output, 12000),
+	].join("\n");
+}
+
 export function proposalRequest(input: {
 	view: PursuitView;
 	tools: readonly ToolDescriptor[];
@@ -370,6 +409,7 @@ export function proposalRequest(input: {
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
 			partsBlock(view),
+			readBackBlock(view, input.tools),
 			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
 			mine.length
 				? ["## この仮説での試行", ...mine.map((a) => attemptLine(a, 600))].join(
@@ -400,6 +440,9 @@ export function proposalRequest(input: {
 				'- kind "give_up": 達成できないと判断した。message に理由を書く。',
 				'- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。',
 				"使わない項目は null または空文字にしてください。",
+				view.input.conditions.completionCheck === "acceptance"
+					? "step_back と give_up を選ぶ前に、成果物を全文読み返す道具で今の成果物を読み直し、その全文に照らして受入条件を一つずつ判断してください。acceptanceCheck に、すべての受入条件について id・met（満たしているか）・where（満たしているなら成果物のどの箇所か、満たしていないなら何が欠けているか）を書きます。step_back と give_up では必須で、それ以外は空配列でよいです。すべて満たしているなら、step_back ではなく done を申告してください。"
+					: "",
 				view.input.conditions.selfCheck === "parts"
 					? "step_back と give_up を選ぶ前に、方針の部品ごとに自己評価してください。assessment に、すべての部品について part（番号）・status（done=済み、blocked=詰まり、untried=未着手）・evidence（済みならその根拠、詰まりなら何が足りないか）・next（詰まりのとき、次に試せる一手。本当にもう無いときだけ空）を書きます。step_back と give_up では必須で、それ以外は空配列でよいです。未着手の部品や、次の一手が残っている部品があるうちは、方針を捨てずにその部品に取り組んでください。"
 					: "",

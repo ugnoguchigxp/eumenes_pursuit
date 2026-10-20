@@ -19,6 +19,7 @@ export function conditionsFor(
 		selfCheck: Conditions["selfCheck"];
 		verifyOn: Conditions["verifyOn"];
 		prediction: Conditions["prediction"];
+		completionCheck: Conditions["completionCheck"];
 	},
 ): Conditions {
 	const base = {
@@ -30,6 +31,7 @@ export function conditionsFor(
 		selfCheck: options.selfCheck,
 		verifyOn: options.verifyOn,
 		prediction: options.prediction,
+		completionCheck: options.completionCheck,
 	} as const;
 	switch (name) {
 		case "E0":

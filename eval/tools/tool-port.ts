@@ -46,6 +46,7 @@ export interface ToolSpec {
 	readonly sideEffect?: ToolSideEffect;
 	readonly fingerprintFields?: readonly string[];
 	readonly readsWorkspace?: boolean;
+	readonly readsBack?: boolean;
 	readonly textField?: string;
 }
 
@@ -63,6 +64,7 @@ export function defineTool(spec: ToolSpec, run: ToolDef["run"]): ToolDef {
 		sideEffect: spec.sideEffect ?? "none",
 		permission: spec.permission,
 		...(spec.readsWorkspace ? { readsWorkspace: true } : {}),
+		...(spec.readsBack ? { readsBack: true } : {}),
 		...(spec.textField ? { textField: spec.textField } : {}),
 	} as const;
 	const descriptor: ToolDescriptor =

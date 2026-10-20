@@ -713,7 +713,12 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		}
 		const p = r.value;
 		const usage = llmRow("propose", r);
-		if (claimChance && p.kind !== "done") {
+		const gated =
+			conditions.rules &&
+			conditions.completionCheck === "acceptance" &&
+			(p.kind === "step_back" || p.kind === "give_up");
+		// A gated step back goes through the completion check below instead.
+		if (claimChance && p.kind !== "done" && !gated) {
 			await store.write((db) => inference(db, view, [usage]));
 			return stepBack(
 				await read(view.id),
@@ -796,6 +801,57 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				);
 				view = await read(view.id);
 			}
+		}
+		// Re-read and judge each criterion before leaving (spec/completion-design.md).
+		if (gated) {
+			const tools = runtime.tools.list();
+			const readers = tools
+				.filter((t) => t.readsBack && t.sideEffect === "none")
+				.map((t) => t.name);
+			const writers = changingTools(tools);
+			const settled = view.attempts
+				.filter((a) => a.state === "settled")
+				.reverse();
+			const lastWrite = settled.find((a) => writers.has(a.tool));
+			const lastRead = settled.find(
+				(a) => readers.includes(a.tool) && a.observation?.status === "ok",
+			);
+			if (
+				readers.length &&
+				lastWrite &&
+				(!lastRead || lastRead.seq < lastWrite.seq)
+			)
+				return refuse(
+					"reread_required",
+					`判断の前に ${readers.join(" / ")} で今の成果物を全文読み直してください`,
+				);
+			const norm = (id: string) => id.trim().toLowerCase();
+			// Any entry saying "not met" wins over a duplicate saying "met".
+			const checked = new Map<string, boolean>();
+			for (const c of p.acceptanceCheck ?? [])
+				checked.set(norm(c.id), (checked.get(norm(c.id)) ?? true) && c.met);
+			const missing = view.acceptance.filter((a) => !checked.has(norm(a.id)));
+			if (missing.length)
+				return refuse(
+					"acceptance_check_missing",
+					`受入条件ごとの判断（acceptanceCheck）が足りません: ${missing.map((a) => a.id).join(", ")}`,
+				);
+			// After a refused claim on this deliverable, nudging to claim again only spins.
+			const refusedClaim = view.attempts.some(
+				(a) =>
+					a.fingerprint === "claim" &&
+					a.state === "rejected" &&
+					(!lastWrite || a.seq > lastWrite.seq),
+			);
+			if (
+				lastWrite &&
+				!refusedClaim &&
+				view.acceptance.every((a) => checked.get(norm(a.id)))
+			)
+				return refuse(
+					"claim_suggested",
+					"すべての受入条件を満たしていると判断しています。step_back ではなく done を申告してください",
+				);
 		}
 		switch (p.kind) {
 			case "done": {
@@ -991,8 +1047,13 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					falsifiable: conditions.prediction === "falsifiable",
 				}),
 			);
+		const readBack =
+			conditions.rules &&
+			conditions.completionCheck === "acceptance" &&
+			tool?.readsBack === true &&
+			tool.sideEffect === "none";
 		const pre =
-			!rejections.length && tool
+			!rejections.length && tool && !readBack
 				? await askJudge(
 						view,
 						"pre",

@@ -89,3 +89,9 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `conditions.prediction`: `"status" | "falsifiable"`（既定 `"status"`）。`falsifiable` では、道具の提案に `refutedIf` が要り、空か予測と同じなら規則層が `prediction_not_falsifiable` で拒否する。台帳の予測（`prediction_json`）に `refutedIf` が入る（列の追加はない）。
 - 試行ごとの照合と最終の照合からは、知見を作らない。知見を作るのは、完了の申告のときの照合だけ（隠れた採点の漏れを塞ぐ）。
 - [spec/verification-design.md](verification-design.md) を参照。
+
+## v1.4（2026-10-21、追加のみ）
+
+- `conditions.completionCheck`: `"off" | "acceptance"`（既定 `"off"`）。
+- 道具の記述子に `readsBack?: boolean`。成果物そのものを返す道具に付ける。
+- [spec/completion-design.md](completion-design.md) を参照。

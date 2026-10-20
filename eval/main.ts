@@ -70,6 +70,8 @@ const { values, positionals } = parseArgs({
 		"verify-on": { type: "string", default: "attempt" },
 		/** What a prediction states: status or falsifiable. */
 		prediction: { type: "string", default: "status" },
+		/** Before stepping back: off, or acceptance (re-read and judge each criterion). */
+		"completion-check": { type: "string", default: "off" },
 		/** Group E: add the in-loop referee tool review_draft. */
 		critic: { type: "boolean", default: false },
 	},
@@ -147,6 +149,9 @@ if (!["attempt", "claim"].includes(verifyOn))
 const prediction = values.prediction as "status" | "falsifiable";
 if (!["status", "falsifiable"].includes(prediction))
 	throw new Error("--prediction must be status or falsifiable");
+const completionCheck = values["completion-check"] as "off" | "acceptance";
+if (!["off", "acceptance"].includes(completionCheck))
+	throw new Error("--completion-check must be off or acceptance");
 const policy = policySchema.parse(
 	JSON.parse(readFileSync(values.policy!, "utf8")),
 );
@@ -159,6 +164,7 @@ const variant = [
 	selfCheck === "off" ? "" : `/K-${selfCheck}`,
 	verifyOn === "attempt" ? "" : `/V-${verifyOn}`,
 	prediction === "status" ? "" : `/R-${prediction}`,
+	completionCheck === "off" ? "" : `/A-${completionCheck}`,
 ].join("");
 const secrets = secretValues(process.env);
 const token = process.env.LARM_API_TOKEN;
@@ -246,6 +252,7 @@ async function runOne(job: (typeof jobs)[number]) {
 					selfCheck,
 					verifyOn,
 					prediction,
+					completionCheck,
 				}),
 				goalRef: null,
 				label: task.id,

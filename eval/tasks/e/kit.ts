@@ -240,6 +240,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 							description: "work/proof.md を読む。",
 							permission: "doc.read",
 							readsWorkspace: true,
+							readsBack: true,
 						},
 						async () => {
 							const text = await read(proofPath);

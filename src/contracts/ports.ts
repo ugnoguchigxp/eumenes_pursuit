@@ -13,6 +13,8 @@ export interface ToolDescriptor {
 	readonly sideEffect: ToolSideEffect;
 	/** Result depends on the workspace contents (tests, file reads); the state joins the fingerprint. */
 	readonly readsWorkspace?: boolean;
+	/** Returns the current deliverable itself, so calling it is a re-read (spec/completion-design.md). */
+	readonly readsBack?: boolean;
 	/** Grant key the pursuit must hold to call this tool. */
 	readonly permission: string;
 	/** Input keys that define the attempt's conditions; absent = the whole input. */
