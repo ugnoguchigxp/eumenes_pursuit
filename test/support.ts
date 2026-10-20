@@ -24,6 +24,8 @@ export function startInput(overrides: Partial<StartInput> = {}): StartInput {
 			adapter: null,
 			language: "ja",
 			findings: "off",
+			strategyChange: "free",
+			selfCheck: "off",
 		},
 		goalRef: null,
 		label: "unit",

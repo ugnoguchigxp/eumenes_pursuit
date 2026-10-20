@@ -7,6 +7,7 @@ import {
 	type PursuitRuntime,
 	type ToolDescriptor,
 } from "../../src/index.ts";
+import { planRequest } from "../../src/domains/generation/prompts.ts";
 import * as ledger from "../../src/domains/ledger/index.ts";
 import { migrations } from "../../src/sqlite.ts";
 import { openStore } from "../../standalone/store.ts";
@@ -73,7 +74,11 @@ function runtime(
 		},
 	};
 }
-function setup(llm: LlmPort, judge: JudgePort | null = null) {
+function setup(
+	llm: LlmPort,
+	judge: JudgePort | null = null,
+	reviewer: LlmPort | null = null,
+) {
 	const store = openStore(":memory:", migrations);
 	let n = 0;
 	const engine = createPursuitEngine({
@@ -81,7 +86,7 @@ function setup(llm: LlmPort, judge: JudgePort | null = null) {
 		clock: { now: () => 1000 + n },
 		ids: { next: (p) => `${p}${n++}` },
 		generator: llm,
-		reviewer: null,
+		reviewer,
 		judge,
 	});
 	return { store, engine };
@@ -501,5 +506,202 @@ describe("engine", () => {
 		expect(
 			engine.start(startInput({ goal: "別の目標" }), "same"),
 		).rejects.toThrow("operation_conflict");
+	});
+});
+
+describe("strategy change", () => {
+	async function viewAfterPlan(strategyChange: "free" | "distinct") {
+		const { engine } = setup(scripted({ plan: [plan] }));
+		const { pursuitId } = await engine.start(
+			startInput({
+				conditions: { ...startInput().conditions, strategyChange },
+			}),
+			`k-${strategyChange}`,
+		);
+		await engine.step(pursuitId, runtime(false), AbortSignal.timeout(5000));
+		return (await engine.view(pursuitId))!;
+	}
+
+	test("distinct asks for a different core idea and offers untried alternatives back", async () => {
+		const prompt = planRequest({
+			view: await viewAfterPlan("distinct"),
+			tools: [tool],
+			direction: null,
+		}).prompt;
+		expect(prompt).toContain(
+			"## これまでに挙げた別案（採ったものを除いて検討する）\n- 別案",
+		);
+		expect(prompt).toContain("核となる考え方");
+	});
+
+	test("free keeps the v1 request", async () => {
+		const prompt = planRequest({
+			view: await viewAfterPlan("free"),
+			tools: [tool],
+			direction: null,
+		}).prompt;
+		expect(prompt).not.toContain("## これまでに挙げた別案");
+		expect(prompt).toContain("別の方針を一つ立ててください");
+	});
+});
+
+describe("self-check (parts)", () => {
+	const planWithParts = { ...plan, parts: ["構成", "評価"] };
+	const assess = (statuses: [string, string][]) =>
+		statuses.map(([status, next], i) => ({
+			part: i + 1,
+			status,
+			evidence: "e",
+			next,
+		}));
+	const withParts = (extra: Record<string, unknown> = {}) =>
+		startInput({
+			conditions: { ...startInput().conditions, selfCheck: "parts" },
+			...extra,
+		});
+	const read = proposal("tool", {
+		tool: "read",
+		inputJson: "{}",
+		expectedStatus: "ok",
+		expectedObservation: "値が読める",
+		assessment: [],
+	});
+
+	test("give up needs an assessment, and is refused while a part is untried", async () => {
+		const { engine } = setup(
+			scripted({
+				plan: [planWithParts],
+				hypothesize: [hypothesis],
+				propose: [
+					proposal("give_up", { assessment: [] }),
+					proposal("give_up", {
+						assessment: assess([
+							["done", ""],
+							["untried", ""],
+						]),
+					}),
+					read,
+				],
+			}),
+		);
+		const { pursuitId } = await engine.start(withParts(), "k");
+		for (let i = 0; i < 5; i++)
+			await engine.step(pursuitId, runtime(false), AbortSignal.timeout(5000));
+		const view = (await engine.view(pursuitId))!;
+		expect(view.attempts.map((a) => a.rejection?.[0]?.rule ?? a.tool)).toEqual([
+			"assessment_missing",
+			"strategy_not_exhausted",
+			"read",
+		]);
+		expect(view.strategies[0]?.parts).toEqual(["構成", "評価"]);
+		expect(view.strategies[0]?.assessment?.[1]?.status).toBe("untried");
+	});
+
+	test("an exhausted strategy with strategies left turns give up into a step back", async () => {
+		const { engine } = setup(
+			scripted({
+				plan: [planWithParts],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					proposal("give_up", {
+						assessment: assess([
+							["done", ""],
+							["blocked", ""],
+						]),
+					}),
+					proposal("give_up", {
+						assessment: assess([
+							["done", ""],
+							["blocked", ""],
+						]),
+					}),
+				],
+			}),
+		);
+		const { pursuitId } = await engine.start(withParts(), "k");
+		for (let i = 0; i < 4; i++)
+			await engine.step(pursuitId, runtime(false), AbortSignal.timeout(5000));
+		const view = (await engine.view(pursuitId))!;
+		expect(view.decisions[0]).toMatchObject({
+			kind: "step_back",
+			decidedBy: "rules",
+		});
+	});
+
+	test("the review cannot drop a strategy whose parts are unfinished", async () => {
+		const review = {
+			decision: "change_strategy",
+			reason: "r",
+			brokenAssumption: "",
+			direction: "別の方針",
+		};
+		const { engine } = setup(
+			scripted({
+				plan: [planWithParts],
+				hypothesize: [hypothesis],
+				propose: [
+					proposal("step_back", {
+						assessment: assess([
+							["blocked", "係数を整数にする"],
+							["untried", ""],
+						]),
+					}),
+				],
+			}),
+			null,
+			scripted({ review: [review] }),
+		);
+		const { pursuitId } = await engine.start(
+			withParts({
+				conditions: {
+					...startInput().conditions,
+					selfCheck: "parts",
+					review: true,
+				},
+			}),
+			"k",
+		);
+		for (let i = 0; i < 4; i++)
+			await engine.step(pursuitId, runtime(false), AbortSignal.timeout(5000));
+		const view = (await engine.view(pursuitId))!;
+		const decision = view.decisions[1]!;
+		expect(decision.kind).toBe("change_hypothesis");
+		expect(decision.decidedBy).toBe("rules");
+		expect(decision.basis.escalation).toEqual(["strategy_not_exhausted"]);
+		expect(String(decision.basis.direction)).toContain("係数を整数にする");
+		expect(view.strategies).toHaveLength(1);
+	});
+});
+
+describe("consultation without progress", () => {
+	test("with requireProgress, a second consultation needs an attempt in between", async () => {
+		const consultProposal = proposal("consult", { missing: "情報" });
+		const { engine } = setup(
+			scripted({
+				plan: [plan],
+				hypothesize: [hypothesis],
+				propose: [consultProposal, consultProposal],
+			}),
+		);
+		const { pursuitId } = await engine.start(
+			startInput({
+				policy: {
+					...startInput().policy,
+					consultation: { requireProgress: true },
+				},
+			}),
+			"k",
+		);
+		const rt = runtime(false);
+		const asked = await drive(engine, pursuitId, rt);
+		expect(asked.status).toBe("awaiting_consultation");
+		const open = (await engine.view(pursuitId))!.consultations[0]!;
+		await engine.answer(pursuitId, open.id, "追加情報はありません");
+		await engine.step(pursuitId, rt, AbortSignal.timeout(5000));
+		const view = (await engine.view(pursuitId))!;
+		expect(view.consultations).toHaveLength(1);
+		expect(view.attempts.at(-1)?.rejection?.[0]?.rule).toBe(
+			"consult_without_progress",
+		);
 	});
 });

@@ -17,6 +17,8 @@ export interface TaskContext {
 	/** Hidden grader for proofs (a strong model in its own context); null when not needed. */
 	readonly grader: LlmPort | null;
 	readonly toolTier: ToolTier;
+	/** In-loop referee without the rubric (group E `review_draft`); absent = no such tool. */
+	readonly critic?: LlmPort | null;
 }
 
 /** Live instance of one task, bound to a throw-away directory. */
@@ -46,6 +48,8 @@ export interface EvalTask {
 	readonly traps: readonly string[];
 	/** Difficulty label for group E (entrance, undergraduate, graduate, research). */
 	readonly level?: 1 | 2 | 3 | 4;
+	/** Rubric items of a graded proof, for partial credit; absent when not graded by rubric. */
+	readonly rubricSize?: number;
 	/** Goal text for a tool tier, when it differs from `goal` (which is tier 0). */
 	goalFor?(tier: ToolTier): string;
 	create(directory: string, context: TaskContext): Promise<TaskInstance>;

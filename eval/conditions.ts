@@ -15,6 +15,8 @@ export function conditionsFor(
 		adapter: VersionRef | null;
 		language: "ja" | "en";
 		findings: Conditions["findings"];
+		strategyChange: Conditions["strategyChange"];
+		selfCheck: Conditions["selfCheck"];
 	},
 ): Conditions {
 	const base = {
@@ -22,6 +24,8 @@ export function conditionsFor(
 		adapter: null,
 		language: options.language,
 		findings: options.findings,
+		strategyChange: options.strategyChange,
+		selfCheck: options.selfCheck,
 	} as const;
 	switch (name) {
 		case "E0":

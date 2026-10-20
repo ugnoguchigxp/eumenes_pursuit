@@ -62,6 +62,12 @@ const { values, positionals } = parseArgs({
 		tools: { type: "string", default: "0" },
 		/** Findings kept apart from hypotheses: off, verified, all (spec/findings-design.md). */
 		findings: { type: "string", default: "off" },
+		/** How a new strategy relates to earlier ones: free or distinct. */
+		strategy: { type: "string", default: "free" },
+		/** Self-assessment before leaving a strategy: off or parts (spec/persistence-design.md). */
+		"self-check": { type: "string", default: "off" },
+		/** Group E: add the in-loop referee tool review_draft. */
+		critic: { type: "boolean", default: false },
 	},
 });
 const command = positionals[0];
@@ -125,7 +131,23 @@ if (![0, 1, 2, 3].includes(toolTier))
 const findings = values.findings as "off" | "verified" | "all";
 if (!["off", "verified", "all"].includes(findings))
 	throw new Error("--findings must be off, verified or all");
-const variant = `${values.generator}/T${toolTier}${findings === "off" ? "" : `/F-${findings}`}`;
+const strategyChange = values.strategy as "free" | "distinct";
+if (!["free", "distinct"].includes(strategyChange))
+	throw new Error("--strategy must be free or distinct");
+const selfCheck = values["self-check"] as "off" | "parts";
+if (!["off", "parts"].includes(selfCheck))
+	throw new Error("--self-check must be off or parts");
+const policy = policySchema.parse(
+	JSON.parse(readFileSync(values.policy!, "utf8")),
+);
+const variant = [
+	`${values.generator}/T${toolTier}`,
+	findings === "off" ? "" : `/F-${findings}`,
+	strategyChange === "free" ? "" : "/S-distinct",
+	policy.version === 1 ? "" : `/P-v${policy.version}`,
+	values.critic ? "/C" : "",
+	selfCheck === "off" ? "" : `/K-${selfCheck}`,
+].join("");
 const secrets = secretValues(process.env);
 const token = process.env.LARM_API_TOKEN;
 if (!token) throw new Error("LARM_API_TOKEN is required");
@@ -152,9 +174,6 @@ const engine = createPursuitEngine({
 		console.warn(`[warn] ${code}`, JSON.stringify(detail)),
 });
 
-const policy = policySchema.parse(
-	JSON.parse(readFileSync(values.policy!, "utf8")),
-);
 const conditionNames = values.conditions!.split(",") as ConditionName[];
 const adapter = values.adapter
 	? {
@@ -192,7 +211,11 @@ async function runOne(job: (typeof jobs)[number]) {
 		join(tmpdir(), `eumenes-pursuit-${task.id}-${condition}-${repeat}-`),
 	);
 	console.log(`[start] ${label} workspace ${directory}`);
-	const instance = await task.create(directory, { grader, toolTier });
+	const instance = await task.create(directory, {
+		grader,
+		toolTier,
+		critic: values.critic ? reviewer : null,
+	});
 	const controller = new AbortController();
 	let pursuitId = "";
 	let error: string | null = null;
@@ -203,7 +226,13 @@ async function runOne(job: (typeof jobs)[number]) {
 				acceptance: task.acceptance,
 				grant: task.grant,
 				policy,
-				conditions: conditionsFor(condition, { adapter, language, findings }),
+				conditions: conditionsFor(condition, {
+					adapter,
+					language,
+					findings,
+					strategyChange,
+					selfCheck,
+				}),
 				goalRef: null,
 				label: task.id,
 			},

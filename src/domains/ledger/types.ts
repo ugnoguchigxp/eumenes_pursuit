@@ -23,12 +23,25 @@ export interface AcceptanceRow {
 	readonly method: "machine" | "human";
 }
 
+export interface PartAssessment {
+	/** 1-based index into the strategy's parts. */
+	readonly part: number;
+	readonly status: "done" | "blocked" | "untried";
+	readonly evidence: string;
+	/** For blocked parts: the next move still worth trying; empty when none. */
+	readonly next: string;
+}
+
 export interface StrategyRow {
 	readonly id: string;
 	readonly seq: number;
 	readonly body: string;
 	readonly rationale: string;
 	readonly alternatives: readonly string[];
+	/** Parts the strategy needs (selfCheck "parts"); empty otherwise. */
+	readonly parts: readonly string[];
+	/** The generator's latest self-assessment of the parts; null before the first. */
+	readonly assessment: readonly PartAssessment[] | null;
 	readonly status: "active" | "closed";
 	readonly closeReason: string | null;
 	readonly previousId: string | null;
@@ -86,6 +99,7 @@ export interface AttemptRow {
 	readonly outcome: "success" | "failure" | null;
 	readonly refs: readonly ArtifactRef[];
 	readonly features: AttemptFeatures | null;
+	readonly startedAt: number;
 }
 
 export interface JudgementRow {

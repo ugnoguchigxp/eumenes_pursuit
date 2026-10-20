@@ -236,13 +236,14 @@ export const reasoningTasks: readonly EvalTask[] = [
 		domain: "math",
 		level: 4,
 		title: "π² の無理数性",
-		statement: "π² が無理数であることを証明せよ。",
+		statement:
+			"π² が無理数であることを証明せよ。π や π² の無理数性・超越性を直接含む定理（Lindemann の定理など）は引用せず、証明の中で示すこと。手法は問わない。",
 		document: true,
 		numericChecks: false,
 		rubric: [
 			{
 				id: "construction",
-				text: "矛盾を導くための補助関数・積分（Niven 型の多項式 f(x) = xⁿ(1−x)ⁿ/n! など）を正しく構成している",
+				text: "矛盾を導くための補助関数・積分・近似の列など（Niven 型の多項式 f(x) = xⁿ(1−x)ⁿ/n!、Hermite 型の積分、連分数など、手法は問わない）を正しく構成している",
 			},
 			{
 				id: "integrality",
@@ -267,7 +268,8 @@ export const reasoningTasks: readonly EvalTask[] = [
 		domain: "math",
 		level: 4,
 		title: "ζ(3) の無理数性",
-		statement: "ζ(3) = Σ_{n=1}^∞ 1/n³ が無理数であることを証明せよ。",
+		statement:
+			"ζ(3) = Σ_{n=1}^∞ 1/n³ が無理数であることを証明せよ。ζ(3) の無理数性そのもの（Apéry の定理）は引用せず、証明の中で示すこと。素数定理など ζ(3) と無関係な標準的な結果は引用してよい。手法は問わない。",
 		document: true,
 		numericChecks: false,
 		rubric: [

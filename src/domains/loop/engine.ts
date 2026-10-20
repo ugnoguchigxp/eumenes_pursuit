@@ -45,6 +45,11 @@ import {
 	type Review,
 } from "../generation/prompts.ts";
 import * as ledger from "../ledger/index.ts";
+import {
+	consultedWithoutProgress,
+	describeUnfinished,
+	unfinishedParts,
+} from "../rules/parts.ts";
 import type {
 	AttemptFeatures,
 	InferenceRow,
@@ -563,6 +568,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				body: r.value.strategy,
 				rationale: r.value.rationale,
 				alternatives: r.value.alternatives,
+				parts: r.value.parts ?? [],
 				previousId: view.currentStrategyId,
 				now: clock.now(),
 			});
@@ -735,6 +741,48 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			});
 			view = await read(view.id);
 		}
+		const strategy = view.strategies.find(
+			(s) => s.id === view.currentStrategyId,
+		);
+		const inStrategy = view.hypotheses.filter(
+			(h) => h.strategyId === strategy?.id,
+		).length;
+		const refuse = async (rule: string, detail: string) => {
+			const revision = await reject(
+				view,
+				{
+					tool: p.kind,
+					input: {},
+					prediction: { expectedStatus: "ok", expectedObservation: p.message },
+					whatChanged: "",
+					fingerprint: p.kind,
+				},
+				[{ rule, detail }],
+				(db) => inference(db, view, [usage]),
+			);
+			return result(view, revision, view.status, "rejected");
+		};
+		if (
+			conditions.selfCheck === "parts" &&
+			(p.kind === "step_back" || p.kind === "give_up") &&
+			strategy?.status === "active" &&
+			strategy.parts.length
+		) {
+			const assessment = (p.assessment ?? []).filter(
+				(a) => a.part <= strategy.parts.length,
+			);
+			if (!assessment.length && conditions.rules)
+				return refuse(
+					"assessment_missing",
+					"方針の部品ごとの自己評価（assessment）を書いてください",
+				);
+			if (assessment.length) {
+				await store.write((db) =>
+					ledger.setStrategyAssessment(db, { id: strategy.id, assessment }),
+				);
+				view = await read(view.id);
+			}
+		}
 		switch (p.kind) {
 			case "done": {
 				if (!conditions.rules) {
@@ -795,7 +843,30 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				);
 				return result(view, revision, view.status, "rejected");
 			}
-			case "give_up":
+			case "give_up": {
+				const current = view.strategies.find(
+					(s) => s.id === view.currentStrategyId,
+				);
+				if (conditions.rules && conditions.selfCheck === "parts" && current) {
+					const unfinished = unfinishedParts(current);
+					if (
+						unfinished.length &&
+						inStrategy < policy.budget.hypothesesPerStrategy
+					)
+						return refuse(
+							"strategy_not_exhausted",
+							`まだやりきっていない部品があります: ${describeUnfinished(unfinished)}`,
+						);
+					if (view.strategies.length < policy.budget.strategies) {
+						await store.write((db) => inference(db, view, [usage]));
+						return stepBack(
+							await read(view.id),
+							`断念の前に別の方針を検討する: ${p.message}`,
+							"rules",
+							{ rule: "give_up_with_strategies_left" },
+						);
+					}
+				}
 				await store.write((db) => inference(db, view, [usage]));
 				return finish(
 					await read(view.id),
@@ -805,7 +876,17 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					"generator",
 					signal,
 				);
+			}
 			case "consult":
+				if (
+					conditions.rules &&
+					policy.consultation.requireProgress &&
+					consultedWithoutProgress(view)
+				)
+					return refuse(
+						"consult_without_progress",
+						"前の相談への答えのあと、まだ何も試していません。答えを踏まえて試してください",
+					);
 				return consult(
 					view,
 					p.message || "判断に必要な情報を教えてください",
@@ -1144,6 +1225,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		)
 			kind = "change_hypothesis";
 		const escalation: string[] = [];
+		let unfinishedNote = "";
 		if (conditions.rules) {
 			const stepBacks = view.decisions.filter(
 				(d) => d.kind === "step_back",
@@ -1154,12 +1236,37 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			const inStrategy = view.hypotheses.filter(
 				(h) => h.strategyId === strategy?.id,
 			).length;
+			// An answered consultation with nothing tried since: asking again spins.
+			if (
+				kind === "consult" &&
+				policy.consultation.requireProgress &&
+				consultedWithoutProgress(view)
+			) {
+				kind = "change_hypothesis";
+				decidedBy = "rules";
+				escalation.push("consult_without_progress");
+			}
 			if (
 				kind === "change_hypothesis" &&
 				inStrategy >= policy.budget.hypothesesPerStrategy
 			) {
 				kind = "revise_strategy";
 				escalation.push("hypotheses_per_strategy");
+			}
+			// A strategy is kept until its parts are worked through (spec/persistence-design.md §2).
+			if (
+				conditions.selfCheck === "parts" &&
+				kind === "revise_strategy" &&
+				strategy &&
+				inStrategy < policy.budget.hypothesesPerStrategy
+			) {
+				const unfinished = unfinishedParts(strategy);
+				if (unfinished.length) {
+					kind = "change_hypothesis";
+					decidedBy = "rules";
+					escalation.push("strategy_not_exhausted");
+					unfinishedNote = describeUnfinished(unfinished);
+				}
 			}
 			if (
 				kind === "revise_strategy" &&
@@ -1176,8 +1283,19 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				kind = "stop";
 				escalation.push("consultations");
 			}
+			// A budget escalation back to consult would ask again with nothing tried since.
+			if (
+				kind === "consult" &&
+				escalation.includes("consult_without_progress")
+			) {
+				kind = "stop";
+				escalation.push("consultations");
+			}
 		}
-		const direction = reviewed?.direction ?? "";
+		const direction =
+			unfinishedNote && kind === "change_hypothesis"
+				? `残りの部品に取り組む: ${unfinishedNote}`
+				: (reviewed?.direction ?? "");
 		const why = reviewed?.reason || reason;
 		if (
 			conditions.rules &&

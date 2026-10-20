@@ -45,6 +45,12 @@ export const policySchema = z.strictObject({
 	 * growing, revisits, a pre-execution guard) so built-up work survives.
 	 */
 	restore: z.enum(["always", "protective"]),
+	consultation: z
+		.strictObject({
+			/** A consultation after an answered one needs an executed attempt in between. */
+			requireProgress: z.boolean(),
+		})
+		.default({ requireProgress: false }),
 	/** Limits of the text placed in the judge state. */
 	judgeState: z.strictObject({
 		maxChars: count,

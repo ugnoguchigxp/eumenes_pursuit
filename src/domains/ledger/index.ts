@@ -1,5 +1,6 @@
 import type { MigrationDescriptor } from "../../contracts/index.ts";
 import { ledgerV2Findings } from "./findings-schema.ts";
+import { ledgerV3Parts } from "./parts-schema.ts";
 import { ledgerV1 } from "./schema.ts";
 
 /** Append-only; the host applies them in order inside its own migration runner. */
@@ -13,6 +14,11 @@ export const migrations: readonly MigrationDescriptor[] = [
 		id: "pursuit-0002-findings",
 		sql: ledgerV2Findings,
 		sha256: "5c45e46f0448d0f44108703a4ba96ebfbdc3ae7951d76d03efe7f0560a7b64cc",
+	},
+	{
+		id: "pursuit-0003-parts",
+		sql: ledgerV3Parts,
+		sha256: "79653d2dfb89864bdd9ed2f22d05a2f55822f2c9efe3ac77f7b4a291a7a79cb6",
 	},
 ];
 export * from "./findings.ts";

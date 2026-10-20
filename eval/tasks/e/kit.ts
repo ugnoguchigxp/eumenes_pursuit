@@ -22,6 +22,7 @@ import {
 } from "../../tools/tool-port.ts";
 import { createDirWorkspace } from "../../tools/workspace.ts";
 import { criterion } from "../kit.ts";
+import { createCritic } from "./critic.ts";
 import { createGrader, type Grade, type RubricItem } from "./grader.ts";
 
 /** A written-reasoning task: a document (proof, derivation, plan) and/or a closed-form answer. */
@@ -191,6 +192,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 			"問題文以上の情報はありません。手元の道具だけで解いてください。解けない場合はその旨を報告してください。",
 		expected: "completed" as const,
 		traps: spec.traps,
+		...(spec.rubric ? { rubricSize: spec.rubric.length } : {}),
 	};
 	return {
 		...meta,
@@ -328,6 +330,36 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 						},
 					),
 				);
+			if (spec.document && context.critic) {
+				const critique = createCritic(context.critic);
+				tools.push(
+					defineTool(
+						{
+							name: "review_draft",
+							description:
+								"別の査読者が work/proof.md を読み、飛躍・誤り・根拠のない主張と、既に厳密な部分を挙げる。合否は返さない。focus に特に見てほしい箇所を書ける。",
+							permission: "doc.read",
+							readsWorkspace: true,
+							properties: {
+								focus: prop("string", "特に見てほしい箇所（任意）"),
+							},
+							fingerprintFields: ["focus"],
+						},
+						async (input, signal) => {
+							const draft = await read(proofPath);
+							if (draft === null)
+								return fail("not_found", "まだ書かれていません");
+							const result = await critique({
+								statement: spec.statement,
+								draft,
+								focus: String(input.focus ?? ""),
+								signal,
+							});
+							return ok(result);
+						},
+					),
+				);
+			}
 			if (context.toolTier >= 2)
 				tools.push(
 					...referenceTools(

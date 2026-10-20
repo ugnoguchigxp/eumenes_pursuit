@@ -8,6 +8,7 @@ LLM は小さな試行錯誤はできても、大きな視点からの試行錯�
 - [P0 の決定](spec/p0-decisions.md) — 未決事項 U1〜U9 の決定と、LARM の d1 の確定した仕様
 - [ホスト接続契約](spec/host-contract-v1.md) — Eumenes との接点（v1.1）
 - [知見の保持の設計](spec/findings-design.md) — 棄却する仮説と、残す補題・観測・行き止まりを分けて持つ
+- [やりきりの点検の設計](spec/persistence-design.md) — 方針の部品と自己評価、途中の査読、相談の空回りの禁止
 - [検証結果](spec/results.md) — live の評価の記録と所見
 - [LARM への依頼](spec/larm-general-decision-request-2026-10-20.md)
 
@@ -77,6 +78,8 @@ bun eval/main.ts run --name math --groups E --conditions E3 --tools 2 --findings
 
 bun eval/main.ts report --name base     # 集計（eval/results/<name>/summary.md）
 bun eval/analyze.ts base                # 失敗の傾向（止まり方・落ちた基準・道具の使い方）
+bun eval/analyze.ts math --depth        # 照合の通過（95% 区間）・部分点・深さ
+bun eval/analyze.ts math --strategies   # 追求ごとの方針の一覧
 bun eval/trace.ts base <task>           # 一つの追求の経緯
 ```
 
@@ -86,8 +89,12 @@ bun eval/trace.ts base <task>           # 一つの追求の経緯
 | `--groups` | A（正しく未完了）、B（経路の変更）、C（根拠つきの比較）、D（小さなコーディング）、E（証明・答え） |
 | `--tools` | 0（なし）、1（＋厳密な計算）、2（＋技法の資料）、3（＋補題の資料）。群 E で使う |
 | `--findings` | off、verified（照合済みの知見と行き止まりだけを見せる）、all（未確認の主張も見せる） |
+| `--strategy` | free（別の方針なら何でも）、distinct（核となる考え方が違う方針を求め、未採用の別案を示し直す） |
+| `--self-check` | off、parts（方針を部品に分け、方針を捨てる前に部品ごとの自己評価を求める。やりきるまで規則層が方針を保つ） |
+| `--critic` | 群 E に途中の査読の道具 `review_draft` を足す（採点基準を見ない別の文脈が飛躍を指摘する） |
+| `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる） |
 
-結果は `eval/results/<name>/`（台帳・記録・集計、gitignore 済み）に残ります。課題の作業領域は OS の一時ディレクトリに作ります。群 D と群 E では、LLM が書いたコードや式を手元で実行します。実行は sandbox（ネットワークなし、ホーム配下の読み取りなし）と時間制限の中で行い、道具の出力からは秘密の値を伏せます。
+結果は `eval/results/<name>/` に残ります。記録（`runs.jsonl`）・集計（`summary.md`）・分析（`analysis.md`）はレポジトリに入れ、台帳（sqlite）とログは手元に残します。課題の作業領域は OS の一時ディレクトリに作ります。群 D と群 E では、LLM が書いたコードや式を手元で実行します。実行は sandbox（ネットワークなし、ホーム配下の読み取りなし）と時間制限の中で行い、道具の出力からは秘密の値を伏せます。
 
 ## 照合の確かさ
 

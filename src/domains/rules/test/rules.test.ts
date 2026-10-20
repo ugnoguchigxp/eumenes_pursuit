@@ -41,6 +41,7 @@ function attempt(seq: number, patch: Partial<AttemptRow> = {}): AttemptRow {
 			match: null,
 			progress: null,
 		},
+		startedAt: seq,
 		...patch,
 	};
 }

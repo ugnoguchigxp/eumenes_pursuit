@@ -23,7 +23,18 @@ export const conditionsSchema = z.strictObject({
 	 * Findings kept apart from hypotheses: off, verified only (checked findings and
 	 * dead ends), or all (also the generator's unverified claims, labelled so).
 	 */
-	findings: z.enum(["off", "verified", "all"]),
+	findings: z.enum(["off", "verified", "all"]).default("off"),
+	/**
+	 * How a new strategy relates to earlier ones: free (any other strategy), or
+	 * distinct (a different core idea, alternatives listed and offered back).
+	 */
+	strategyChange: z.enum(["free", "distinct"]).default("free"),
+	/**
+	 * Self-assessment before leaving a strategy: off, or parts (strategies list
+	 * their parts; step back and give up carry a per-part assessment, and the
+	 * rules keep a strategy until no part is untried or blocked with a next move).
+	 */
+	selfCheck: z.enum(["off", "parts"]).default("off"),
 });
 export type Conditions = z.infer<typeof conditionsSchema>;
 

@@ -76,3 +76,9 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `ToolDescriptor.textField?`（長い本文を JSON の外で渡す）、`ToolDescriptor.readsWorkspace?`。
 - `Report.findings`（有効な知見の件数と、照合済みの知見の一覧）。ContextStill への受け渡しの候補。
 - policy に `budget.transitions`、`judge.trajectoryPersist`、`restore`（`always` / `protective`）。
+
+## v1.2（2026-10-20、追加のみ）
+
+- `conditions.strategyChange`: `"free" | "distinct"`（既定 `"free"`。省略した入力と、v1.1 までの台帳は `"free"` として読む）。`distinct` は、方針を立て直すときに、これまでのどの方針とも核となる考え方が違う方針を求め、まだ採っていない別案を一覧で示し直す。
+- `conditions.findings` も既定 `"off"` にした（v1 の台帳をそのまま読めるように）。
+- `conditions.selfCheck`: `"off" | "parts"`（既定 `"off"`）と policy の `consultation.requireProgress`（既定 false）、migration `pursuit-0003-parts`。[spec/persistence-design.md](persistence-design.md) を参照。

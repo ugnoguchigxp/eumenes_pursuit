@@ -16,6 +16,7 @@ describe("ledger", () => {
 		expect(migrations.map((m) => m.sha256)).toEqual([
 			"caea9e75215a4f062622270d9e9c14b84793fa8449774af81912ae4e513dd4ea",
 			"5c45e46f0448d0f44108703a4ba96ebfbdc3ae7951d76d03efe7f0560a7b64cc",
+			"79653d2dfb89864bdd9ed2f22d05a2f55822f2c9efe3ac77f7b4a291a7a79cb6",
 		]);
 	});
 

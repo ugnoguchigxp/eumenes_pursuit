@@ -25,6 +25,7 @@ import type {
 	Prediction,
 	PursuitView,
 	Rejection,
+	PartAssessment,
 	StrategyRow,
 	VerificationRow,
 } from "./types.ts";
@@ -136,14 +137,15 @@ export function insertStrategy(
 		body: string;
 		rationale: string;
 		alternatives: readonly string[];
+		parts?: readonly string[];
 		previousId: string | null;
 		now: number;
 	},
 ): void {
 	requireTransaction(db);
 	db.query(
-		`INSERT INTO pursuit_strategy (id, pursuit_id, seq, body, rationale, alternatives_json, status, previous_id, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+		`INSERT INTO pursuit_strategy (id, pursuit_id, seq, body, rationale, alternatives_json, parts_json, status, previous_id, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
 	).run(
 		input.id,
 		input.pursuitId,
@@ -151,8 +153,39 @@ export function insertStrategy(
 		input.body,
 		input.rationale,
 		json(input.alternatives),
+		json(input.parts ?? []),
 		input.previousId,
 		input.now,
+	);
+}
+
+export function setStrategyAssessment(
+	db: LedgerDb,
+	input: { id: string; assessment: readonly PartAssessment[] },
+): void {
+	requireTransaction(db);
+	// Merged by part: a partial assessment keeps what earlier ones said about the other parts.
+	const row = db
+		.query("SELECT assessment_json FROM pursuit_strategy WHERE id = ?")
+		.get(input.id) as { assessment_json: string | null } | null;
+	const merged = new Map<number, PartAssessment>(
+		(row?.assessment_json
+			? parse<PartAssessment[]>(row.assessment_json)
+			: []
+		).map((a) => [a.part, a]),
+	);
+	for (const a of input.assessment) merged.set(a.part, a);
+	expectChanges(
+		db
+			.query(
+				"UPDATE pursuit_strategy SET assessment_json = ? WHERE id = ? AND status = 'active'",
+			)
+			.run(
+				json([...merged.values()].sort((a, b) => a.part - b.part)),
+				input.id,
+			),
+		1,
+		"strategy_assessment",
 	);
 }
 
@@ -553,6 +586,11 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		body: text(r.body),
 		rationale: text(r.rationale),
 		alternatives: parse<string[]>(r.alternatives_json),
+		parts: parse<string[]>(r.parts_json),
+		assessment:
+			r.assessment_json === null
+				? null
+				: parse<PartAssessment[]>(r.assessment_json),
 		status: r.status as StrategyRow["status"],
 		closeReason: textOrNull(r.close_reason),
 		previousId: textOrNull(r.previous_id),
@@ -589,6 +627,7 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		outcome: (r.outcome ?? null) as AttemptRow["outcome"],
 		refs: parse<AttemptRow["refs"]>(r.refs_json),
 		features: nullable<AttemptFeatures>(r.features_json),
+		startedAt: Number(r.started_at),
 	}));
 	const judgements: JudgementRow[] = all(
 		"SELECT * FROM pursuit_judgement WHERE pursuit_id = ? ORDER BY created_at, rowid",

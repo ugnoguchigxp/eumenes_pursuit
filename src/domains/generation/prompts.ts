@@ -17,6 +17,12 @@ export const planSchema = z.strictObject({
 	alternatives: z.array(z.string()),
 });
 
+/** With selfCheck "parts", a strategy also lists the parts it needs. */
+export const planWithPartsSchema = planSchema.extend({
+	parts: z.array(z.string().min(1)).min(1).max(6),
+});
+export type Plan = z.infer<typeof planSchema> & { parts?: string[] };
+
 export const hypothesisSchema = z.strictObject({
 	hypothesis: z.string().min(1),
 	rationale: z.string(),
@@ -52,13 +58,32 @@ export const proposalWithFindingsSchema = proposalSchema.extend({
 		.max(3),
 	uses: z.array(z.string()).max(10),
 });
+const partAssessment = z.strictObject({
+	part: z.int().min(1),
+	status: z.enum(["done", "blocked", "untried"]),
+	evidence: z.string(),
+	next: z.string(),
+});
+const assessmentField = { assessment: z.array(partAssessment).max(6) };
+
 export type Proposal = z.infer<typeof proposalSchema> &
 	Partial<
 		Pick<
 			z.infer<typeof proposalWithFindingsSchema>,
 			"findings" | "refute" | "uses"
 		>
-	>;
+	> & { assessment?: z.infer<typeof partAssessment>[] };
+
+/** The proposal fields depend on the conditions, so "off" stays the baseline. */
+function proposalSchemaFor(
+	conditions: PursuitView["input"]["conditions"],
+): z.ZodType<Proposal> {
+	const base =
+		conditions.findings === "off" ? proposalSchema : proposalWithFindingsSchema;
+	return (
+		conditions.selfCheck === "parts" ? base.extend(assessmentField) : base
+	) as z.ZodType<Proposal>;
+}
 
 export const reviewSchema = z.strictObject({
 	decision: z.enum(["continue_strategy", "change_strategy", "consult", "stop"]),
@@ -191,6 +216,32 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 		.join("\n");
 }
 
+/** The current strategy's parts and the latest self-assessment (selfCheck "parts"). */
+function partsBlock(view: PursuitView) {
+	const strategy = view.strategies.find((s) => s.id === view.currentStrategyId);
+	if (view.input.conditions.selfCheck !== "parts" || !strategy?.parts.length)
+		return "";
+	const label = { done: "済み", blocked: "詰まり", untried: "未着手" } as const;
+	return [
+		"## 方針の部品と最新の自己評価",
+		...strategy.parts.map((text, i) => {
+			const a = strategy.assessment?.find((x) => x.part === i + 1);
+			if (!a) return `- 部品${i + 1}: ${text} → 未評価`;
+			return `- 部品${i + 1}: ${text} → ${label[a.status]}${a.evidence ? `（${clip(a.evidence, 200)}）` : ""}${a.next ? ` 次の一手: ${clip(a.next, 200)}` : ""}`;
+		}),
+	].join("\n");
+}
+
+/** Alternatives listed by earlier strategies; which one a later strategy adopted is not recorded. */
+function untriedBlock(view: PursuitView) {
+	const listed = [...new Set(view.strategies.flatMap((s) => s.alternatives))];
+	if (!listed.length) return "";
+	return [
+		"## これまでに挙げた別案（採ったものを除いて検討する）",
+		...listed.map((a) => `- ${a}`),
+	].join("\n");
+}
+
 function historyBlock(view: PursuitView) {
 	if (!view.hypotheses.length) return "";
 	return [
@@ -210,12 +261,13 @@ export function planRequest(input: {
 	view: PursuitView;
 	tools: readonly ToolDescriptor[];
 	direction: string | null;
-}): LlmRequest<z.infer<typeof planSchema>> {
+}): LlmRequest<Plan> {
 	const { view } = input;
+	const parts = view.input.conditions.selfCheck === "parts";
 	return {
 		purpose: "plan",
 		system: executorSystem,
-		schema: planSchema,
+		schema: (parts ? planWithPartsSchema : planSchema) as z.ZodType<Plan>,
 		maxOutputTokens: 4000,
 		prompt: [
 			goalBlock(view),
@@ -226,9 +278,22 @@ export function planRequest(input: {
 			consultationsBlock(view),
 			input.direction ? `## 振り返りからの方向づけ\n${input.direction}` : "",
 			"## 依頼",
-			view.strategies.length
-				? "これまでの方針はうまくいきませんでした。前提を見直し、別の方針を一つ立ててください。試していない別案も挙げてください。"
-				: "目標に向かう方針を一つ立ててください。選んだ理由と、試していない別案も挙げてください。",
+			...(view.input.conditions.strategyChange === "distinct"
+				? [
+						untriedBlock(view),
+						view.strategies.length
+							? "これまでの方針はうまくいきませんでした。前提を見直し、これまでのどの方針とも核となる考え方（使う対象・道具立て・論法）が違う方針を一つ立ててください。同じ手法の言い換えや細部の修正は別の方針ではありません。試していない別案から選ぶか、新しく考えてください。rationale には、前の方針との違いと、前の方針が行き詰まった点をこの方針がどう避けるかを書いてください。"
+							: "目標に向かう方針を一つ立ててください。選んだ理由も書いてください。",
+						"alternatives には、選んだ方針と核となる考え方が違う別案を 2〜4 件、それぞれ一文で書いてください（同じ手法の変形は不可）。",
+					]
+				: [
+						view.strategies.length
+							? "これまでの方針はうまくいきませんでした。前提を見直し、別の方針を一つ立ててください。試していない別案も挙げてください。"
+							: "目標に向かう方針を一つ立ててください。選んだ理由と、試していない別案も挙げてください。",
+					]),
+			parts
+				? "parts には、この方針が成り立つのに要る部品（示すべき主張・作るべきもの）を 1〜6 件、順に一文ずつ書いてください。部品がすべて済めば目標に届く、という分け方にしてください。"
+				: "",
 		]
 			.filter(Boolean)
 			.join("\n\n"),
@@ -255,8 +320,12 @@ export function hypothesisRequest(input: {
 			lastAttemptsBlock(view, 6),
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
+			partsBlock(view),
 			"## 依頼",
 			"この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。",
+			view.input.conditions.selfCheck === "parts"
+				? "部品のうち、まだ済んでいないものを一つ選び、それを進める仮説にしてください。詰まりに次の一手が書かれていれば、それを優先してください。"
+				: "",
 		]
 			.filter(Boolean)
 			.join("\n\n"),
@@ -285,9 +354,7 @@ export function proposalRequest(input: {
 		purpose: "propose",
 		system: executorSystem,
 		// The findings fields exist only when the condition is on, so "off" stays the baseline.
-		schema: (view.input.conditions.findings === "off"
-			? proposalSchema
-			: proposalWithFindingsSchema) as z.ZodType<Proposal>,
+		schema: proposalSchemaFor(view.input.conditions),
 		maxOutputTokens: 10000,
 		prompt: [
 			goalBlock(view),
@@ -297,6 +364,7 @@ export function proposalRequest(input: {
 			findingsBlock(view, true),
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
+			partsBlock(view),
 			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
 			mine.length
 				? ["## この仮説での試行", ...mine.map((a) => attemptLine(a, 600))].join(
@@ -322,7 +390,12 @@ export function proposalRequest(input: {
 				'- kind "give_up": 達成できないと判断した。message に理由を書く。',
 				'- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。',
 				"使わない項目は null または空文字にしてください。",
-			].join("\n"),
+				view.input.conditions.selfCheck === "parts"
+					? "step_back と give_up を選ぶ前に、方針の部品ごとに自己評価してください。assessment に、すべての部品について part（番号）・status（done=済み、blocked=詰まり、untried=未着手）・evidence（済みならその根拠、詰まりなら何が足りないか）・next（詰まりのとき、次に試せる一手。本当にもう無いときだけ空）を書きます。step_back と give_up では必須で、それ以外は空配列でよいです。未着手の部品や、次の一手が残っている部品があるうちは、方針を捨てずにその部品に取り組んでください。"
+					: "",
+			]
+				.filter(Boolean)
+				.join("\n"),
 		]
 			.filter(Boolean)
 			.join("\n\n"),
@@ -364,6 +437,7 @@ export function reviewRequest(input: {
 					return `仮説${h.seq}: 試行${mine.length}回、予測と違う/失敗${failures}回、拒否${view.attempts.filter((a) => a.hypothesisId === h.id && a.state === "rejected").length}回`;
 				}),
 			findingsBlock(view, false),
+			partsBlock(view),
 			`## 試していない別案\n${(strategy?.alternatives ?? []).map((a) => `- ${a}`).join("\n") || "（なし）"}`,
 			consultationsBlock(view),
 			"## 依頼\n方針レベルで判断してください。direction には、次の方針や相談の方向を一文で書いてください。",

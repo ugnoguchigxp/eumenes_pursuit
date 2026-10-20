@@ -15,6 +15,10 @@ artifacts/
 .DS_Store
 .claude/settings.local.json
 .serena/cache/
-eval/**/results/
 data/
-eval/results/
+# Run results: keep the records, summaries and analyses; the ledgers and logs stay local.
+eval/results/**
+!eval/results/*/
+!eval/results/*/runs.jsonl
+!eval/results/*/summary.md
+!eval/results/*/analysis.md
