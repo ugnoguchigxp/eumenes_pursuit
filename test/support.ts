@@ -23,6 +23,7 @@ export function startInput(overrides: Partial<StartInput> = {}): StartInput {
 			questionSet: { id: "pursuit-guards", version: 1 },
 			adapter: null,
 			language: "ja",
+			findings: "off",
 		},
 		goalRef: null,
 		label: "unit",

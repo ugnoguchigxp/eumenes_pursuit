@@ -19,6 +19,11 @@ export const conditionsSchema = z.strictObject({
 	adapter: versionRefSchema.nullable(),
 	/** Criteria text language of the question set. */
 	language: z.enum(["ja", "en"]),
+	/**
+	 * Findings kept apart from hypotheses: off, verified only (checked findings and
+	 * dead ends), or all (also the generator's unverified claims, labelled so).
+	 */
+	findings: z.enum(["off", "verified", "all"]),
 });
 export type Conditions = z.infer<typeof conditionsSchema>;
 
@@ -107,5 +112,14 @@ export interface Report {
 		readonly strategies: number;
 		readonly stepBacks: number;
 		readonly consultations: number;
+	};
+	/** Active findings by kind and assurance, plus the checked ones in full. */
+	readonly findings: {
+		readonly total: number;
+		readonly checked: readonly {
+			readonly kind: string;
+			readonly statement: string;
+			readonly assurance: string;
+		}[];
 	};
 }

@@ -46,7 +46,11 @@ export interface ReasoningSpec {
 }
 
 const MAX_DOC = 32_000;
-const referenceDir = resolve(import.meta.dir, "reference");
+/** Tier 2 sees technique notes; tier 3 also sees lemma-level notes. */
+const referenceDirs = {
+	techniques: resolve(import.meta.dir, "reference"),
+	lemmas: resolve(import.meta.dir, "reference-lemmas"),
+};
 
 function goal(spec: ReasoningSpec, tier: TaskContext["toolTier"]): string {
 	const rules = [
@@ -99,16 +103,22 @@ function acceptance(spec: ReasoningSpec): EvalTask["acceptance"] {
 	return out;
 }
 
-function referenceTools(): ToolDef[] {
+function referenceTools(dirs: readonly string[]): ToolDef[] {
 	async function load() {
-		const files = (await readdir(referenceDir)).filter((f) =>
-			f.endsWith(".md"),
-		);
+		const files = (
+			await Promise.all(
+				dirs.map(async (dir) =>
+					(await readdir(dir))
+						.filter((f) => f.endsWith(".md"))
+						.map((f) => join(dir, f)),
+				),
+			)
+		).flat();
 		return Promise.all(
 			files.map(async (f) => {
-				const text = await readFile(join(referenceDir, f), "utf8");
+				const text = await readFile(f, "utf8");
 				return {
-					id: f.replace(/\.md$/, ""),
+					id: f.split("/").at(-1)!.replace(/\.md$/, ""),
 					title: text.split("\n")[0]?.replace(/^#\s*/, "") ?? f,
 					text,
 				};
@@ -318,7 +328,14 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 						},
 					),
 				);
-			if (context.toolTier >= 2) tools.push(...referenceTools());
+			if (context.toolTier >= 2)
+				tools.push(
+					...referenceTools(
+						context.toolTier >= 3
+							? [referenceDirs.techniques, referenceDirs.lemmas]
+							: [referenceDirs.techniques],
+					),
+				);
 
 			async function verify(signal: AbortSignal): Promise<CriterionResult[]> {
 				const out: CriterionResult[] = [];
@@ -346,6 +363,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 							checks.found &&
 							checks.items.length > 0 &&
 							checks.errors.length === 0;
+						let checksAssurance: "exact" | "numeric" = "exact";
 						let detail = !checks.found
 							? "checks ブロックがありません"
 							: checks.errors.slice(0, 3).join(" / ");
@@ -353,6 +371,9 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 							const results = await runMath({ items: checks.items });
 							const wrong = checks.items.filter((_, i) => !results[i]?.ok);
 							checksOk = wrong.length === 0;
+							// One numeric (tolerance-based) decision makes the whole criterion numeric.
+							if (results.some((r) => r.assurance === "numeric"))
+								checksAssurance = "numeric";
 							detail = checksOk
 								? `${checks.items.length} 件すべて正しい`
 								: `誤り: ${wrong
@@ -361,7 +382,14 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 										.join(" / ")}`;
 						}
 						formatOk &&= checksOk;
-						out.push(criterion("checks-true", checksOk, clipText(detail, 300)));
+						out.push(
+							criterion(
+								"checks-true",
+								checksOk,
+								clipText(detail, 300),
+								checksAssurance,
+							),
+						);
 					}
 					if (!formatOk || !grade || !spec.rubric) {
 						out.push(
@@ -392,6 +420,14 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 								verdict.sound
 									? "合格"
 									: `不合格の基準: ${failed.join(", ") || "総合"}`,
+								"model",
+								verdict.lemmas
+									.filter((l) => l.passed)
+									.map((l) => ({
+										kind: "lemma" as const,
+										statement: l.statement,
+										assurance: "model" as const,
+									})),
 							),
 						);
 					}
@@ -399,17 +435,20 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 				if (spec.answer) {
 					const submitted = (await read(answerPath))?.trim() ?? "";
 					let correct = false;
+					let answerAssurance: "exact" | "numeric" = "exact";
 					if (submitted && !expressionError(submitted)) {
 						const [r] = await runMath({
 							items: [{ line: "", lhs: submitted, op: "=", rhs: spec.answer }],
 						});
 						correct = r?.ok === true;
+						answerAssurance = r?.assurance ?? "numeric";
 					}
 					out.push(
 						criterion(
 							"answer-correct",
 							correct,
 							submitted ? (correct ? "一致" : "不一致") : "未提出",
+							answerAssurance,
 						),
 					);
 				}

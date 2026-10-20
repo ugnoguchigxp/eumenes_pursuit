@@ -11,12 +11,17 @@ const questionSet: VersionRef = {
 /** Plan §13: each condition adds one layer to the previous. */
 export function conditionsFor(
 	name: ConditionName,
-	options: { adapter: VersionRef | null; language: "ja" | "en" },
+	options: {
+		adapter: VersionRef | null;
+		language: "ja" | "en";
+		findings: Conditions["findings"];
+	},
 ): Conditions {
 	const base = {
 		questionSet,
 		adapter: null,
 		language: options.language,
+		findings: options.findings,
 	} as const;
 	switch (name) {
 		case "E0":

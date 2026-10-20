@@ -111,6 +111,30 @@ describe("group E: written reasoning", () => {
 		});
 	});
 
+	test("checks report how sure they are: exact by rationals, symbols or intervals; numeric otherwise", async () => {
+		const { runMath } = await import("../../../tools/math.ts");
+		const item = (lhs: string, op: "<" | ">" | "=", rhs: string) => ({
+			line: "",
+			lhs,
+			op,
+			rhs,
+		});
+		const r = await runMath({
+			items: [
+				item("6*(sqrt(6)-sqrt(2))", ">", "6.1"),
+				item("2.449^2", "<", "6"),
+				item("zeta(4)", "=", "pi^4/90"),
+				item("polylog(4,1/2)", ">", "0.5"),
+			],
+		});
+		expect(r.map((x) => [x.ok, x.assurance])).toEqual([
+			[true, "exact"],
+			[true, "exact"],
+			[true, "exact"],
+			[true, "numeric"],
+		]);
+	});
+
 	test("closed-form answers are compared exactly", async () => {
 		await withTask("e4-euler-sum-h2", 0, async (call, verify) => {
 			await call("submit_answer", { expression: "2*zeta(3)" });
@@ -122,6 +146,18 @@ describe("group E: written reasoning", () => {
 					.status,
 			).toBe("error");
 		});
+	});
+
+	test("lemma-level notes appear only at tier 3", async () => {
+		const ids = async (tier: 2 | 3) =>
+			withTask("e4-zeta3-irrational", tier, async (call) =>
+				JSON.stringify(
+					(await call("search_reference", { query: "Beukers 積分 補題" }))
+						.output,
+				),
+			);
+		expect(await ids(2)).not.toContain("beukers-lemmas");
+		expect(await ids(3)).toContain("beukers-lemmas");
 	});
 
 	test("calc and references work offline", async () => {

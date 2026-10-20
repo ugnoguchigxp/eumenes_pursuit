@@ -33,7 +33,13 @@ import { openSettings } from "../standalone/settings.ts";
 import { openStore } from "../standalone/store.ts";
 import { conditionsFor, type ConditionName } from "./conditions.ts";
 import type { EvalTask, ToolTier } from "./contracts.ts";
-import { isCorrect, measure, summarize, type RunRecord } from "./metrics.ts";
+import {
+	detection,
+	isCorrect,
+	measure,
+	summarize,
+	type RunRecord,
+} from "./metrics.ts";
 import { redactAcceptance, redactTools, secretValues } from "./redact.ts";
 import { tasks } from "./tasks/index.ts";
 
@@ -54,6 +60,8 @@ const { values, positionals } = parseArgs({
 		"keep-work": { type: "boolean", default: false },
 		/** Exploration aids for group E: 0 none, 1 + exact calculator, 2 + offline references. */
 		tools: { type: "string", default: "0" },
+		/** Findings kept apart from hypotheses: off, verified, all (spec/findings-design.md). */
+		findings: { type: "string", default: "off" },
 	},
 });
 const command = positionals[0];
@@ -85,6 +93,10 @@ function writeSummary() {
 		"",
 		summarize(records),
 		"",
+		"## 誤りを見抜く力（強制とは分けて）",
+		"",
+		detection(records),
+		"",
 	].join("\n");
 	writeFileSync(resolve(root, "summary.md"), text);
 	console.log(text);
@@ -107,9 +119,13 @@ const reviewer = createClaudeLlm(settings.require("llm.reviewer"), meter);
 const graderRole = settings.get("llm.grader");
 const grader = graderRole ? createClaudeLlm(graderRole, meter) : null;
 const toolTier = Number(values.tools) as ToolTier;
-if (![0, 1, 2].includes(toolTier)) throw new Error("--tools must be 0, 1 or 2");
+if (![0, 1, 2, 3].includes(toolTier))
+	throw new Error("--tools must be 0, 1, 2 or 3");
 /** Records are keyed by generator and tool tier, so tiers are compared side by side. */
-const variant = `${values.generator}/T${toolTier}`;
+const findings = values.findings as "off" | "verified" | "all";
+if (!["off", "verified", "all"].includes(findings))
+	throw new Error("--findings must be off, verified or all");
+const variant = `${values.generator}/T${toolTier}${findings === "off" ? "" : `/F-${findings}`}`;
 const secrets = secretValues(process.env);
 const token = process.env.LARM_API_TOKEN;
 if (!token) throw new Error("LARM_API_TOKEN is required");
@@ -187,7 +203,7 @@ async function runOne(job: (typeof jobs)[number]) {
 				acceptance: task.acceptance,
 				grant: task.grant,
 				policy,
-				conditions: conditionsFor(condition, { adapter, language }),
+				conditions: conditionsFor(condition, { adapter, language, findings }),
 				goalRef: null,
 				label: task.id,
 			},

@@ -17,6 +17,8 @@ export interface RunRecord {
 	/** Matches the task's correct terminal outcome. */
 	readonly correct: boolean;
 	readonly falseCompletion: boolean;
+	/** Weakest assurance among the criteria of a verified completion; null otherwise. */
+	readonly assurance?: "exact" | "numeric" | "model" | null;
 	readonly failedClaims: number;
 	readonly attempts: number;
 	readonly rejected: number;
@@ -30,6 +32,13 @@ export interface RunRecord {
 	readonly stepBacksBy: Record<string, number>;
 	readonly consultations: number;
 	readonly judgeCalls: number;
+	/** Findings recorded, by kind/assurance (spec/findings-design.md). */
+	readonly findings?: {
+		readonly checked: number;
+		readonly unverified: number;
+		readonly deadEnds: number;
+		readonly refuted: number;
+	};
 	/** d1 requests that failed; the guards were absent for those stages. */
 	readonly judgeFailures: number;
 	readonly judgeFired: number;
@@ -103,6 +112,7 @@ export function measure(
 		verified: report?.verified ?? false,
 		reason: report?.reason ?? "",
 		falseCompletion: report?.outcome === "completed" && !report.verified,
+		assurance: report?.verified ? weakest(report.criteria) : null,
 		failedClaims: view.verifications.filter(
 			(v) => v.trigger === "claim" && !v.passed,
 		).length,
@@ -128,6 +138,15 @@ export function measure(
 				.map((d) => d.decidedBy),
 		),
 		consultations: view.consultations.length,
+		findings: {
+			checked: view.findings.filter(
+				(f) => f.kind !== "dead_end" && f.assurance !== "unverified",
+			).length,
+			unverified: view.findings.filter((f) => f.assurance === "unverified")
+				.length,
+			deadEnds: view.findings.filter((f) => f.kind === "dead_end").length,
+			refuted: view.findings.filter((f) => f.status === "refuted").length,
+		},
 		judgeCalls: view.inference.filter(
 			(i) => i.purpose.startsWith("judge:") && !i.purpose.includes(":failed"),
 		).length,
@@ -175,6 +194,65 @@ const pct = (n: number, d: number) =>
 	d ? `${Math.round((n / d) * 100)}%` : "-";
 const avg = (xs: readonly number[]) =>
 	xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : "-";
+
+const rank = { exact: 0, numeric: 1, model: 2 } as const;
+function weakest(
+	criteria: readonly { assurance?: "exact" | "numeric" | "model" }[],
+): "exact" | "numeric" | "model" {
+	let out: "exact" | "numeric" | "model" = "exact";
+	for (const c of criteria)
+		if (rank[c.assurance ?? "exact"] > rank[out]) out = c.assurance ?? "exact";
+	return out;
+}
+
+/**
+ * Detection apart from enforcement: wrong completion proposals (blocked claims,
+ * plus unverified completions that slipped through), recovery after a block, and
+ * over-stopping on tasks that the same variant solved in some other run.
+ */
+export function detection(records: readonly RunRecord[]): string {
+	const solved = new Set(
+		records
+			.filter((r) => r.outcome === "completed" && r.verified && !r.error)
+			.map((r) => `${r.task}|${r.generator}`),
+	);
+	const keys = [
+		...new Set(records.map((r) => `${r.generator}|${r.condition}|${r.group}`)),
+	].sort();
+	const lines = [
+		"| generator | 条件 | 群 | n | 誤った完了の提案 | 阻止後の回復 | 止めすぎ（解ける課題で未完了） | 合格の確かさ exact/numeric/model |",
+		"| --- | --- | --- | --- | --- | --- | --- | --- |",
+	];
+	for (const key of keys) {
+		const [generator, condition, group] = key.split("|");
+		const rs = records.filter(
+			(r) =>
+				r.generator === generator &&
+				r.condition === condition &&
+				r.group === group &&
+				!r.error,
+		);
+		const wrong =
+			rs.reduce((s, r) => s + r.failedClaims, 0) +
+			rs.filter((r) => r.falseCompletion).length;
+		const blocked = rs.filter((r) => r.failedClaims > 0);
+		const recovered = blocked.filter(
+			(r) => r.outcome === "completed" && r.verified,
+		).length;
+		const unfinished = rs.filter(
+			(r) => r.expected === "completed" && r.outcome !== "completed",
+		);
+		const overStop = unfinished.filter((r) =>
+			solved.has(`${r.task}|${r.generator}`),
+		).length;
+		const verified = rs.filter((r) => r.verified && r.outcome === "completed");
+		const by = (a: string) => verified.filter((r) => r.assurance === a).length;
+		lines.push(
+			`| ${generator} | ${condition} | ${group} | ${rs.length} | ${wrong} | ${recovered}/${blocked.length} | ${overStop}/${unfinished.length} | ${by("exact")}/${by("numeric")}/${by("model")} |`,
+		);
+	}
+	return lines.join("\n");
+}
 
 /** One row per condition × group. Plan §12. */
 export function summarize(records: readonly RunRecord[]): string {

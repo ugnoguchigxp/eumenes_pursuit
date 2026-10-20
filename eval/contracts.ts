@@ -10,7 +10,8 @@ import type { acceptanceInputSchema } from "../src/contracts/index.ts";
 export type TaskGroup = "A" | "B" | "C" | "D" | "E";
 
 /** Exploration aids, added one step at a time to see which one unblocks a failure. */
-export type ToolTier = 0 | 1 | 2;
+/** 0 none, 1 + exact calculator, 2 + technique notes, 3 + lemma-level notes. */
+export type ToolTier = 0 | 1 | 2 | 3;
 
 export interface TaskContext {
 	/** Hidden grader for proofs (a strong model in its own context); null when not needed. */

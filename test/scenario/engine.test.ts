@@ -314,6 +314,183 @@ describe("engine", () => {
 		expect(received).toBe(tex);
 	});
 
+	test("protective restore keeps work after a plain failure streak, always-restore rolls back", async () => {
+		for (const [mode, expected] of [
+			["protective", 0],
+			["always", 1],
+		] as const) {
+			let restores = 0;
+			const rt: PursuitRuntime = {
+				...runtime(false, "error"),
+				workspace: {
+					checkpoint: async () => "1",
+					restore: async () => {
+						restores++;
+					},
+					digest: async () => "d",
+					changesSince: async () => ({
+						filesTouched: [],
+						linesChanged: 0,
+						protectedTouched: [],
+					}),
+				},
+			};
+			const fail = proposal("tool", {
+				tool: "read",
+				expectedStatus: "ok",
+				expectedObservation: "読める",
+			});
+			const { engine } = setup(
+				scripted({
+					plan: [plan],
+					hypothesize: [hypothesis, hypothesis],
+					propose: [
+						...[1, 2, 3].map((n) => ({ ...fail, inputJson: `{"n":${n}}` })),
+						proposal("give_up"),
+					],
+				}),
+			);
+			const base = startInput();
+			const { pursuitId } = await engine.start(
+				{ ...base, policy: { ...base.policy, restore: mode } },
+				`k-${mode}`,
+			);
+			await drive(engine, pursuitId, rt);
+			expect(restores).toBe(expected);
+		}
+	});
+
+	describe("findings", () => {
+		const read = proposal("tool", {
+			tool: "read",
+			inputJson: "{}",
+			expectedStatus: "ok",
+			expectedObservation: "読める",
+		});
+		function capture(script: Partial<Record<LlmPurpose, unknown[]>>) {
+			const prompts: string[] = [];
+			const inner = scripted(script);
+			const llm: LlmPort = {
+				complete: (request, signal) => {
+					prompts.push(request.prompt);
+					return inner.complete(request, signal);
+				},
+			};
+			return { llm, prompts };
+		}
+		const lemmaCheck: PursuitRuntime = {
+			...runtime(false),
+			acceptance: {
+				verify: async () => [
+					{
+						id: "total",
+						passed: false,
+						evidence: "ng",
+						assurance: "model",
+						findings: [
+							{
+								kind: "lemma",
+								statement: "補題A は成り立つ",
+								assurance: "model",
+							},
+						],
+					},
+				],
+			},
+		};
+		const declared = {
+			...read,
+			findings: [
+				{
+					kind: "observation",
+					statement: "値は 3 だった",
+					scope: "hypothesis",
+				},
+			],
+			refute: [],
+			uses: [],
+		};
+
+		for (const mode of ["verified", "all"] as const)
+			test(`${mode}: declared claims are kept as unverified, checks as model, closed hypotheses as dead ends`, async () => {
+				const { llm, prompts } = capture({
+					plan: [plan],
+					hypothesize: [hypothesis, hypothesis],
+					propose: [
+						declared,
+						{
+							...proposal("step_back"),
+							findings: [],
+							refute: [
+								{ id: "F2", reason: "誤り" },
+								{ id: "F1", reason: "検査済みは反駁できない" },
+							],
+							uses: [],
+						},
+						{ ...proposal("give_up"), findings: [], refute: [], uses: [] },
+					],
+				});
+				const { engine } = setup(llm);
+				const base = startInput();
+				const { pursuitId } = await engine.start(
+					{ ...base, conditions: { ...base.conditions, findings: mode } },
+					`k-${mode}`,
+				);
+				await drive(engine, pursuitId, lemmaCheck);
+				const view = (await engine.view(pursuitId))!;
+				const byKind = view.findings.map((f) => [
+					f.kind,
+					f.assurance,
+					f.status,
+				]);
+				expect(byKind).toContainEqual(["lemma", "model", "active"]);
+				expect(byKind).toContainEqual(["observation", "unverified", "refuted"]);
+				expect(byKind).toContainEqual(["dead_end", "exact", "active"]);
+				expect(view.report?.findings.checked.map((f) => f.statement)).toEqual([
+					"補題A は成り立つ",
+				]);
+				const later = prompts.at(-1) ?? "";
+				expect(later).toContain("補題A は成り立つ");
+				expect(later).toContain("行き止まり");
+			});
+
+		test("verified hides unverified claims from later prompts; all shows them labelled", async () => {
+			for (const mode of ["verified", "all"] as const) {
+				const { llm, prompts } = capture({
+					plan: [plan],
+					hypothesize: [hypothesis],
+					propose: [
+						declared,
+						{ ...proposal("give_up"), findings: [], refute: [], uses: [] },
+					],
+				});
+				const { engine } = setup(llm);
+				const base = startInput();
+				const { pursuitId } = await engine.start(
+					{ ...base, conditions: { ...base.conditions, findings: mode } },
+					`v-${mode}`,
+				);
+				await drive(engine, pursuitId, runtime(false));
+				const last = prompts.at(-1) ?? "";
+				if (mode === "verified") expect(last).not.toContain("値は 3 だった");
+				else expect(last).toContain("[observation・未確認");
+			}
+		});
+
+		test("off records nothing and keeps the baseline proposal schema", async () => {
+			const { llm, prompts } = capture({
+				plan: [plan],
+				hypothesize: [hypothesis],
+				propose: [proposal("give_up")],
+			});
+			const { engine } = setup(llm);
+			const { pursuitId } = await engine.start(startInput(), "off");
+			await drive(engine, pursuitId, lemmaCheck);
+			expect((await engine.view(pursuitId))!.findings).toEqual([]);
+			expect(prompts.join("\n")).not.toContain("## 知見");
+		});
+	});
+
 	test("operation keys replay the same start and refuse a different one", async () => {
 		const { engine } = setup(scripted({}));
 		const a = await engine.start(startInput(), "same");

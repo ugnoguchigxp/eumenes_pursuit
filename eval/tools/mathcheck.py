@@ -29,6 +29,49 @@ def parse(text):
         transformations=T, evaluate=True)
 
 
+IV_NAMES = {"sqrt", "pi", "log", "exp", "sin", "cos", "tan", "E"}
+
+
+def interval(expr):
+    """Rigorous enclosure with mpmath interval arithmetic, or None when unsupported."""
+    from mpmath import iv
+
+    funcs = {f.func.__name__ for f in expr.atoms(sympy.Function)}
+    consts = {str(c) for c in expr.atoms(sympy.NumberSymbol)}
+    if not funcs <= IV_NAMES or not consts <= {"pi", "E"}:
+        return None
+    iv.dps = 80
+    ns = {k: getattr(iv, k) for k in ("mpf", "sqrt", "pi", "log", "exp", "sin", "cos", "tan")}
+    ns["E"] = iv.e
+    try:
+        value = sympy.lambdify([], expr, modules=[ns])()
+        return value if hasattr(value, "a") else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def decide(lhs, rhs, op, digits):
+    """(ok, assurance): exact for rationals, symbolic zero or a separating interval; numeric otherwise."""
+    diff = lhs - rhs
+    if diff.is_Rational:
+        sign = int(bool(diff > 0)) - int(bool(diff < 0))
+        return {"<": sign < 0, ">": sign > 0, "<=": sign <= 0, ">=": sign >= 0, "=": sign == 0}[op], "exact"
+    if op == "=":
+        if sympy.simplify(diff) == 0:
+            return True, "exact"
+    else:
+        enclosure = interval(diff)
+        if enclosure is not None and (enclosure.a > 0 or enclosure.b < 0):
+            positive = enclosure.a > 0
+            return {"<": not positive, ">": positive, "<=": not positive, ">=": positive}[op], "exact"
+    value = sympy.N(diff, digits)
+    if not value.is_real:
+        raise ValueError("not real")
+    eps = sympy.Float(10) ** (-(digits - 10))
+    ok = {"<": value < -eps, ">": value > eps, "<=": value < eps, ">=": value > -eps, "=": abs(value) < eps}[op]
+    return bool(ok), "numeric"
+
+
 def main():
     req = json.load(sys.stdin)
     digits = int(req.get("digits", 60))
@@ -38,16 +81,8 @@ def main():
             lhs, rhs = parse(item["lhs"]), parse(item["rhs"])
             if lhs.free_symbols or rhs.free_symbols:
                 raise ValueError("free symbols")
-            diff = sympy.N(lhs - rhs, digits)
-            if not diff.is_real:
-                raise ValueError("not real")
-            eps = sympy.Float(10) ** (-(digits - 10))
-            op = item["op"]
-            ok = {
-                "<": diff < -eps, ">": diff > eps, "<=": diff < eps, ">=": diff > -eps,
-                "=": abs(diff) < eps,
-            }[op]
-            out.append({"ok": bool(ok), "value": str(sympy.N(lhs, 20)), "rhs": str(sympy.N(rhs, 20))})
+            ok, assurance = decide(lhs, rhs, item["op"], digits)
+            out.append({"ok": bool(ok), "assurance": assurance, "value": str(sympy.N(lhs, 20)), "rhs": str(sympy.N(rhs, 20))})
         except Exception as error:  # noqa: BLE001 - every failure is reported, never raised
             out.append({"ok": False, "error": type(error).__name__})
     if "evaluate" in req:

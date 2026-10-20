@@ -156,4 +156,20 @@ export interface PursuitView {
 	readonly verifications: readonly VerificationRow[];
 	readonly inference: readonly InferenceRow[];
 	readonly report: Report | null;
+	readonly findings: readonly FindingRow[];
+}
+
+/** Something worth keeping apart from the hypothesis that produced it (spec/findings-design.md). */
+export interface FindingRow {
+	readonly id: string;
+	readonly seq: number;
+	readonly kind: "lemma" | "counterexample" | "observation" | "dead_end";
+	readonly statement: string;
+	readonly assurance: "exact" | "numeric" | "model" | "unverified";
+	readonly sourceAttemptId: string | null;
+	readonly scope: "pursuit" | "strategy" | "hypothesis";
+	readonly strategyId: string | null;
+	readonly hypothesisId: string | null;
+	readonly status: "active" | "superseded" | "refuted";
+	readonly reason: string | null;
 }

@@ -39,6 +39,12 @@ export const policySchema = z.strictObject({
 		/** Consecutive post-attempt trajectory alarms in one hypothesis before acting on them. */
 		trajectoryPersist: count,
 	}),
+	/**
+	 * When a step back rolls the workspace back to the hypothesis checkpoint:
+	 * "always", or "protective" (only after damage signals: tests touched, scope
+	 * growing, revisits, a pre-execution guard) so built-up work survives.
+	 */
+	restore: z.enum(["always", "protective"]),
 	/** Limits of the text placed in the judge state. */
 	judgeState: z.strictObject({
 		maxChars: count,

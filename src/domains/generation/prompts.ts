@@ -38,7 +38,27 @@ export const proposalSchema = z.strictObject({
 	/** Raw long text for the tool's text_field (TeX, code); null when unused. */
 	text: z.string().nullable(),
 });
-export type Proposal = z.infer<typeof proposalSchema>;
+const declaredFinding = z.strictObject({
+	kind: z.enum(["lemma", "counterexample", "observation"]),
+	statement: z.string().min(1),
+	scope: z.enum(["pursuit", "strategy", "hypothesis"]),
+});
+
+/** With findings on, a proposal may also declare, refute and cite findings. */
+export const proposalWithFindingsSchema = proposalSchema.extend({
+	findings: z.array(declaredFinding).max(3),
+	refute: z
+		.array(z.strictObject({ id: z.string(), reason: z.string() }))
+		.max(3),
+	uses: z.array(z.string()).max(10),
+});
+export type Proposal = z.infer<typeof proposalSchema> &
+	Partial<
+		Pick<
+			z.infer<typeof proposalWithFindingsSchema>,
+			"findings" | "refute" | "uses"
+		>
+	>;
 
 export const reviewSchema = z.strictObject({
 	decision: z.enum(["continue_strategy", "change_strategy", "consult", "stop"]),
@@ -108,6 +128,69 @@ function attemptLine(a: AttemptRow, limit: number) {
 	return `${head}\n  ${prediction}\n  観測: ${observed}\n  判定: ${a.outcome === "success" ? "予測どおり" : "予測と違う/失敗"}`;
 }
 
+const assuranceLabel = {
+	exact: "確定",
+	numeric: "数値で確認",
+	model: "採点で確認",
+	unverified: "未確認",
+} as const;
+const scopeLabel = (view: PursuitView, f: PursuitView["findings"][number]) => {
+	if (f.scope === "pursuit") return "前提なし";
+	if (f.scope === "strategy")
+		return `方針${view.strategies.find((s) => s.id === f.strategyId)?.seq ?? "?"}`;
+	return `仮説${view.hypotheses.find((h) => h.id === f.hypothesisId)?.seq ?? "?"}`;
+};
+
+/** Findings kept apart from hypotheses (spec/findings-design.md). Empty when off. */
+function findingsBlock(view: PursuitView, forProposal: boolean) {
+	const mode = view.input.conditions.findings;
+	if (mode === "off") return "";
+	const order = { exact: 0, numeric: 1, model: 2, unverified: 3 } as const;
+	const shown = view.findings.filter(
+		(f) =>
+			f.status === "active" &&
+			f.kind !== "dead_end" &&
+			(mode === "all" || f.assurance !== "unverified"),
+	);
+	shown.sort(
+		(a, b) => order[a.assurance] - order[b.assurance] || b.seq - a.seq,
+	);
+	const deadEnds = view.findings.filter((f) => f.kind === "dead_end");
+	const superseded = view.findings
+		.filter((f) => f.status === "superseded" && f.kind !== "dead_end")
+		.slice(-5);
+	const line = (f: PursuitView["findings"][number]) =>
+		`- F${f.seq} [${f.kind}・${assuranceLabel[f.assurance]}・${scopeLabel(view, f)}] ${clip(f.statement, 400)}`;
+	return [
+		"## 知見（仮説を変えても残る）",
+		shown.length
+			? shown.slice(0, 20).map(line).join("\n")
+			: "（まだありません）",
+		"確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。",
+		deadEnds.length
+			? [
+					"## 行き止まり（同じ経路を繰り返さない）",
+					...deadEnds.slice(-10).map(line),
+				].join("\n")
+			: "",
+		superseded.length
+			? [
+					"## 置き換え済み（前の方針の上で得たもの）",
+					...superseded.map(line),
+				].join("\n")
+			: "",
+		forProposal
+			? [
+					"## 知見の記録",
+					"findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。",
+					"成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、照合で個別に確かめられ、確認済みの知見として残ることがある。",
+				].join("\n")
+			: "",
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
 function historyBlock(view: PursuitView) {
 	if (!view.hypotheses.length) return "";
 	return [
@@ -139,6 +222,7 @@ export function planRequest(input: {
 			"## 使える道具",
 			toolsBlock(input.tools, view.input.grant),
 			historyBlock(view),
+			findingsBlock(view, false),
 			consultationsBlock(view),
 			input.direction ? `## 振り返りからの方向づけ\n${input.direction}` : "",
 			"## 依頼",
@@ -167,6 +251,7 @@ export function hypothesisRequest(input: {
 			"## 使える道具",
 			toolsBlock(input.tools, view.input.grant),
 			historyBlock(view),
+			findingsBlock(view, false),
 			lastAttemptsBlock(view, 6),
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
@@ -199,13 +284,17 @@ export function proposalRequest(input: {
 	return {
 		purpose: "propose",
 		system: executorSystem,
-		schema: proposalSchema,
+		// The findings fields exist only when the condition is on, so "off" stays the baseline.
+		schema: (view.input.conditions.findings === "off"
+			? proposalSchema
+			: proposalWithFindingsSchema) as z.ZodType<Proposal>,
 		maxOutputTokens: 10000,
 		prompt: [
 			goalBlock(view),
 			"## 使える道具",
 			toolsBlock(input.tools, view.input.grant),
 			historyBlock(view),
+			findingsBlock(view, true),
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
 			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
@@ -274,6 +363,7 @@ export function reviewRequest(input: {
 					const failures = mine.filter((a) => a.outcome === "failure").length;
 					return `仮説${h.seq}: 試行${mine.length}回、予測と違う/失敗${failures}回、拒否${view.attempts.filter((a) => a.hypothesisId === h.id && a.state === "rejected").length}回`;
 				}),
+			findingsBlock(view, false),
 			`## 試していない別案\n${(strategy?.alternatives ?? []).map((a) => `- ${a}`).join("\n") || "（なし）"}`,
 			consultationsBlock(view),
 			"## 依頼\n方針レベルで判断してください。direction には、次の方針や相談の方向を一文で書いてください。",

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type {
+	Assurance,
 	CriterionResult,
 	JsonValue,
 	ToolPort,
@@ -95,6 +96,10 @@ export function criterion(
 	id: string,
 	passed: boolean,
 	evidence: string,
+	assurance: Assurance = "exact",
+	findings?: CriterionResult["findings"],
 ): CriterionResult {
-	return { id, passed, evidence };
+	return findings?.length
+		? { id, passed, evidence, assurance, findings }
+		: { id, passed, evidence, assurance };
 }

@@ -64,6 +64,7 @@ function view(attempts: AttemptRow[]): PursuitView {
 		verifications: [],
 		inference: [],
 		report: null,
+		findings: [],
 		hypotheses: [
 			{
 				id: "h1",

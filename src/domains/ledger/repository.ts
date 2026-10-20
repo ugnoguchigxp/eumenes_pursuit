@@ -28,6 +28,7 @@ import type {
 	StrategyRow,
 	VerificationRow,
 } from "./types.ts";
+import { loadFindings } from "./findings.ts";
 
 type Row = Record<string, unknown>;
 const json = (value: unknown) => JSON.stringify(value);
@@ -670,5 +671,6 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		verifications,
 		inference,
 		report: report ? parse<Report>(report.report_json) : null,
+		findings: loadFindings(db, id),
 	};
 }

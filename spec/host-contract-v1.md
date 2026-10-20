@@ -65,3 +65,14 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 ## 変更の手順
 
 この契約を変えるときは、本書の版を上げ、`spec/` に差分と理由を書いて合意を取ってから実装する。
+
+## v1.1（2026-10-20、追加のみ）
+
+[spec/findings-design.md](findings-design.md) の知見の保持に伴う追加。v1 の呼び出し側はそのまま動く。
+
+- migration `pursuit-0002-findings`（表 `pursuit_finding`）。
+- `conditions.findings`: `"off" | "verified" | "all"`（必須の項目。v1 の入力は `"off"` を付けて渡す）。
+- `ToolOutcome.findings?`、`CriterionResult.findings?`・`CriterionResult.assurance?`（`exact` / `numeric` / `model`）。
+- `ToolDescriptor.textField?`（長い本文を JSON の外で渡す）、`ToolDescriptor.readsWorkspace?`。
+- `Report.findings`（有効な知見の件数と、照合済みの知見の一覧）。ContextStill への受け渡しの候補。
+- policy に `budget.transitions`、`judge.trajectoryPersist`、`restore`（`always` / `protective`）。

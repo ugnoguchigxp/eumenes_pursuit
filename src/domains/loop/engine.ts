@@ -44,7 +44,7 @@ import {
 	type Proposal,
 	type Review,
 } from "../generation/prompts.ts";
-import * as ledger from "../ledger/repository.ts";
+import * as ledger from "../ledger/index.ts";
 import type {
 	AttemptFeatures,
 	InferenceRow,
@@ -134,6 +134,15 @@ function trajectoryStreak(view: PursuitView, attemptId: string): number {
 		streak++;
 	}
 	return streak;
+}
+
+/** Step-back causes that mean the workspace may be damaged, not merely unfinished. */
+const damageSignals = new Set(["protected_touch", "scope_growth", "revisits"]);
+function damaging(basis: JsonObject | undefined): boolean {
+	if (!basis) return false;
+	if (basis.stage === "pre") return true;
+	const signals = Array.isArray(basis.signals) ? basis.signals : [];
+	return signals.some((s) => typeof s === "string" && damageSignals.has(s));
 }
 
 const budgetReasons = {
@@ -281,6 +290,76 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		}
 	}
 
+	/**
+	 * Keep findings apart from hypotheses (spec/findings-design.md). Duplicates of an
+	 * active finding are skipped; nothing is recorded when the condition is off.
+	 */
+	function recordFindings(
+		db: LedgerDb,
+		view: PursuitView,
+		items: readonly {
+			kind: "lemma" | "counterexample" | "observation" | "dead_end";
+			statement: string;
+			assurance: "exact" | "numeric" | "model" | "unverified";
+			scope: "pursuit" | "strategy" | "hypothesis";
+		}[],
+		source: string | null,
+	) {
+		if (view.input.conditions.findings === "off") return;
+		const seen = new Set(
+			view.findings
+				.filter((f) => f.status === "active")
+				.map((f) => `${f.kind}|${f.statement.trim()}`),
+		);
+		for (const item of items) {
+			const key = `${item.kind}|${item.statement.trim()}`;
+			if (!item.statement.trim() || seen.has(key)) continue;
+			seen.add(key);
+			ledger.insertFinding(db, {
+				id: ids.next("fnd"),
+				pursuitId: view.id,
+				kind: item.kind,
+				statement: item.statement.trim(),
+				assurance: item.assurance,
+				sourceAttemptId: source,
+				scope: item.scope,
+				strategyId: item.scope === "pursuit" ? null : view.currentStrategyId,
+				hypothesisId:
+					item.scope === "hypothesis" ? view.currentHypothesisId : null,
+				now: clock.now(),
+			});
+		}
+	}
+
+	/** The host's own record of a closed path: a fact, so exact (spec/findings-design.md). */
+	function recordDeadEnd(
+		db: LedgerDb,
+		view: PursuitView,
+		hypothesis: string,
+		why: string,
+	) {
+		recordFindings(
+			db,
+			view,
+			[
+				{
+					kind: "dead_end",
+					statement: `仮説「${hypothesis.slice(0, 200)}」は進まなかった: ${why.slice(0, 300)}`,
+					assurance: "exact",
+					scope: "strategy",
+				},
+			],
+			null,
+		);
+	}
+
+	/** Findings a check established on its own (e.g. graded lemmas): true regardless of the hypothesis. */
+	function checkedFindings(criteria: readonly CriterionResult[]) {
+		return criteria.flatMap((c) =>
+			(c.findings ?? []).map((f) => ({ ...f, scope: "pursuit" as const })),
+		);
+	}
+
 	function writeJudgements(
 		db: LedgerDb,
 		view: PursuitView,
@@ -346,6 +425,21 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				strategies: view.strategies.length,
 				stepBacks: view.decisions.filter((d) => d.kind === "step_back").length,
 				consultations: view.consultations.length,
+			},
+			findings: {
+				total: view.findings.filter((f) => f.status === "active").length,
+				checked: view.findings
+					.filter(
+						(f) =>
+							f.status === "active" &&
+							f.kind !== "dead_end" &&
+							f.assurance !== "unverified",
+					)
+					.map((f) => ({
+						kind: f.kind,
+						statement: f.statement,
+						assurance: f.assurance,
+					})),
 			},
 		};
 		const status: PursuitStatus = outcome;
@@ -608,6 +702,39 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		}
 		const p = r.value;
 		const usage = llmRow("propose", r);
+		if (
+			conditions.findings !== "off" &&
+			(p.findings?.length || p.refute?.length)
+		) {
+			const lastSettled = [...view.attempts]
+				.reverse()
+				.find((a) => a.state === "settled");
+			await store.write((db) => {
+				recordFindings(
+					db,
+					view,
+					(p.findings ?? []).map((f) => ({
+						...f,
+						assurance: "unverified" as const,
+					})),
+					lastSettled?.id ?? null,
+				);
+				for (const refute of p.refute ?? []) {
+					const seq = Number(/^F?(\d+)$/i.exec(refute.id.trim())?.[1]);
+					const target = view.findings.find((f) => f.seq === seq);
+					// Checked findings cannot be refuted by a claim alone.
+					if (target && target.assurance === "unverified")
+						ledger.closeFinding(db, {
+							id: target.id,
+							pursuitId: view.id,
+							status: "refuted",
+							reason: refute.reason,
+							now: clock.now(),
+						});
+				}
+			});
+			view = await read(view.id);
+		}
 		switch (p.kind) {
 			case "done": {
 				if (!conditions.rules) {
@@ -631,6 +758,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						now: clock.now(),
 					});
 					inference(db, view, [usage]);
+					recordFindings(db, view, checkedFindings(criteria), null);
 				});
 				if (passed)
 					return finish(
@@ -850,6 +978,15 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				features,
 				now: clock.now(),
 			});
+			recordFindings(
+				db,
+				current,
+				(outcome.findings ?? []).map((f) => ({
+					...f,
+					scope: "pursuit" as const,
+				})),
+				attemptId,
+			);
 			return ledger.advancePursuit(db, {
 				id: view.id,
 				expectedRevision: current.revision,
@@ -899,14 +1036,16 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		if (conditions.rules) {
 			const criteria = await runtime.acceptance.verify(signal);
 			const passed = criteria.length > 0 && criteria.every((c) => c.passed);
-			await store.write((db) =>
+			const checkedView = current;
+			await store.write((db) => {
 				ledger.insertVerification(db, {
 					id: ids.next("ver"),
 					pursuitId: view.id,
 					row: { attemptId, trigger: "attempt", passed, criteria },
 					now: clock.now(),
-				}),
-			);
+				});
+				recordFindings(db, checkedView, checkedFindings(criteria), attemptId);
+			});
 			if (passed)
 				return finish(
 					await read(view.id),
@@ -1045,7 +1184,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			runtime.workspace &&
 			hypothesis?.checkpoint &&
 			kind !== "continue" &&
-			kind !== "change_tool"
+			kind !== "change_tool" &&
+			(policy.restore === "always" || damaging(lastStepBack?.basis))
 		)
 			await runtime.workspace.restore(hypothesis.checkpoint);
 		const basis: JsonObject = {
@@ -1083,12 +1223,14 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				(db) => {
 					inference(db, view, usage);
 					writeJudgements(db, view, judged);
-					if (hypothesis?.status === "active")
+					if (hypothesis?.status === "active") {
 						ledger.closeHypothesis(db, {
 							id: hypothesis.id,
 							result: `相談: ${why}`,
 							now: clock.now(),
 						});
+						recordDeadEnd(db, view, hypothesis.body, why);
+					}
 				},
 			);
 		const status: PursuitStatus =
@@ -1100,18 +1242,28 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		const revision = await store.write((db) => {
 			inference(db, view, usage);
 			writeJudgements(db, view, judged);
-			if (status !== "proposing" && hypothesis?.status === "active")
+			if (status !== "proposing" && hypothesis?.status === "active") {
 				ledger.closeHypothesis(db, {
 					id: hypothesis.id,
 					result: why,
 					now: clock.now(),
 				});
-			if (status === "planning" && strategy?.status === "active")
+				recordDeadEnd(db, view, hypothesis.body, why);
+			}
+			if (status === "planning" && strategy?.status === "active") {
 				ledger.closeStrategy(db, {
 					id: strategy.id,
 					reason: why,
 					now: clock.now(),
 				});
+				if (conditions.findings !== "off")
+					ledger.supersedeStrategyFindings(db, {
+						pursuitId: view.id,
+						strategyId: strategy.id,
+						reason: `方針${strategy.seq}を見直した`,
+						now: clock.now(),
+					});
+			}
 			ledger.insertDecision(db, {
 				id: ids.next("dec"),
 				pursuitId: view.id,

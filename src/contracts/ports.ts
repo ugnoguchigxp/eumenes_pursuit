@@ -30,12 +30,20 @@ export interface ArtifactRef {
 	readonly note?: string;
 }
 
+/** Something a tool or a check established, kept apart from the hypothesis (spec/findings-design.md). */
+export interface FindingInput {
+	readonly kind: "lemma" | "counterexample" | "observation";
+	readonly statement: string;
+	readonly assurance: Assurance;
+}
+
 export interface ToolOutcome {
 	readonly status: "ok" | "error";
 	/** Bounded, already summarized by the host. */
 	readonly output: JsonValue;
 	readonly errorCode?: string;
 	readonly refs: readonly ArtifactRef[];
+	readonly findings?: readonly FindingInput[];
 }
 
 /** Eumenes replaces this with its toolchain. */
@@ -69,7 +77,17 @@ export interface CriterionResult {
 	readonly passed: boolean;
 	/** Short evidence (test summary, compared values). */
 	readonly evidence: string;
+	/**
+	 * How sure the check is: exact (deterministic or exact arithmetic), numeric
+	 * (high-precision evaluation within a tolerance), model (an LLM grader).
+	 * Absent means exact.
+	 */
+	readonly assurance?: Assurance;
+	/** Parts the check established on their own (e.g. lemmas graded within one proof). */
+	readonly findings?: readonly FindingInput[];
 }
+
+export type Assurance = "exact" | "numeric" | "model";
 
 /** Host-held verification. The procedure is outside the executor's reach. */
 export interface AcceptancePort {

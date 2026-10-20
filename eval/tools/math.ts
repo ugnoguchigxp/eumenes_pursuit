@@ -131,6 +131,7 @@ const script = resolve(import.meta.dir, "mathcheck.py");
 
 export interface CheckResult {
 	readonly ok: boolean;
+	readonly assurance?: "exact" | "numeric";
 	readonly value?: string;
 	readonly rhs?: string;
 	readonly error?: string;
