@@ -15,6 +15,8 @@ import type {
 export interface Prediction {
 	readonly expectedStatus: "ok" | "error";
 	readonly expectedObservation: string;
+	/** What observation would show the hypothesis wrong; with prediction "falsifiable". */
+	readonly refutedIf?: string;
 }
 
 export interface AcceptanceRow {

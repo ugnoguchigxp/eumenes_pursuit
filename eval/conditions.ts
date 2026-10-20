@@ -17,6 +17,8 @@ export function conditionsFor(
 		findings: Conditions["findings"];
 		strategyChange: Conditions["strategyChange"];
 		selfCheck: Conditions["selfCheck"];
+		verifyOn: Conditions["verifyOn"];
+		prediction: Conditions["prediction"];
 	},
 ): Conditions {
 	const base = {
@@ -26,6 +28,8 @@ export function conditionsFor(
 		findings: options.findings,
 		strategyChange: options.strategyChange,
 		selfCheck: options.selfCheck,
+		verifyOn: options.verifyOn,
+		prediction: options.prediction,
 	} as const;
 	switch (name) {
 		case "E0":

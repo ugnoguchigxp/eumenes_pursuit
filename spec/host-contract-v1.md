@@ -82,3 +82,10 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `conditions.strategyChange`: `"free" | "distinct"`（既定 `"free"`。省略した入力と、v1.1 までの台帳は `"free"` として読む）。`distinct` は、方針を立て直すときに、これまでのどの方針とも核となる考え方が違う方針を求め、まだ採っていない別案を一覧で示し直す。
 - `conditions.findings` も既定 `"off"` にした（v1 の台帳をそのまま読めるように）。
 - `conditions.selfCheck`: `"off" | "parts"`（既定 `"off"`）と policy の `consultation.requireProgress`（既定 false）、migration `pursuit-0003-parts`。[spec/persistence-design.md](persistence-design.md) を参照。
+
+## v1.3（2026-10-20、追加のみ）
+
+- `conditions.verifyOn`: `"attempt" | "claim"`（既定 `"attempt"`）。`claim` では、照合は完了の申告のときと終わるときだけ行う。
+- `conditions.prediction`: `"status" | "falsifiable"`（既定 `"status"`）。`falsifiable` では、道具の提案に `refutedIf` が要り、空か予測と同じなら規則層が `prediction_not_falsifiable` で拒否する。台帳の予測（`prediction_json`）に `refutedIf` が入る（列の追加はない）。
+- 試行ごとの照合と最終の照合からは、知見を作らない。知見を作るのは、完了の申告のときの照合だけ（隠れた採点の漏れを塞ぐ）。
+- [spec/verification-design.md](verification-design.md) を参照。

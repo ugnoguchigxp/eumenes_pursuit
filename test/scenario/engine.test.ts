@@ -417,12 +417,14 @@ describe("engine", () => {
 		};
 
 		for (const mode of ["verified", "all"] as const)
-			test(`${mode}: declared claims are kept as unverified, checks as model, closed hypotheses as dead ends`, async () => {
+			test(`${mode}: declared claims are kept as unverified, claim checks as model, closed hypotheses as dead ends`, async () => {
 				const { llm, prompts } = capture({
 					plan: [plan],
 					hypothesize: [hypothesis, hypothesis],
 					propose: [
 						declared,
+						// Only a completion claim's check may yield findings.
+						{ ...proposal("done"), findings: [], refute: [], uses: [] },
 						{
 							...proposal("step_back"),
 							findings: [],
@@ -480,6 +482,28 @@ describe("engine", () => {
 				if (mode === "verified") expect(last).not.toContain("値は 3 だった");
 				else expect(last).toContain("[observation・未確認");
 			}
+		});
+
+		test("per-attempt checks record no findings (the hidden grader would leak)", async () => {
+			const { engine } = setup(
+				scripted({
+					plan: [plan],
+					hypothesize: [hypothesis],
+					propose: [
+						declared,
+						{ ...proposal("give_up"), findings: [], refute: [], uses: [] },
+					],
+				}),
+			);
+			const base = startInput();
+			const { pursuitId } = await engine.start(
+				{ ...base, conditions: { ...base.conditions, findings: "verified" } },
+				"leak",
+			);
+			await drive(engine, pursuitId, lemmaCheck);
+			const view = (await engine.view(pursuitId))!;
+			expect(view.verifications.map((v) => v.trigger)).toContain("attempt");
+			expect(view.findings.filter((f) => f.kind === "lemma")).toEqual([]);
 		});
 
 		test("off records nothing and keeps the baseline proposal schema", async () => {
@@ -703,5 +727,83 @@ describe("consultation without progress", () => {
 		expect(view.attempts.at(-1)?.rejection?.[0]?.rule).toBe(
 			"consult_without_progress",
 		);
+	});
+});
+
+describe("verification timing and predictions", () => {
+	const read = proposal("tool", {
+		tool: "read",
+		inputJson: "{}",
+		expectedStatus: "ok",
+		expectedObservation: "読める",
+	});
+	async function run(
+		overrides: Partial<ReturnType<typeof startInput>["conditions"]>,
+		propose: unknown[],
+	) {
+		const { engine } = setup(
+			scripted({ plan: [plan], hypothesize: [hypothesis], propose }),
+		);
+		const base = startInput();
+		const { pursuitId } = await engine.start(
+			{ ...base, conditions: { ...base.conditions, ...overrides } },
+			"k",
+		);
+		await drive(engine, pursuitId, runtime(true));
+		return (await engine.view(pursuitId))!;
+	}
+
+	test("attempt: a passing check after an attempt completes without a claim", async () => {
+		const view = await run({}, [read]);
+		expect(view.status).toBe("completed");
+		expect(view.verifications.map((v) => v.trigger)).toEqual([
+			"attempt",
+			"final",
+		]);
+	});
+
+	test("claim: nothing is checked until the generator claims completion", async () => {
+		const view = await run({ verifyOn: "claim" }, [read, proposal("done")]);
+		expect(view.status).toBe("completed");
+		expect(view.verifications.map((v) => v.trigger)).toEqual([
+			"claim",
+			"final",
+		]);
+	});
+
+	test("claim: a spent hypothesis whose last attempt succeeded may still claim", async () => {
+		const { engine } = setup(
+			scripted({
+				plan: [plan],
+				hypothesize: [hypothesis],
+				propose: [read, proposal("done")],
+			}),
+		);
+		const base = startInput();
+		const { pursuitId } = await engine.start(
+			{
+				...base,
+				policy: {
+					...base.policy,
+					budget: { ...base.policy.budget, attemptsPerHypothesis: 1 },
+				},
+				conditions: { ...base.conditions, verifyOn: "claim" },
+			},
+			"k",
+		);
+		await drive(engine, pursuitId, runtime(true));
+		expect((await engine.view(pursuitId))!.status).toBe("completed");
+	});
+
+	test("falsifiable: refutedIf must be present and differ from the prediction", async () => {
+		const view = await run({ prediction: "falsifiable" }, [
+			{ ...read, refutedIf: null },
+			{ ...read, refutedIf: "読める" },
+			{ ...read, refutedIf: "エラーになる" },
+		]);
+		expect(view.attempts.map((a) => a.rejection?.[0]?.rule ?? a.state)).toEqual(
+			["prediction_not_falsifiable", "prediction_not_falsifiable", "settled"],
+		);
+		expect(view.attempts.at(-1)?.prediction.refutedIf).toBe("エラーになる");
 	});
 });

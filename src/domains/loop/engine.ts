@@ -670,11 +670,16 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			(h) => h.id === view.currentHypothesisId,
 		);
 		if (!hypothesis) throw new Error("pursuit_without_hypothesis");
-		if (
-			conditions.rules &&
-			attemptsOf(view, hypothesis.id).filter(executed).length >=
-				hypothesis.budget
-		)
+		const own = attemptsOf(view, hypothesis.id);
+		const spent =
+			conditions.rules && own.filter(executed).length >= hypothesis.budget;
+		// Under claim, a last attempt that went as predicted gets one chance to claim (spec/verification-design.md §1).
+		const claimChance =
+			spent &&
+			conditions.verifyOn === "claim" &&
+			own.at(-1)?.state === "settled" &&
+			own.at(-1)?.outcome === "success";
+		if (spent && !claimChance)
 			return stepBack(view, "仮説の試行予算を使い切りました", "rules", {
 				rule: "hypothesis_budget",
 			});
@@ -708,6 +713,15 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		}
 		const p = r.value;
 		const usage = llmRow("propose", r);
+		if (claimChance && p.kind !== "done") {
+			await store.write((db) => inference(db, view, [usage]));
+			return stepBack(
+				await read(view.id),
+				"仮説の試行予算を使い切りました",
+				"rules",
+				{ rule: "hypothesis_budget" },
+			);
+		}
 		if (
 			conditions.findings !== "off" &&
 			(p.findings?.length || p.refute?.length)
@@ -935,10 +949,17 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		// Raw text travels outside the JSON so TeX and code need no double escaping.
 		if (tool?.textField && p.text !== null && p.text !== undefined)
 			input = { ...input, [tool.textField]: p.text };
-		const prediction: Prediction = {
-			expectedStatus: p.expectedStatus ?? "ok",
-			expectedObservation: p.expectedObservation ?? "",
-		};
+		const prediction: Prediction =
+			conditions.prediction === "falsifiable"
+				? {
+						expectedStatus: p.expectedStatus ?? "ok",
+						expectedObservation: p.expectedObservation ?? "",
+						refutedIf: p.refutedIf ?? "",
+					}
+				: {
+						expectedStatus: p.expectedStatus ?? "ok",
+						expectedObservation: p.expectedObservation ?? "",
+					};
 		const digest =
 			runtime.workspace &&
 			(tool?.sideEffect === "workspace" || tool?.readsWorkspace)
@@ -967,6 +988,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					whatChanged: p.whatChanged,
 					fingerprint: fp,
 					policy,
+					falsifiable: conditions.prediction === "falsifiable",
 				}),
 			);
 		const pre =
@@ -1114,19 +1136,18 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			});
 			current = await read(view.id);
 		}
-		if (conditions.rules) {
+		if (conditions.rules && conditions.verifyOn === "attempt") {
 			const criteria = await runtime.acceptance.verify(signal);
 			const passed = criteria.length > 0 && criteria.every((c) => c.passed);
-			const checkedView = current;
-			await store.write((db) => {
+			// No findings from here: the hidden grader's lemma verdicts would leak (spec/verification-design.md §2).
+			await store.write((db) =>
 				ledger.insertVerification(db, {
 					id: ids.next("ver"),
 					pursuitId: view.id,
 					row: { attemptId, trigger: "attempt", passed, criteria },
 					now: clock.now(),
-				});
-				recordFindings(db, checkedView, checkedFindings(criteria), attemptId);
-			});
+				}),
+			);
 			if (passed)
 				return finish(
 					await read(view.id),

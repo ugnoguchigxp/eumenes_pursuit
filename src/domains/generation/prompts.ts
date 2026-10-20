@@ -65,6 +65,7 @@ const partAssessment = z.strictObject({
 	next: z.string(),
 });
 const assessmentField = { assessment: z.array(partAssessment).max(6) };
+const refutationField = { refutedIf: z.string().nullable() };
 
 export type Proposal = z.infer<typeof proposalSchema> &
 	Partial<
@@ -72,7 +73,10 @@ export type Proposal = z.infer<typeof proposalSchema> &
 			z.infer<typeof proposalWithFindingsSchema>,
 			"findings" | "refute" | "uses"
 		>
-	> & { assessment?: z.infer<typeof partAssessment>[] };
+	> & {
+		assessment?: z.infer<typeof partAssessment>[];
+		refutedIf?: string | null;
+	};
 
 /** The proposal fields depend on the conditions, so "off" stays the baseline. */
 function proposalSchemaFor(
@@ -80,9 +84,10 @@ function proposalSchemaFor(
 ): z.ZodType<Proposal> {
 	const base =
 		conditions.findings === "off" ? proposalSchema : proposalWithFindingsSchema;
-	return (
-		conditions.selfCheck === "parts" ? base.extend(assessmentField) : base
-	) as z.ZodType<Proposal>;
+	return base.extend({
+		...(conditions.selfCheck === "parts" ? assessmentField : {}),
+		...(conditions.prediction === "falsifiable" ? refutationField : {}),
+	}) as z.ZodType<Proposal>;
 }
 
 export const reviewSchema = z.strictObject({
@@ -143,7 +148,7 @@ function consultationsBlock(view: PursuitView) {
 
 function attemptLine(a: AttemptRow, limit: number) {
 	const head = `#${a.seq} ${a.tool} ${show(a.input, limit)}`;
-	const prediction = `予測: ${a.prediction.expectedStatus} / ${clip(a.prediction.expectedObservation || "（なし）", limit)}`;
+	const prediction = `予測: ${a.prediction.expectedStatus} / ${clip(a.prediction.expectedObservation || "（なし）", limit)}${a.prediction.refutedIf ? `\n  反証の条件: ${clip(a.prediction.refutedIf, limit)}` : ""}`;
 	if (a.state === "rejected")
 		return `${head}\n  ${prediction}\n  拒否: ${(a.rejection ?? []).map((r) => `${r.rule}: ${r.detail}`).join(" / ")}`;
 	if (a.state === "interrupted") return `${head}\n  ${prediction}\n  中断`;
@@ -208,7 +213,7 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 			? [
 					"## 知見の記録",
 					"findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。",
-					"成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、照合で個別に確かめられ、確認済みの知見として残ることがある。",
+					"成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。",
 				].join("\n")
 			: "",
 	]
@@ -385,7 +390,12 @@ export function proposalRequest(input: {
 				"## 依頼",
 				"次の一手を一つ選んでください。",
 				'- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。',
-				'- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。',
+				view.input.conditions.prediction === "falsifiable"
+					? "  kind が tool のときは refutedIf も書く。どんな観測が出たらこの仮説が誤りと分かるかを、予測とは別の具体的な観測で書く（予測の言い換えや空欄は受け付けません）。"
+					: "",
+				view.input.conditions.verifyOn === "claim"
+					? '- kind "done": 受入条件を満たしたと考える。message に根拠を書く。照合は done を申告したときだけ行われ、試行のたびには行われません。受入条件を満たしたと考えたら、自分で done を選んでください。'
+					: '- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。',
 				'- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。',
 				'- kind "give_up": 達成できないと判断した。message に理由を書く。',
 				'- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。',

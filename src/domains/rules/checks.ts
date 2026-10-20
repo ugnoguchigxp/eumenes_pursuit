@@ -44,14 +44,26 @@ export function ruleRejections(input: {
 	whatChanged: string;
 	fingerprint: string;
 	policy: Policy;
+	/** Also require what would refute the hypothesis (spec/verification-design.md §3). */
+	falsifiable?: boolean;
 }): Rejection[] {
 	const out: Rejection[] = [];
-	if (!input.prediction.expectedObservation.trim())
+	const expected = input.prediction.expectedObservation.trim();
+	if (!expected)
 		out.push({
 			rule: "prediction_required",
 			detail:
 				"予測のない試行は受け付けません。観測される結果を先に書いてください",
 		});
+	else if (input.falsifiable) {
+		const refutedIf = input.prediction.refutedIf?.trim() ?? "";
+		if (!refutedIf || refutedIf === expected)
+			out.push({
+				rule: "prediction_not_falsifiable",
+				detail:
+					"refutedIf に、どんな観測が出たらこの仮説が誤りと分かるかを、予測とは別に具体的に書いてください",
+			});
+	}
 	const used = attemptsOf(input.view, input.hypothesis.id).filter(executed);
 	if (used.length >= input.hypothesis.budget)
 		out.push({

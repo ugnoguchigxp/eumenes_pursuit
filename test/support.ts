@@ -26,6 +26,8 @@ export function startInput(overrides: Partial<StartInput> = {}): StartInput {
 			findings: "off",
 			strategyChange: "free",
 			selfCheck: "off",
+			verifyOn: "attempt",
+			prediction: "status",
 		},
 		goalRef: null,
 		label: "unit",

@@ -66,6 +66,10 @@ const { values, positionals } = parseArgs({
 		strategy: { type: "string", default: "free" },
 		/** Self-assessment before leaving a strategy: off or parts (spec/persistence-design.md). */
 		"self-check": { type: "string", default: "off" },
+		/** When acceptance is checked: attempt or claim (spec/verification-design.md). */
+		"verify-on": { type: "string", default: "attempt" },
+		/** What a prediction states: status or falsifiable. */
+		prediction: { type: "string", default: "status" },
 		/** Group E: add the in-loop referee tool review_draft. */
 		critic: { type: "boolean", default: false },
 	},
@@ -137,6 +141,12 @@ if (!["free", "distinct"].includes(strategyChange))
 const selfCheck = values["self-check"] as "off" | "parts";
 if (!["off", "parts"].includes(selfCheck))
 	throw new Error("--self-check must be off or parts");
+const verifyOn = values["verify-on"] as "attempt" | "claim";
+if (!["attempt", "claim"].includes(verifyOn))
+	throw new Error("--verify-on must be attempt or claim");
+const prediction = values.prediction as "status" | "falsifiable";
+if (!["status", "falsifiable"].includes(prediction))
+	throw new Error("--prediction must be status or falsifiable");
 const policy = policySchema.parse(
 	JSON.parse(readFileSync(values.policy!, "utf8")),
 );
@@ -147,6 +157,8 @@ const variant = [
 	policy.version === 1 ? "" : `/P-v${policy.version}`,
 	values.critic ? "/C" : "",
 	selfCheck === "off" ? "" : `/K-${selfCheck}`,
+	verifyOn === "attempt" ? "" : `/V-${verifyOn}`,
+	prediction === "status" ? "" : `/R-${prediction}`,
 ].join("");
 const secrets = secretValues(process.env);
 const token = process.env.LARM_API_TOKEN;
@@ -232,6 +244,8 @@ async function runOne(job: (typeof jobs)[number]) {
 					findings,
 					strategyChange,
 					selfCheck,
+					verifyOn,
+					prediction,
 				}),
 				goalRef: null,
 				label: task.id,

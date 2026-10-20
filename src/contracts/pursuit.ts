@@ -35,6 +35,16 @@ export const conditionsSchema = z.strictObject({
 	 * rules keep a strategy until no part is untried or blocked with a next move).
 	 */
 	selfCheck: z.enum(["off", "parts"]).default("off"),
+	/**
+	 * When the host checks acceptance: after every workspace-changing attempt, or
+	 * only on a completion claim and at the end (spec/verification-design.md §1).
+	 */
+	verifyOn: z.enum(["attempt", "claim"]).default("attempt"),
+	/**
+	 * What a tool proposal predicts: the status and observation, or also what
+	 * observation would refute the hypothesis (spec/verification-design.md §3).
+	 */
+	prediction: z.enum(["status", "falsifiable"]).default("status"),
 });
 export type Conditions = z.infer<typeof conditionsSchema>;
 

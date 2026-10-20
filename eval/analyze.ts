@@ -189,8 +189,8 @@ if (values.depth) {
 	const out = [
 		"",
 		"## 深さと部分点",
-		"| 課題 | 条件 | 構成 | n | 照合を通過 | 95% 区間 | 部分点 | 証明を書いた回数 | 方針の数 | 方針1 での試行 | 断念 / 停止 |",
-		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+		"| 課題 | 条件 | 構成 | n | 照合を通過 | 95% 区間 | 部分点 | 証明を書いた回数 | 方針の数 | 方針1 での試行 | 断念 / 停止 | 申告（通過 / 全体） | 申告漏れ |",
+		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 	];
 	for (const [key, rs] of [...groups].sort((a, b) =>
 		a[0].localeCompare(b[0]),
@@ -201,7 +201,16 @@ if (values.depth) {
 			string,
 		];
 		const vs = rs.map((r) => views.get(r.pursuitId));
-		const solved = rs.filter((r) => r.verified).length;
+		const solved = rs.filter(
+			(r) => r.verified && r.outcome === "completed",
+		).length;
+		// The final check passed but nobody claimed completion (spec/verification-design.md §1).
+		const missed = rs.filter(
+			(r) => r.verified && r.outcome !== "completed",
+		).length;
+		const claims = vs.flatMap((v) =>
+			(v?.verifications ?? []).filter((x) => x.trigger === "claim"),
+		);
 		const real = (v: PursuitView | undefined) =>
 			(v?.attempts ?? []).filter((a) => a.state !== "rejected");
 		const firstStrategy = vs.map((v) => {
@@ -223,7 +232,7 @@ if (values.depth) {
 				vs.map((v) => v?.strategies.length ?? 0),
 			)} | ${mean(firstStrategy)} | ${endings.filter((e) => e === "gave_up").length} / ${
 				endings.filter((e) => e.startsWith("stopped_by")).length
-			} |`,
+			} | ${claims.filter((c) => c.passed).length} / ${claims.length} | ${missed} |`,
 		);
 	}
 	console.log(out.join("\n"));
