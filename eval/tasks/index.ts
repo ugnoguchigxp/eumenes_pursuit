@@ -15,6 +15,7 @@ import { splitBill } from "./d/split-bill.ts";
 import {
 	horizon2Tasks,
 	horizon3Tasks,
+	horizon4Tasks,
 	horizonTasks,
 } from "./e/horizon-problems.ts";
 import { reasoningTasks } from "./e/problems.ts";
@@ -37,4 +38,5 @@ export const tasks: readonly EvalTask[] = [
 	...horizonTasks,
 	...horizon2Tasks,
 	...horizon3Tasks,
+	...horizon4Tasks,
 ];

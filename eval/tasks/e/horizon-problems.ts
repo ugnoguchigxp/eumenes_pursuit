@@ -207,3 +207,71 @@ export const horizon3Tasks: readonly EvalTask[] = [
 		],
 	}),
 ];
+
+/**
+ * horizon-4 tasks: weight-6 alternating and 1/2-type Euler sums. These need one constant
+ * beyond polylog(k, 1/2), zeta and log 2: the alternating double zeta value zbar(5, 1)
+ * (defined in each statement; evaluated by eval/tools/mathcheck.py). Each value was fitted
+ * by PSLQ at 170 digits in the 13-element weight-6 basis and confirmed at 290 digits.
+ */
+const weight6Names =
+	"答えに使える名前: pi、log、zeta(s)、polylog(s, x)、zbar(5, 1)、有理数（必要なものだけ使えばよい）。ここで zbar(5, 1) = Σ_{n=2}^∞ Σ_{m=1}^{n−1} (−1)^{n+m} / (n^5 m)（交代二重ゼータ値 ζ(−5, −1)、≈ −0.0299016）。";
+
+export const horizon4Tasks: readonly EvalTask[] = [
+	defineReasoningTask({
+		id: "hz4-alt-harmonic-sq-4",
+		domain: "math",
+		level: 4,
+		title: "調和数の 2 乗の交代級数（重さ 6）",
+		statement: `H_n = 1 + 1/2 + … + 1/n とする。級数 Σ_{n=1}^∞ (−1)^{n+1} H_n^2 / n^4 の値を閉じた式で求めよ。${weight6Names}`,
+		document: false,
+		numericChecks: false,
+		answer: "-zeta(3)^2 + 709*pi^6/181440 - 31*zeta(5)*log(2)/16 + zbar(5, 1)",
+		traps: [
+			"交代でない Σ H_n^2/n^4 の値の流用",
+			"zbar(5, 1) の符号や係数の取り違え",
+		],
+	}),
+	defineReasoningTask({
+		id: "hz4-alt-harmonic-cube-3",
+		domain: "math",
+		level: 4,
+		title: "調和数の 3 乗の交代級数（重さ 6）",
+		statement: `H_n = 1 + 1/2 + … + 1/n とする。級数 Σ_{n=1}^∞ (−1)^{n+1} H_n^3 / n^3 の値を閉じた式で求めよ。${weight6Names}`,
+		document: false,
+		numericChecks: false,
+		answer:
+			"9*zeta(3)^2/64 + 23*pi^6/20160 + 279*zeta(5)*log(2)/32 + 7*pi^2*zeta(3)*log(2)/16 - pi^4*log(2)^2/48 - 7*zeta(3)*log(2)^3/4 + 7*pi^2*log(2)^4/48 - log(2)^6/6 - 6*polylog(4, 1/2)*log(2)^2 - 12*polylog(5, 1/2)*log(2) - 12*polylog(6, 1/2) + pi^2*polylog(4, 1/2)/2 - 9*zbar(5, 1)/2",
+		traps: [
+			"重さ 5 の Σ (−1)^{n+1} H_n^3/n^2 の係数からの類推",
+			"polylog(6, 1/2) や pi^2 polylog(4, 1/2) の項の欠落",
+		],
+	}),
+	defineReasoningTask({
+		id: "hz4-alt-harmonic-h2-3",
+		domain: "math",
+		level: 4,
+		title: "H_n と H_n^{(2)} の積の交代級数（重さ 6）",
+		statement: `H_n = 1 + 1/2 + … + 1/n、H_n^{(2)} = 1 + 1/2^2 + … + 1/n^2 とする。級数 Σ_{n=1}^∞ (−1)^{n+1} H_n H_n^{(2)} / n^3 の値を閉じた式で求めよ。${weight6Names}`,
+		document: false,
+		numericChecks: false,
+		answer:
+			"23*zeta(3)^2/64 - 673*pi^6/181440 + 93*zeta(5)*log(2)/32 + 7*pi^2*zeta(3)*log(2)/48 - pi^4*log(2)^2/144 + pi^2*log(2)^4/144 + pi^2*polylog(4, 1/2)/6 - 3*zbar(5, 1)/2",
+		traps: ["H_n^2 の場合の値との取り違え", "zbar(5, 1) の係数の取り違え"],
+	}),
+	defineReasoningTask({
+		id: "hz4-harmonic-sq-half-4",
+		domain: "math",
+		level: 4,
+		title: "調和数の 2 乗と 2 の冪の級数（重さ 6）",
+		statement: `H_n = 1 + 1/2 + … + 1/n とする。級数 Σ_{n=1}^∞ H_n^2 / (n^4 2^n) の値を閉じた式で求めよ。${weight6Names}`,
+		document: false,
+		numericChecks: false,
+		answer:
+			"-17*zeta(3)^2/32 + pi^6/720 - 31*zeta(5)*log(2)/16 + pi^2*zeta(3)*log(2)/6 + 3*pi^4*log(2)^2/320 - pi^2*log(2)^4/96 + 13*log(2)^6/720 + polylog(4, 1/2)*log(2)^2/2 - 2*polylog(6, 1/2) + pi^2*polylog(4, 1/2)/12 - 5*zbar(5, 1)/4",
+		traps: [
+			"重さ 5 の Σ H_n^2/(n^3 2^n) の形の延長",
+			"x = 1/2 での反転公式の符号の取り違え",
+		],
+	}),
+];

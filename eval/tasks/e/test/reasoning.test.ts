@@ -135,6 +135,35 @@ describe("group E: written reasoning", () => {
 		]);
 	});
 
+	test("zbar(5, 1) evaluates to its tabulated value; other arguments are refused", async () => {
+		const { runMath, checkNames } = await import("../../../tools/math.ts");
+		expect(checkNames).toContain("zbar");
+		const item = (lhs: string, op: "<" | ">" | "=", rhs: string) => ({
+			line: "",
+			lhs,
+			op,
+			rhs,
+		});
+		const r = await runMath({
+			items: [
+				item("2*zbar(5, 1)", "=", "zbar(5,1) + zbar(5,1)"),
+				item(
+					"zbar(5, 1)",
+					"=",
+					"-0.029901635581149425942867921749100313765790341118585104567249612458718",
+				),
+				item("zbar(5, 1)", "=", "-0.0299016355811494259428679"),
+				item("zbar(3, 1)", "<", "0"),
+			],
+		});
+		expect(r.map((x) => [x.ok, x.assurance])).toEqual([
+			[true, "exact"],
+			[true, "numeric"],
+			[false, "numeric"],
+			[false, undefined],
+		]);
+	});
+
 	test("closed-form answers are compared exactly", async () => {
 		await withTask("e4-euler-sum-h2", 0, async (call, verify) => {
 			await call("submit_answer", { expression: "2*zeta(3)" });

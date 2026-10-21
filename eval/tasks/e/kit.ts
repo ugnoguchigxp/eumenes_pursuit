@@ -47,6 +47,8 @@ export interface ReasoningSpec {
 }
 
 const MAX_DOC = 32_000;
+/** Closed forms of weight-6 sums run to about 300 characters; leave room for other spellings. */
+const MAX_ANSWER = 600;
 /** Tier 2 sees technique notes; tier 3 also sees lemma-level notes. */
 const referenceDirs = {
 	techniques: resolve(import.meta.dir, "reference"),
@@ -290,7 +292,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 						},
 						async (input) => {
 							const expression = String(input.expression).trim();
-							const error = expressionError(expression);
+							const error = expressionError(expression, [], MAX_ANSWER);
 							if (error) return fail("invalid_expression", error);
 							await writeFile(answerPath, expression);
 							return ok({ written: "work/answer.txt" });
@@ -471,7 +473,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 					const submitted = (await read(answerPath))?.trim() ?? "";
 					let correct = false;
 					let answerAssurance: "exact" | "numeric" = "exact";
-					if (submitted && !expressionError(submitted)) {
+					if (submitted && !expressionError(submitted, [], MAX_ANSWER)) {
 						const [r] = await runMath({
 							items: [{ line: "", lhs: submitted, op: "=", rhs: spec.answer }],
 						});

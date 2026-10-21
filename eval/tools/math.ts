@@ -71,6 +71,8 @@ export const checkNames = [
 	"polylog",
 	"Rational",
 	"Abs",
+	/** zbar(5, 1): the alternating double zeta value Σ_{n>m≥1} (−1)^{n+m}/(n^5 m) (mathcheck.py). */
+	"zbar",
 ] as const;
 
 export interface CheckItem {
@@ -87,8 +89,9 @@ export interface CheckItem {
 export function expressionError(
 	text: string,
 	forbid: readonly string[] = [],
+	maxLength = 300,
 ): string | null {
-	if (text.length > 300) return "式が長すぎます";
+	if (text.length > maxLength) return "式が長すぎます";
 	if (!/^[0-9A-Za-z+\-*/^()., \t]+$/.test(text))
 		return "使える記号は数字・+ - * / ^ ( ) , . と許可された関数名だけです";
 	for (const name of text.match(/[A-Za-z]+/g) ?? []) {
