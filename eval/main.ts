@@ -42,6 +42,7 @@ import {
 	type RunRecord,
 } from "./metrics.ts";
 import { redactAcceptance, redactTools, secretValues } from "./redact.ts";
+import { loadSecret } from "./tasks/e/discovery.ts";
 import { loadRubric } from "./tasks/e/proof-grader.ts";
 import { tasks } from "./tasks/index.ts";
 
@@ -90,6 +91,8 @@ const { values, positionals } = parseArgs({
 		"grader-dir": { type: "string", default: "/workspace/pursuit_grader" },
 		/** Grader-only directory of external proof rubrics (<id>.json) for tasks with a rubricId; keep it outside every responder's directory. */
 		"rubric-dir": { type: "string" },
+		/** Host-only directory of expected answers (<id>.json) for discovery tasks with a secretId; outside every responder's directory. */
+		"secret-dir": { type: "string" },
 	},
 });
 const command = positionals[0];
@@ -314,6 +317,28 @@ const selected = tasks.filter(
 	(t) => groups.has(t.group) && (!only || only.has(t.id)),
 );
 const rubricDir = values["rubric-dir"] ? resolve(values["rubric-dir"]) : null;
+const secretDir = values["secret-dir"] ? resolve(values["secret-dir"]) : null;
+const responderDirs = [
+	values["llm-dir"],
+	values["reviewer-dir"],
+	values["grader-dir"],
+]
+	.filter((d): d is string => !!d)
+	.map((d) => resolve(d));
+const overlaps = (dir: string) =>
+	responderDirs.some(
+		(d) => dir === d || dir.startsWith(`${d}/`) || d.startsWith(`${dir}/`),
+	);
+const secretTasks = selected.filter((t) => t.secretId);
+if (secretTasks.length) {
+	if (!secretDir)
+		throw new Error(
+			`${secretTasks.map((t) => t.id).join(",")} need --secret-dir`,
+		);
+	if (overlaps(secretDir))
+		throw new Error("--secret-dir must be outside every responder directory");
+	for (const t of secretTasks) await loadSecret(secretDir, t.secretId!);
+}
 const rubricTasks = selected.filter((t) => t.rubricId);
 if (rubricTasks.length) {
 	if (!grader)
@@ -371,6 +396,7 @@ async function runOne(job: (typeof jobs)[number]) {
 		toolTier,
 		critic: values.critic ? reviewer : null,
 		rubricDir,
+		secretDir,
 	});
 	const controller = new AbortController();
 	let pursuitId = "";

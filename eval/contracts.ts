@@ -24,6 +24,11 @@ export interface TaskContext {
 	 * grading; never reachable from task tools. Absent when no task needs one.
 	 */
 	readonly rubricDir?: string | null;
+	/**
+	 * Host-only directory of expected answers for discovery tasks (`<id>.json`); never reachable
+	 * from task tools. Absent when no task needs one.
+	 */
+	readonly secretDir?: string | null;
 }
 
 /** Live instance of one task, bound to a throw-away directory. */
@@ -57,6 +62,8 @@ export interface EvalTask {
 	readonly rubricSize?: number;
 	/** Id of an external rubric (TaskContext.rubricDir); the rubric itself is not in the repository. */
 	readonly rubricId?: string;
+	/** Id of an external expected answer (TaskContext.secretDir); the answer is not in the repository. */
+	readonly secretId?: string;
 	/** Goal text for a tool tier, when it differs from `goal` (which is tier 0). */
 	goalFor?(tier: ToolTier): string;
 	create(directory: string, context: TaskContext): Promise<TaskInstance>;
