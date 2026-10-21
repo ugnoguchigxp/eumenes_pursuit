@@ -62,6 +62,12 @@ export const discoverySecretSchema = z.discriminatedUnion("kind", [
 		kind: z.literal("construction"),
 		optimum: z.number().int().nonnegative(),
 	}),
+	/** Hidden-truth tasks (verdict.ts): whether the statement is true. */
+	z.strictObject({
+		id: z.string(),
+		kind: z.literal("verdict"),
+		truth: z.boolean(),
+	}),
 ]);
 export type DiscoverySecret = z.infer<typeof discoverySecretSchema>;
 
