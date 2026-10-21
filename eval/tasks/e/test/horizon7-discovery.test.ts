@@ -132,7 +132,7 @@ describe("horizon-7 discovery tasks (hz7-*)", () => {
 	});
 
 	test("expressions are allow-listed per kind", () => {
-		expect(discoveryExpressionError("n^2/2 + Mod(n, 4)", "formula")).toBeNull();
+		expect(discoveryExpressionError("n^2/3 + Mod(n, 3)", "formula")).toBeNull();
 		expect(discoveryExpressionError("(1-x)/(1-x-x^2)", "series")).toBeNull();
 		expect(discoveryExpressionError("binomial(13,4)*3", "integer")).toBeNull();
 		for (const [text, kind] of [
