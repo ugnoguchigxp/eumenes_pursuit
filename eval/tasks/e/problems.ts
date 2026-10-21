@@ -358,6 +358,68 @@ export const reasoningTasks: readonly EvalTask[] = [
 		],
 	}),
 	defineReasoningTask({
+		id: "h4-ln2-irrational",
+		domain: "math",
+		level: 4,
+		title: "ln 2 の無理数性",
+		statement:
+			"ln 2 が無理数であることを証明せよ。ln 2 の無理数性・超越性を直接含む定理は引用せず、証明の中で示すこと。d_n = lcm(1, 2, …, n) について d_n ≤ 3^n（n ≥ 1）は証明なしで使ってよい。手法は問わない。",
+		document: true,
+		numericChecks: false,
+		rubric: [
+			{
+				id: "construction",
+				text: "ln 2 の有理近似を与える積分・数列（例: ∫₀¹ xⁿ(1−x)ⁿ/(1+x)^{n+1} dx）を正しく構成している",
+			},
+			{
+				id: "integrality",
+				text: "その量が a_n + b_n ln 2 の形で、d_n を掛けると係数が整数になることを正しく示している",
+			},
+			{
+				id: "bounds",
+				text: "量が 0 でなく、d_n を掛けても 0 に収束することを正しく評価している",
+			},
+			exactClaim,
+			noGaps,
+		],
+		reference:
+			"I_n = ∫₀¹ xⁿ(1−x)ⁿ/(1+x)^{n+1} dx。展開すると I_n = a_n + b_n ln 2（b_n ∈ ℤ、d_n a_n ∈ ℤ）。x(1−x)/(1+x) の [0,1] での最大は (√2−1)² = 3−2√2 なので 0 < I_n ≤ (3−2√2)ⁿ ln 2。ln 2 = p/q なら q d_n I_n は正の整数だが ≤ q(3(3−2√2))ⁿ ln 2 → 0（3(3−2√2) ≈ 0.515）で矛盾。",
+		traps: ["係数の整数性で d_n の役割を省略", "I_n > 0 の省略"],
+	}),
+	defineReasoningTask({
+		id: "h4-bertrand",
+		domain: "math",
+		level: 4,
+		title: "Bertrand の仮説",
+		statement:
+			"任意の整数 n ≥ 1 に対し、n < p ≤ 2n を満たす素数 p が存在することを証明せよ。この主張そのもの（Bertrand–Chebyshev の定理）や素数定理は引用せず、証明の中で示すこと。手法は問わない。",
+		document: true,
+		numericChecks: false,
+		rubric: [
+			{
+				id: "binomial-bounds",
+				text: "中央二項係数の評価（例: C(2n,n) ≥ 4ⁿ/(2n+1)）を正しく示している",
+			},
+			{
+				id: "prime-structure",
+				text: "C(2n,n) の素因数の構造（Legendre の公式による冪の上限、2n/3 < p ≤ n の素数が割らないこと）を正しく示している",
+			},
+			{
+				id: "primorial",
+				text: "x 以下の素数の積が 4^x 未満であることを正しく示している",
+			},
+			{
+				id: "small-cases",
+				text: "評価が効かない小さい n を、素数の列などで漏れなく確かめている",
+			},
+			exactClaim,
+			noGaps,
+		],
+		reference:
+			"Erdős: n < p ≤ 2n の素数がないと仮定。C(2n,n) を割る素数 p について p^{v_p} ≤ 2n、p > √(2n) なら v_p ≤ 1、2n/3 < p ≤ n なら v_p = 0。よって 4ⁿ/(2n+1) ≤ C(2n,n) ≤ (2n)^{√(2n)} · 4^{2n/3}（Π_{p≤x} p < 4^x を使う）。n ≥ 468 で矛盾。n < 468 は 2, 3, 5, 7, 13, 23, 43, 83, 163, 317, 631 の列（各項が前の 2 倍未満）で確かめる。",
+		traps: ["小さい n の確認の省略", "Π_{p≤x} p < 4^x の証明の省略"],
+	}),
+	defineReasoningTask({
 		id: "e4-zeta3-irrational",
 		domain: "math",
 		level: 4,
