@@ -78,7 +78,7 @@ describe("task set", () => {
 			expect(task.id).toMatch(/^[a-z0-9-]+$/);
 			expect(task.id).toMatch(
 				task.group === "E"
-					? /^[eh][1-4]-/ // h: held out from lesson sources
+					? /^([eh][1-4]|hz)-/ // h: held out from lesson sources; hz: horizon-1 (never run before)
 					: new RegExp(`^${task.group.toLowerCase()}-`),
 			);
 			expect(task.expected).toBe(

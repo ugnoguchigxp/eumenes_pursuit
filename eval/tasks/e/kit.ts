@@ -66,7 +66,7 @@ function goal(spec: ReasoningSpec, tier: TaskContext["toolTier"]): string {
 		);
 	if (spec.numericChecks)
 		rules.push(
-			"証明で使う数値の不等式・等式は、文書の末尾の ```checks ブロックに 1 行ずつ ASCII の式で列挙する（例: sqrt(6) > 2.449、2.449^2 < 6）。この欄は計算機で厳密に検算される。",
+			"証明で使う数値の不等式・等式は、文書の末尾の ```checks ブロックに 1 行ずつ ASCII の式で列挙する（例: sqrt(7) > 2.645、2.645^2 < 7）。この欄は計算機で厳密に検算される。",
 		);
 	if (spec.answer)
 		rules.push(
@@ -282,7 +282,9 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 								"最終的な答え（閉じた式、ASCII）を work/answer.txt に書く。値の正誤は返さない。",
 							permission: "doc.write",
 							sideEffect: "workspace",
-							properties: { expression: prop("string", "例: 17*pi^4/360") },
+							properties: {
+								expression: prop("string", "例: 3*log(2)/5 - zeta(3)/7"),
+							},
 							required: ["expression"],
 							fingerprintFields: ["expression"],
 						},
@@ -301,7 +303,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 						{
 							name: "calc",
 							description:
-								"ASCII の式を厳密に数値評価する（最大 30 桁）。例: sqrt(6)-sqrt(2)、atan(1/5)。",
+								"ASCII の式を厳密に数値評価する（最大 30 桁）。例: sqrt(7)-sqrt(3)、log(5)/3。",
 							permission: "math.calc",
 							properties: {
 								expression: prop("string", "評価する式"),
