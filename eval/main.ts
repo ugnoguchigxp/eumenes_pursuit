@@ -36,6 +36,7 @@ import { conditionsFor, type ConditionName } from "./conditions.ts";
 import type { EvalTask, ToolTier } from "./contracts.ts";
 import {
 	detection,
+	withOutcomeFacts,
 	isCorrect,
 	measure,
 	summarize,
@@ -464,7 +465,13 @@ async function runOne(job: (typeof jobs)[number]) {
 	}
 	const view = pursuitId ? await engine.view(pursuitId) : null;
 	if (!view) return;
-	const measured = measure(view, (model) => pricing[model]);
+	const facts = instance.outcomeFacts
+		? await instance.outcomeFacts().catch(() => null)
+		: null;
+	const measured = withOutcomeFacts(
+		measure(view, (model) => pricing[model]),
+		facts,
+	);
 	const record: RunRecord = {
 		...measured,
 		run: values.name!,

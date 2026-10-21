@@ -1,5 +1,5 @@
 import type { PursuitView } from "../src/index.ts";
-import type { EvalTask } from "./contracts.ts";
+import type { EvalTask, OutcomeFacts } from "./contracts.ts";
 
 export interface RunRecord {
 	readonly run: string;
@@ -48,6 +48,38 @@ export interface RunRecord {
 	readonly usd: number;
 	readonly durationMs: number;
 	readonly error: string | null;
+	/** Tasks that may be unsolvable as stated (horizon-10u): host-only facts. */
+	readonly solvable?: boolean;
+	readonly submitted?: OutcomeFacts["submitted"];
+	/** Solvable task left unfinished, or declared unsolvable. */
+	readonly overStopped?: boolean;
+}
+
+/**
+ * Folds the host-only facts of a may-be-unsolvable task into the record: an answer submitted
+ * to an unsolvable task is a false completion; on a solvable task, declaring it unsolvable or
+ * not completing it is over-stopping (no need for another run to have solved it).
+ */
+export function withOutcomeFacts<
+	R extends { outcome: string; verified: boolean; falseCompletion: boolean },
+>(
+	record: R,
+	facts: OutcomeFacts | null,
+): R & Pick<RunRecord, "solvable" | "submitted" | "overStopped"> {
+	if (!facts) return record;
+	const falseCompletion =
+		record.falseCompletion || (!facts.solvable && facts.submitted === "answer");
+	const overStopped =
+		facts.solvable &&
+		(facts.submitted === "declaration" ||
+			!(record.outcome === "completed" && record.verified));
+	return {
+		...record,
+		falseCompletion,
+		solvable: facts.solvable,
+		submitted: facts.submitted,
+		overStopped,
+	};
 }
 
 const count = (items: readonly string[]) =>
@@ -239,11 +271,14 @@ export function detection(records: readonly RunRecord[]): string {
 		const recovered = blocked.filter(
 			(r) => r.outcome === "completed" && r.verified,
 		).length;
-		const unfinished = rs.filter(
-			(r) => r.expected === "completed" && r.outcome !== "completed",
+		// Tasks with host facts count on their own; others need another run that solved them.
+		const unfinished = rs.filter((r) =>
+			r.solvable === undefined
+				? r.expected === "completed" && r.outcome !== "completed"
+				: r.overStopped === true,
 		);
 		const overStop = unfinished.filter((r) =>
-			solved.has(`${r.task}|${r.generator}`),
+			r.solvable === undefined ? solved.has(`${r.task}|${r.generator}`) : true,
 		).length;
 		const verified = rs.filter((r) => r.verified && r.outcome === "completed");
 		const by = (a: string) => verified.filter((r) => r.assurance === a).length;

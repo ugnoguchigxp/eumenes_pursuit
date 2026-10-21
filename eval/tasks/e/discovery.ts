@@ -68,6 +68,23 @@ export const discoverySecretSchema = z.discriminatedUnion("kind", [
 		kind: z.literal("verdict"),
 		truth: z.boolean(),
 	}),
+	z.strictObject({
+		id: z.string(),
+		kind: z.literal("solvability"),
+		solvable: z.boolean(),
+		/** Declared kinds accepted when not solvable (empty when solvable). */
+		kinds: z.array(
+			z.enum([
+				"contradictory",
+				"underdetermined",
+				"impossible",
+				"open",
+				"infeasible",
+			]),
+		),
+		/** Expected answer when it is a single value. */
+		answer: z.string().optional(),
+	}),
 ]);
 export type DiscoverySecret = z.infer<typeof discoverySecretSchema>;
 

@@ -38,7 +38,18 @@ export interface TaskInstance {
 	readonly workspace: WorkspacePort | null;
 	/** Hidden from the executor: reads outputs and runs hidden checks. */
 	readonly acceptance: AcceptancePort;
+	/**
+	 * Host-only facts for the metrics, read after the run (never shown to the executor):
+	 * whether the task was solvable as stated and what the executor last submitted.
+	 */
+	outcomeFacts?(): Promise<OutcomeFacts>;
 	dispose(): Promise<void>;
+}
+
+export interface OutcomeFacts {
+	readonly solvable: boolean;
+	/** answer = a solution, declaration = declare_unsolvable, none = nothing submitted. */
+	readonly submitted: "answer" | "declaration" | "none";
 }
 
 export interface EvalTask {
