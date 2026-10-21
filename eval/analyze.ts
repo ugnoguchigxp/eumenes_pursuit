@@ -165,7 +165,10 @@ function rubricScore(v: PursuitView | undefined, size: number): number {
 	if (sound.passed) return 1;
 	const failed = /^不合格の基準: (.*)$/.exec(sound.evidence)?.[1];
 	if (!failed) return 0;
-	const ids = failed.split(", ").filter((id) => id !== "総合");
+	const ids = failed
+		.replace(/（.*$/, "")
+		.split(", ")
+		.filter((id) => id !== "総合");
 	return ids.length ? Math.max(0, (size - ids.length) / size) : 0;
 }
 

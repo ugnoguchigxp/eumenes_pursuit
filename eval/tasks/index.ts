@@ -18,6 +18,7 @@ import {
 	horizon4Tasks,
 	horizonTasks,
 } from "./e/horizon-problems.ts";
+import { horizon6Tasks } from "./e/horizon-proofs.ts";
 import { reasoningTasks } from "./e/problems.ts";
 
 export const tasks: readonly EvalTask[] = [
@@ -39,4 +40,5 @@ export const tasks: readonly EvalTask[] = [
 	...horizon2Tasks,
 	...horizon3Tasks,
 	...horizon4Tasks,
+	...horizon6Tasks,
 ];

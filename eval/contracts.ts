@@ -19,6 +19,11 @@ export interface TaskContext {
 	readonly toolTier: ToolTier;
 	/** In-loop referee without the rubric (group E `review_draft`); absent = no such tool. */
 	readonly critic?: LlmPort | null;
+	/**
+	 * Grader-only directory of external proof rubrics (`<id>.json`), read by the host when
+	 * grading; never reachable from task tools. Absent when no task needs one.
+	 */
+	readonly rubricDir?: string | null;
 }
 
 /** Live instance of one task, bound to a throw-away directory. */
@@ -50,6 +55,8 @@ export interface EvalTask {
 	readonly level?: 1 | 2 | 3 | 4;
 	/** Rubric items of a graded proof, for partial credit; absent when not graded by rubric. */
 	readonly rubricSize?: number;
+	/** Id of an external rubric (TaskContext.rubricDir); the rubric itself is not in the repository. */
+	readonly rubricId?: string;
 	/** Goal text for a tool tier, when it differs from `goal` (which is tier 0). */
 	goalFor?(tier: ToolTier): string;
 	create(directory: string, context: TaskContext): Promise<TaskInstance>;

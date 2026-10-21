@@ -24,6 +24,11 @@ import { createDirWorkspace } from "../../tools/workspace.ts";
 import { criterion } from "../kit.ts";
 import { createCritic } from "./critic.ts";
 import { createGrader, type Grade, type RubricItem } from "./grader.ts";
+import {
+	createProofGrader,
+	loadRubric,
+	type ProofGrade,
+} from "./proof-grader.ts";
 
 /** A written-reasoning task: a document (proof, derivation, plan) and/or a closed-form answer. */
 export interface ReasoningSpec {
@@ -41,6 +46,13 @@ export interface ReasoningSpec {
 	readonly rubric?: readonly RubricItem[];
 	/** Sketch for the grader only; never shown to the executor. */
 	readonly reference?: string;
+	/**
+	 * Rubric kept outside the repository: `<context.rubricDir>/<rubricId>.json`, read only by
+	 * the host when grading (proof-grader.ts). Use instead of `rubric`/`reference`.
+	 */
+	readonly rubricId?: string;
+	/** Number of checkpoints in the external rubric (for partial credit in analyze). */
+	readonly rubricSize?: number;
 	/** Hidden closed form; the submitted expression must equal it to 50 digits. */
 	readonly answer?: string;
 	readonly traps: readonly string[];
@@ -195,6 +207,9 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 		expected: "completed" as const,
 		traps: spec.traps,
 		...(spec.rubric ? { rubricSize: spec.rubric.length } : {}),
+		...(spec.rubricId
+			? { rubricId: spec.rubricId, rubricSize: spec.rubricSize ?? 0 }
+			: {}),
 	};
 	return {
 		...meta,
@@ -209,6 +224,10 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 			const grade: Grade | null = context.grader
 				? createGrader(context.grader)
 				: null;
+			const gradeProof: ProofGrade | null =
+				context.grader && spec.rubricId
+					? createProofGrader(context.grader)
+					: null;
 			const read = (path: string) => readFile(path, "utf8").catch(() => null);
 			const tools: ToolDef[] = [];
 			if (spec.document)
@@ -374,6 +393,45 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 					),
 				);
 
+			/** External-rubric proofs: structured verdict, pass = no fatal error and score ≥ threshold. */
+			async function proofByRubric(
+				rubricId: string,
+				proof: string,
+				formatOk: boolean,
+				signal: AbortSignal,
+			): Promise<CriterionResult> {
+				if (!gradeProof)
+					return criterion("proof-sound", false, "採点者がいません");
+				if (!context.rubricDir)
+					return criterion("proof-sound", false, "採点基準がありません");
+				if (!formatOk)
+					return criterion(
+						"proof-sound",
+						false,
+						"形式の基準を先に満たしてください",
+					);
+				const rubric = await loadRubric(context.rubricDir, rubricId);
+				const { decision } = await gradeProof({
+					statement: spec.statement,
+					rubric,
+					proof,
+					signal,
+				});
+				// Ids and the score only: the grader's reasons would coach the executor.
+				const score = `得点 ${(decision.score * 100).toFixed(0)}%`;
+				const fatal = decision.fatal.length
+					? `致命的: ${decision.fatal.join(", ")}; `
+					: "";
+				return criterion(
+					"proof-sound",
+					decision.pass,
+					decision.pass
+						? `合格（${score}）`
+						: `不合格の基準: ${decision.failedCheckpoints.join(", ") || "総合"}（${fatal}${score}）`,
+					"model",
+				);
+			}
+
 			async function verify(signal: AbortSignal): Promise<CriterionResult[]> {
 				const out: CriterionResult[] = [];
 				const proof = spec.document ? await read(proofPath) : null;
@@ -428,7 +486,11 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 							),
 						);
 					}
-					if (!formatOk || !grade || !spec.rubric) {
+					if (spec.rubricId) {
+						out.push(
+							await proofByRubric(spec.rubricId, proof, formatOk, signal),
+						);
+					} else if (!formatOk || !grade || !spec.rubric) {
 						out.push(
 							criterion(
 								"proof-sound",

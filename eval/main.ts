@@ -42,6 +42,7 @@ import {
 	type RunRecord,
 } from "./metrics.ts";
 import { redactAcceptance, redactTools, secretValues } from "./redact.ts";
+import { loadRubric } from "./tasks/e/proof-grader.ts";
 import { tasks } from "./tasks/index.ts";
 
 const { values, positionals } = parseArgs({
@@ -87,6 +88,8 @@ const { values, positionals } = parseArgs({
 		"grader-llm": { type: "string" },
 		/** Directory for --grader-llm file; must differ from --llm-dir (a different responder). */
 		"grader-dir": { type: "string", default: "/workspace/pursuit_grader" },
+		/** Grader-only directory of external proof rubrics (<id>.json) for tasks with a rubricId; keep it outside every responder's directory. */
+		"rubric-dir": { type: "string" },
 	},
 });
 const command = positionals[0];
@@ -188,6 +191,13 @@ if (
 	resolve(values["grader-dir"]!) === resolve(values["llm-dir"]!)
 )
 	throw new Error("--grader-dir must differ from --llm-dir");
+if (
+	graderMode === "file" &&
+	useFile &&
+	values["reviewer-dir"] &&
+	resolve(values["grader-dir"]!) === resolve(values["reviewer-dir"])
+)
+	throw new Error("--grader-dir must differ from --reviewer-dir");
 const grader =
 	graderMode === "file"
 		? createFileLlm({ dir: values["grader-dir"]!, role: "grader" })
@@ -303,6 +313,35 @@ const only = values.tasks ? new Set(values.tasks.split(",")) : null;
 const selected = tasks.filter(
 	(t) => groups.has(t.group) && (!only || only.has(t.id)),
 );
+const rubricDir = values["rubric-dir"] ? resolve(values["rubric-dir"]) : null;
+const rubricTasks = selected.filter((t) => t.rubricId);
+if (rubricTasks.length) {
+	if (!grader)
+		throw new Error(
+			`${rubricTasks.map((t) => t.id).join(",")} need a grader (--grader-llm file|claude)`,
+		);
+	if (!rubricDir)
+		throw new Error(
+			`${rubricTasks.map((t) => t.id).join(",")} need --rubric-dir`,
+		);
+	const responderDirs = [
+		values["llm-dir"],
+		values["reviewer-dir"],
+		values["grader-dir"],
+	]
+		.filter((d): d is string => !!d)
+		.map((d) => resolve(d));
+	if (
+		responderDirs.some(
+			(d) =>
+				rubricDir === d ||
+				rubricDir.startsWith(`${d}/`) ||
+				d.startsWith(`${rubricDir}/`),
+		)
+	)
+		throw new Error("--rubric-dir must be outside every responder directory");
+	for (const t of rubricTasks) await loadRubric(rubricDir, t.rubricId!);
+}
 const done = new Set(
 	readRecords()
 		.filter((r) => !r.error)
@@ -331,6 +370,7 @@ async function runOne(job: (typeof jobs)[number]) {
 		grader,
 		toolTier,
 		critic: values.critic ? reviewer : null,
+		rubricDir,
 	});
 	const controller = new AbortController();
 	let pursuitId = "";
