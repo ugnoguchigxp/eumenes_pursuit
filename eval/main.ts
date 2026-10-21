@@ -81,6 +81,8 @@ const { values, positionals } = parseArgs({
 		llm: { type: "string", default: "claude" },
 		/** Directory for --llm file (requests/ and responses/). */
 		"llm-dir": { type: "string", default: "/workspace/pursuit_llm" },
+		/** Directory for the reviewer with --llm file; defaults to --llm-dir. A separate one keeps review in its own responder. */
+		"reviewer-dir": { type: "string" },
 		/** Grader port for proofs: claude (settings llm.grader), file (a separate responder), or none. */
 		"grader-llm": { type: "string" },
 		/** Directory for --grader-llm file; must differ from --llm-dir (a different responder). */
@@ -146,7 +148,10 @@ const generator = useFile
 	? fileLlm(values.generator!)
 	: createClaudeLlm(generatorRole, meter);
 const reviewer = useFile
-	? fileLlm("reviewer")
+	? createFileLlm({
+			dir: values["reviewer-dir"] ?? values["llm-dir"]!,
+			role: "reviewer",
+		})
 	: createClaudeLlm(settings.require("llm.reviewer"), meter);
 const graderRole = settings.get("llm.grader");
 // Default: claude when --llm claude; none when --llm file (the generator's responder must not grade itself).
@@ -231,8 +236,8 @@ const variant = [
 ].join("");
 const secrets = secretValues(process.env);
 const conditionNames = values.conditions!.split(",") as ConditionName[];
-// E0/E1 never ask the judge, so they run without LARM.
-const needsJudge = conditionNames.some((c) => !["E0", "E1"].includes(c));
+// E0, E1 and E1R never ask the judge, so they run without LARM.
+const needsJudge = conditionNames.some((c) => !["E0", "E1", "E1R"].includes(c));
 const token = process.env.LARM_API_TOKEN;
 if (needsJudge && !token) throw new Error("LARM_API_TOKEN is required");
 const lease = needsJudge

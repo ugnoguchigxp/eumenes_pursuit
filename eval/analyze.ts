@@ -4,6 +4,7 @@
  * Then per task × variant, so tool tiers can be compared side by side.
  * --strategies lists each pursuit's strategies, to see how varied the approaches were.
  * --depth compares variants by solve rate (Wilson 95%), partial credit and depth of work.
+ * --horizon shows budget use, later-vs-earlier progress and returns to a construction (horizon-1).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -11,7 +12,8 @@ import { parseArgs } from "node:util";
 import { listPursuitIds, loadPursuit, migrations } from "../src/sqlite.ts";
 import type { PursuitView } from "../src/index.ts";
 import { openStore } from "../standalone/store.ts";
-import { isForcedStop, type RunRecord } from "./metrics.ts";
+import { ending, horizonRow } from "./horizon.ts";
+import type { RunRecord } from "./metrics.ts";
 import { tasks } from "./tasks/index.ts";
 
 const { values, positionals } = parseArgs({
@@ -20,6 +22,8 @@ const { values, positionals } = parseArgs({
 		group: { type: "string" },
 		strategies: { type: "boolean", default: false },
 		depth: { type: "boolean", default: false },
+		/** Long-horizon measures (spec/long-horizon-design.md): budget use, progress, returns. */
+		horizon: { type: "boolean", default: false },
 	},
 });
 const run = positionals[0];
@@ -49,18 +53,6 @@ const views = new Map<string, PursuitView>(
 	).map((v) => [v.id, v]),
 );
 store.close();
-
-/** How the pursuit ended, as a stable class rather than free text. */
-function ending(r: RunRecord, v: PursuitView | undefined): string {
-	if (r.error) return "harness_error";
-	if (r.outcome === "completed")
-		return r.verified ? "verified" : "claimed_unverified";
-	if (isForcedStop(r.reason))
-		return r.reason.includes("試行") ? "budget_attempts" : "forced_stop";
-	const last = v?.decisions.at(-1);
-	if (r.outcome === "incomplete") return "gave_up";
-	return `stopped_by_${last?.decidedBy ?? "unknown"}`;
-}
 
 function failedCriteria(v: PursuitView | undefined): string[] {
 	const final = v?.verifications.filter((x) => x.trigger === "final").at(-1);
@@ -233,6 +225,68 @@ if (values.depth) {
 			)} | ${mean(firstStrategy)} | ${endings.filter((e) => e === "gave_up").length} / ${
 				endings.filter((e) => e.startsWith("stopped_by")).length
 			} | ${claims.filter((c) => c.passed).length} / ${claims.length} | ${missed} |`,
+		);
+	}
+	console.log(out.join("\n"));
+}
+
+if (values.horizon) {
+	const size = new Map(tasks.map((t) => [t.id, t.rubricSize ?? 0]));
+	const f2 = (x: number | null) => (x === null ? "-" : x.toFixed(2));
+	const avg = (xs: (number | null)[]) => {
+		const ys = xs.filter((x): x is number => x !== null);
+		return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : null;
+	};
+	const sorted = [...records].sort((a, b) =>
+		`${a.task}${a.generator}${a.repeat}`.localeCompare(
+			`${b.task}${b.generator}${b.repeat}`,
+		),
+	);
+	const rows = sorted.flatMap((r) => {
+		const v = views.get(r.pursuitId);
+		return v ? [{ r, v, h: horizonRow(r, v) }] : [];
+	});
+	const out = [
+		"",
+		"## 長い予算（追求ごと）",
+		"| 課題 | 構成 | # | 結末 | 当たった予算 | 試行の使用 | 方針の使用 | 一段上への使用 | 手順の使用 | 時間の使用 | 部分点 | 前半の済み | 後半の済み | 差 | 戻り（類似の最大） |",
+		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+		...rows.map(
+			({ r, v, h }) =>
+				`| ${r.task} | ${r.generator} | ${r.repeat} | ${h.ending} | ${h.budgetStop ?? "-"} | ${f2(h.use.attempts)} | ${f2(h.use.strategies)} | ${f2(h.use.stepBacks)} | ${f2(h.use.transitions)} | ${f2(h.use.wall)} | ${
+					size.get(r.task) ? f2(rubricScore(v, size.get(r.task)!)) : "-"
+				} | ${f2(h.progress.earlier)} | ${f2(h.progress.later)} | ${f2(h.progress.gain)} | ${h.returns.count} (${h.returns.maxSimilarity.map((x) => x.toFixed(2)).join(" ") || "-"}) |`,
+		),
+		"",
+		"## 長い予算（課題 × 構成）",
+		"| 課題 | 構成 | n | 通過 | 95% 区間 | 部分点 | 試行の使用 | 最大の使用 | 前進（差の平均） | 戻り（合計） | 終わり方 | 終わりに残った試行予算 |",
+		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+	];
+	const groups = new Map<string, typeof rows>();
+	for (const row of rows) {
+		const key = `${row.r.task}|${row.r.generator}`;
+		groups.set(key, [...(groups.get(key) ?? []), row]);
+	}
+	for (const [key, rs] of [...groups].sort((a, b) =>
+		a[0].localeCompare(b[0]),
+	)) {
+		const [task, variant] = key.split("|") as [string, string];
+		const solved = rs.filter(
+			({ r }) => r.verified && r.outcome === "completed",
+		).length;
+		const endings = new Map<string, number>();
+		for (const { h } of rs)
+			endings.set(h.ending, (endings.get(h.ending) ?? 0) + 1);
+		out.push(
+			`| ${task} | ${variant} | ${rs.length} | ${solved} | ${wilson(solved, rs.length)} | ${
+				size.get(task)
+					? f2(avg(rs.map(({ v }) => rubricScore(v, size.get(task)!))))
+					: "-"
+			} | ${f2(avg(rs.map(({ h }) => h.use.attempts)))} | ${f2(avg(rs.map(({ h }) => h.use.max)))} | ${f2(
+				avg(rs.map(({ h }) => h.progress.gain)),
+			)} | ${rs.reduce((n, { h }) => n + h.returns.count, 0)} | ${[...endings]
+				.map(([e, n]) => `${e}×${n}`)
+				.join(" ")} | ${f2(avg(rs.map(({ h }) => 1 - h.use.attempts)))} |`,
 		);
 	}
 	console.log(out.join("\n"));
