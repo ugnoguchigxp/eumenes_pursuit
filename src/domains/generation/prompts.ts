@@ -276,6 +276,16 @@ function historyBlock(view: PursuitView) {
 	].join("\n");
 }
 
+/** Host-supplied procedural lessons; use only where the situation matches. */
+function experienceBlock(view: PursuitView) {
+	const items = view.input.experience ?? [];
+	if (!items.length) return "";
+	return [
+		"## 過去の追求からの手順の教訓（状況が当てはまるときだけ使う）",
+		...items.map((e) => `- ${e}`),
+	].join("\n");
+}
+
 export function planRequest(input: {
 	view: PursuitView;
 	tools: readonly ToolDescriptor[];
@@ -295,6 +305,7 @@ export function planRequest(input: {
 			historyBlock(view),
 			findingsBlock(view, false),
 			consultationsBlock(view),
+			experienceBlock(view),
 			input.direction ? `## 振り返りからの方向づけ\n${input.direction}` : "",
 			"## 依頼",
 			...(view.input.conditions.strategyChange === "distinct"
@@ -340,6 +351,7 @@ export function hypothesisRequest(input: {
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
 			partsBlock(view),
+			experienceBlock(view),
 			"## 依頼",
 			"この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。",
 			view.input.conditions.selfCheck === "parts"

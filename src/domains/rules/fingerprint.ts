@@ -4,11 +4,12 @@ import type {
 	ToolDescriptor,
 } from "../../contracts/index.ts";
 
-/** Key-sorted JSON, so equal values always serialize identically. */
+/** Key-sorted JSON, so equal values always serialize identically. Undefined keys drop out, as in JSON. */
 export function canonicalJson(value: JsonValue): string {
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
 	if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
 	return `{${Object.keys(value)
+		.filter((key) => value[key] !== undefined)
 		.sort()
 		.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key]!)}`)
 		.join(",")}}`;

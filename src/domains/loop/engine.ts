@@ -10,6 +10,7 @@ import {
 	type DecisionKind,
 	type IdSource,
 	type JsonObject,
+	type JsonValue,
 	type JudgePort,
 	type LedgerDb,
 	type LlmPort,
@@ -1495,7 +1496,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				const claimed = ledger.claimOperation(db, {
 					key: operationKey,
 					kind: "start",
-					digest: digestJson(start),
+					// An absent optional field drops out of the JSON, so older digests still match.
+					digest: digestJson(start as JsonValue),
 					pursuitId,
 					now: clock.now(),
 				});

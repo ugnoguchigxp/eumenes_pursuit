@@ -70,6 +70,11 @@ export const startInputSchema = z.strictObject({
 	goalRef: z.string().max(200).nullable(),
 	/** Opaque grouping key (evaluation task id). Never interpreted. */
 	label: z.string().max(200).nullable(),
+	/**
+	 * Procedural lessons the host chose from earlier pursuits (cue → operation),
+	 * shown when planning and forming hypotheses (spec/lessons-design.md).
+	 */
+	experience: z.array(z.string().min(1).max(300)).max(5).optional(),
 });
 export type StartInput = z.infer<typeof startInputSchema>;
 

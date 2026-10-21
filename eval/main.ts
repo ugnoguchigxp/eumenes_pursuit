@@ -72,6 +72,8 @@ const { values, positionals } = parseArgs({
 		prediction: { type: "string", default: "status" },
 		/** Before stepping back: off, or acceptance (re-read and judge each criterion). */
 		"completion-check": { type: "string", default: "off" },
+		/** Procedural lessons file from eval/reflect.ts, given as StartInput.experience. */
+		lessons: { type: "string" },
 		/** Group E: add the in-loop referee tool review_draft. */
 		critic: { type: "boolean", default: false },
 	},
@@ -152,6 +154,26 @@ if (!["status", "falsifiable"].includes(prediction))
 const completionCheck = values["completion-check"] as "off" | "acceptance";
 if (!["off", "acceptance"].includes(completionCheck))
 	throw new Error("--completion-check must be off or acceptance");
+/** The kept lessons, as "cue → operation" lines (spec/lessons-design.md). */
+const lessonsFile = values.lessons
+	? (JSON.parse(readFileSync(values.lessons, "utf8")) as {
+			task: string;
+			merged?: { cue: string; operation: string }[];
+		})
+	: null;
+if (lessonsFile && !lessonsFile.merged)
+	throw new Error("--lessons file has no merged lessons");
+// Lessons are measured on held-out tasks only, never on the task they came from.
+if (lessonsFile && values.tasks?.split(",").includes(lessonsFile.task))
+	throw new Error(
+		`--lessons comes from ${lessonsFile.task}; use held-out tasks`,
+	);
+const experience = lessonsFile
+	? lessonsFile
+			.merged!.map((l) => `${l.cue} → ${l.operation}`)
+			.slice(0, 5)
+			.map((line) => line.slice(0, 300))
+	: [];
 const policy = policySchema.parse(
 	JSON.parse(readFileSync(values.policy!, "utf8")),
 );
@@ -165,6 +187,12 @@ const variant = [
 	verifyOn === "attempt" ? "" : `/V-${verifyOn}`,
 	prediction === "status" ? "" : `/R-${prediction}`,
 	completionCheck === "off" ? "" : `/A-${completionCheck}`,
+	values.lessons
+		? `/L-${values.lessons
+				.split("/")
+				.at(-1)!
+				.replace(/\.json$/, "")}`
+		: "",
 ].join("");
 const secrets = secretValues(process.env);
 const token = process.env.LARM_API_TOKEN;
@@ -256,6 +284,7 @@ async function runOne(job: (typeof jobs)[number]) {
 				}),
 				goalRef: null,
 				label: task.id,
+				...(experience.length ? { experience } : {}),
 			},
 			// Every execution is a new pursuit; a rerun never resumes an old ledger entry.
 			`${values.name}:${label}:${crypto.randomUUID()}`,
