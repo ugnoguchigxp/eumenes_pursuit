@@ -27,6 +27,7 @@ import {
 } from "../src/index.ts";
 import { migrations } from "../src/sqlite.ts";
 import { createClaudeLlm } from "../standalone/claude.ts";
+import { createFileLlm } from "../standalone/file-llm.ts";
 import { openDecisionLease } from "../standalone/larm/connection.ts";
 import { serialJudge } from "../standalone/larm/serial.ts";
 import { openSettings } from "../standalone/settings.ts";
@@ -76,6 +77,14 @@ const { values, positionals } = parseArgs({
 		lessons: { type: "string" },
 		/** Group E: add the in-loop referee tool review_draft. */
 		critic: { type: "boolean", default: false },
+		/** LLM port: claude (API) or file (an outside responder answers request files). */
+		llm: { type: "string", default: "claude" },
+		/** Directory for --llm file (requests/ and responses/). */
+		"llm-dir": { type: "string", default: "/workspace/pursuit_llm" },
+		/** Grader port for proofs: claude (settings llm.grader), file (a separate responder), or none. */
+		"grader-llm": { type: "string" },
+		/** Directory for --grader-llm file; must differ from --llm-dir (a different responder). */
+		"grader-dir": { type: "string", default: "/workspace/pursuit_grader" },
 	},
 });
 const command = positionals[0];
@@ -128,10 +137,34 @@ const pricing = settings.require("spend.pricing");
 const generatorRole = settings.require(
 	values.generator === "strong" ? "llm.strong" : "llm.generator",
 );
-const generator = createClaudeLlm(generatorRole, meter);
-const reviewer = createClaudeLlm(settings.require("llm.reviewer"), meter);
+const useFile = values.llm === "file";
+if (!["claude", "file"].includes(values.llm!))
+	throw new Error("--llm must be claude or file");
+const fileLlm = (role: string) =>
+	createFileLlm({ dir: values["llm-dir"]!, role });
+const generator = useFile
+	? fileLlm(values.generator!)
+	: createClaudeLlm(generatorRole, meter);
+const reviewer = useFile
+	? fileLlm("reviewer")
+	: createClaudeLlm(settings.require("llm.reviewer"), meter);
 const graderRole = settings.get("llm.grader");
-const grader = graderRole ? createClaudeLlm(graderRole, meter) : null;
+// Default: claude when --llm claude; none when --llm file (the generator's responder must not grade itself).
+const graderMode = values["grader-llm"] ?? (useFile ? "none" : "claude");
+if (!["claude", "file", "none"].includes(graderMode))
+	throw new Error("--grader-llm must be claude, file or none");
+if (
+	graderMode === "file" &&
+	useFile &&
+	resolve(values["grader-dir"]!) === resolve(values["llm-dir"]!)
+)
+	throw new Error("--grader-dir must differ from --llm-dir");
+const grader =
+	graderMode === "file"
+		? createFileLlm({ dir: values["grader-dir"]!, role: "grader" })
+		: graderMode === "claude" && graderRole
+			? createClaudeLlm(graderRole, meter)
+			: null;
 const toolTier = Number(values.tools) as ToolTier;
 if (![0, 1, 2, 3].includes(toolTier))
 	throw new Error("--tools must be 0, 1, 2 or 3");
@@ -187,6 +220,8 @@ const variant = [
 	verifyOn === "attempt" ? "" : `/V-${verifyOn}`,
 	prediction === "status" ? "" : `/R-${prediction}`,
 	completionCheck === "off" ? "" : `/A-${completionCheck}`,
+	useFile ? "/LLM-file" : "",
+	graderMode === "file" ? "/G-file" : "",
 	values.lessons
 		? `/L-${values.lessons
 				.split("/")
@@ -195,15 +230,20 @@ const variant = [
 		: "",
 ].join("");
 const secrets = secretValues(process.env);
+const conditionNames = values.conditions!.split(",") as ConditionName[];
+// E0/E1 never ask the judge, so they run without LARM.
+const needsJudge = conditionNames.some((c) => !["E0", "E1"].includes(c));
 const token = process.env.LARM_API_TOKEN;
-if (!token) throw new Error("LARM_API_TOKEN is required");
-const lease = openDecisionLease({
-	origin: settings.require("larm.controlOrigin"),
-	token,
-	selector: settings.require("larm.decisionProfile"),
-	audience: settings.require("larm.audience"),
-	clientId: settings.require("larm.clientId"),
-});
+if (needsJudge && !token) throw new Error("LARM_API_TOKEN is required");
+const lease = needsJudge
+	? openDecisionLease({
+			origin: settings.require("larm.controlOrigin"),
+			token: token!,
+			selector: settings.require("larm.decisionProfile"),
+			audience: settings.require("larm.audience"),
+			clientId: settings.require("larm.clientId"),
+		})
+	: null;
 const store = openStore(resolve(root, "ledger.sqlite"), migrations);
 let sequence = 0;
 const engine = createPursuitEngine({
@@ -215,12 +255,13 @@ const engine = createPursuitEngine({
 	},
 	generator,
 	reviewer,
-	judge: serialJudge(lease.judge, { retries: 6, baseDelayMs: 150 }),
+	judge: lease
+		? serialJudge(lease.judge, { retries: 6, baseDelayMs: 150 })
+		: null,
 	onWarning: (code, detail) =>
 		console.warn(`[warn] ${code}`, JSON.stringify(detail)),
 });
 
-const conditionNames = values.conditions!.split(",") as ConditionName[];
 const adapter = values.adapter
 	? {
 			id: values.adapter.split("@")[0]!,
@@ -370,7 +411,7 @@ try {
 		),
 	);
 } finally {
-	await lease.release();
+	await lease?.release();
 	store.close();
 	console.log(`spent so far $${meter.spentUsd().toFixed(3)}`);
 	settings.close();
