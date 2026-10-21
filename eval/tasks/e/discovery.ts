@@ -85,6 +85,31 @@ export const discoverySecretSchema = z.discriminatedUnion("kind", [
 		/** Expected answer when it is a single value. */
 		answer: z.string().optional(),
 	}),
+	/** Environment tasks (env.ts): hidden cases run host-side after the run; files under `<secretDir>/<id>/`. */
+	z.strictObject({
+		id: z.string(),
+		kind: z.literal("env"),
+		cases: z
+			.array(
+				z.strictObject({
+					name: z.string().regex(/^[a-z0-9-]+$/),
+					/** bash command line run in a fresh copy of work (cwd /work). */
+					command: z.string().min(1),
+					/** File piped to stdin. */
+					stdin: z.string().optional(),
+					/** Files or directories mounted read-only at /case/<path>. */
+					files: z.array(z.string()).optional(),
+					/** Expected stdout (compared line by line, trailing spaces ignored). */
+					expected: z.string(),
+					timeoutMs: z.number().int().positive(),
+					/** One run per seed (PYTHONHASHSEED); one run without when absent. */
+					seeds: z.array(z.number().int().nonnegative()).optional(),
+				}),
+			)
+			.min(1),
+		/** Host-side device answering the probe tool (python3, stdin → stdout). */
+		oracle: z.string().optional(),
+	}),
 ]);
 export type DiscoverySecret = z.infer<typeof discoverySecretSchema>;
 
