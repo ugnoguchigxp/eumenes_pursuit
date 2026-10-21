@@ -109,12 +109,36 @@ function readRecords(): RunRecord[] {
 	return [...latest.values()];
 }
 
+/** What actually answered: from the recorded variants and conditions, not from this invocation's flags. */
+function describeLive(records: RunRecord[]): string {
+	const llm = new Set(
+		records.map((r) =>
+			r.generator.includes("/LLM-file") ? "ファイル経由の応答者" : "Claude API",
+		),
+	);
+	const graders = new Set(
+		records.flatMap((r) =>
+			r.generator.includes("/G-file") ? ["採点はファイル経由"] : [],
+		),
+	);
+	const judged = records.some(
+		(r) => !["E0", "E1", "E1R"].includes(r.condition),
+	);
+	const conditions = [...new Set(records.map((r) => r.condition))].join("・");
+	return [
+		`LLM: ${[...llm].join("・") || "-"}`,
+		...graders,
+		judged ? "本番 LARM d1" : "判定層なし",
+		`条件 ${conditions || "-"}`,
+	].join("・");
+}
+
 function writeSummary() {
 	const records = readRecords();
 	const text = [
 		`# ${values.name}`,
 		"",
-		`記録: ${records.length} 追求。fixture ではなく live（Claude API・本番 LARM d1・実道具）。`,
+		`記録: ${records.length} 追求。fixture ではなく live（${describeLive(records)}・実道具）。`,
 		"",
 		summarize(records),
 		"",

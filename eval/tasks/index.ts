@@ -12,7 +12,7 @@ import { businessDays } from "./d/business-days.ts";
 import { parseDurationTask } from "./d/parse-duration.ts";
 import { slugifyTask } from "./d/slugify.ts";
 import { splitBill } from "./d/split-bill.ts";
-import { horizonTasks } from "./e/horizon-problems.ts";
+import { horizon2Tasks, horizonTasks } from "./e/horizon-problems.ts";
 import { reasoningTasks } from "./e/problems.ts";
 
 export const tasks: readonly EvalTask[] = [
@@ -31,4 +31,5 @@ export const tasks: readonly EvalTask[] = [
 	slugifyTask,
 	...reasoningTasks,
 	...horizonTasks,
+	...horizon2Tasks,
 ];

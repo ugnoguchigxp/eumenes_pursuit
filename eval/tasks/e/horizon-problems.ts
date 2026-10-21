@@ -69,3 +69,72 @@ export const horizonTasks: readonly EvalTask[] = [
 		],
 	}),
 ];
+
+/**
+ * horizon-2 tasks: weight-5 sums (nonlinear, mixed parity, alternating, at 1/2) whose
+ * closed forms are not textbook entries, so they have to be derived. Each value was
+ * fitted by PSLQ at 110 digits in the 8-element weight-5 basis (zeta(5), pi^2 zeta(3),
+ * pi^4 log 2, zeta(3) log^2 2, pi^2 log^3 2, log^5 2, Li4(1/2) log 2, Li5(1/2)) and
+ * confirmed at 190 digits, and by an independent series where one converges fast.
+ */
+export const horizon2Tasks: readonly EvalTask[] = [
+	defineReasoningTask({
+		id: "hz2-odd-harmonic-sq-3",
+		domain: "math",
+		level: 4,
+		title: "調和数の 2 乗と奇数の分母",
+		statement: `H_n = 1 + 1/2 + … + 1/n（H_0 = 0）とする。級数 Σ_{n=0}^∞ H_n^2 / (2n+1)^3 の値を閉じた式で求めよ。${names}`,
+		document: false,
+		numericChecks: false,
+		answer:
+			"31*zeta(5)/8 - 7*pi^2*zeta(3)/48 - pi^4*log(2)/16 + 7*zeta(3)*log(2)^2/2",
+		traps: [
+			"H_n^2 を H_n^{(2)} と取り違える",
+			"Σ H_n/(2n+1)^4 など隣の値の係数を流用する",
+		],
+	}),
+	defineReasoningTask({
+		id: "hz2-alt-harmonic2-3",
+		domain: "math",
+		level: 4,
+		title: "2 次の調和数の交代級数",
+		statement: `H_n^{(2)} = 1 + 1/2^2 + … + 1/n^2 とする。級数 Σ_{n=1}^∞ (−1)^{n+1} H_n^{(2)} / n^3 の値を閉じた式で求めよ。${names}`,
+		document: false,
+		numericChecks: false,
+		answer: "5*pi^2*zeta(3)/48 - 11*zeta(5)/32",
+		traps: [
+			"よく知られた Σ (−1)^{n+1} H_n/n^4 の値と取り違える",
+			"交代でない Σ H_n^{(2)}/n^3 の値の符号だけ変えて流用する",
+		],
+	}),
+	defineReasoningTask({
+		id: "hz2-alt-harmonic-sq-3",
+		domain: "math",
+		level: 4,
+		title: "調和数の 2 乗の交代級数（重さ 5）",
+		statement: `H_n = 1 + 1/2 + … + 1/n とする。級数 Σ_{n=1}^∞ (−1)^{n+1} H_n^2 / n^3 の値を閉じた式で求めよ。${names}`,
+		document: false,
+		numericChecks: false,
+		answer:
+			"-19*zeta(5)/32 - 11*pi^2*zeta(3)/48 + 7*zeta(3)*log(2)^2/4 - pi^2*log(2)^3/9 + 2*log(2)^5/15 + 4*polylog(4, 1/2)*log(2) + 4*polylog(5, 1/2)",
+		traps: [
+			"多重対数の項（1/2 での値）を落とす",
+			"重さ 4 の Σ (−1)^{n+1} H_n^2/n^2 の形をそのまま延長する",
+		],
+	}),
+	defineReasoningTask({
+		id: "hz2-harmonic-half-4",
+		domain: "math",
+		level: 4,
+		title: "調和数と 2 の冪の級数（重さ 5）",
+		statement: `H_n = 1 + 1/2 + … + 1/n とする。級数 Σ_{n=1}^∞ H_n / (n^4 2^n) の値を閉じた式で求めよ。${names}`,
+		document: false,
+		numericChecks: false,
+		answer:
+			"zeta(5)/32 - pi^2*zeta(3)/12 - pi^4*log(2)/720 + zeta(3)*log(2)^2/2 - pi^2*log(2)^3/36 + log(2)^5/40 + polylog(4, 1/2)*log(2) + 2*polylog(5, 1/2)",
+		traps: [
+			"重さ 4 の Σ H_n/(n^3 2^n) の形をそのまま延長する",
+			"polylog(5, 1/2) の係数の取り違え",
+		],
+	}),
+];
