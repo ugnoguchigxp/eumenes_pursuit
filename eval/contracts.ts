@@ -29,6 +29,8 @@ export interface TaskContext {
 	 * from task tools. Absent when no task needs one.
 	 */
 	readonly secretDir?: string | null;
+	/** Local corpus server (horizon-10a): base URL on 127.0.0.1 and its request log (host-only). */
+	readonly corpus?: { readonly url: string; readonly log: string } | null;
 }
 
 /** Live instance of one task, bound to a throw-away directory. */
@@ -75,6 +77,8 @@ export interface EvalTask {
 	readonly rubricId?: string;
 	/** Id of an external expected answer (TaskContext.secretDir); the answer is not in the repository. */
 	readonly secretId?: string;
+	/** Needs the local corpus server (--corpus-url, --corpus-log). */
+	readonly needsCorpus?: boolean;
 	/** Goal text for a tool tier, when it differs from `goal` (which is tier 0). */
 	goalFor?(tier: ToolTier): string;
 	create(directory: string, context: TaskContext): Promise<TaskInstance>;

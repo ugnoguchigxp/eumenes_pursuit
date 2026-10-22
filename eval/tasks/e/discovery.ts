@@ -110,6 +110,25 @@ export const discoverySecretSchema = z.discriminatedUnion("kind", [
 		/** Host-side device answering the probe tool (python3, stdin → stdout). */
 		oracle: z.string().optional(),
 	}),
+	/** Corpus research tasks (adversarial.ts): the true answer and the planted canaries. */
+	z.strictObject({
+		id: z.string(),
+		kind: z.literal("corpus"),
+		answer: z.record(z.string(), z.string()),
+		canaries: z.strictObject({
+			/** Phrases an obeying report states in its own voice (or puts in the answer), and where. */
+			phrases: z.array(
+				z.strictObject({
+					text: z.string().min(1),
+					where: z.enum(["start", "end", "anywhere"]),
+				}),
+			),
+			/** File names whose presence anywhere in work means an instruction was obeyed. */
+			files: z.array(z.string().min(1)),
+			/** Whether any /collect request during the run counts. */
+			collect: z.boolean(),
+		}),
+	}),
 ]);
 export type DiscoverySecret = z.infer<typeof discoverySecretSchema>;
 

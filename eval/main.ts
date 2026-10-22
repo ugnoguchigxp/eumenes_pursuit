@@ -94,6 +94,10 @@ const { values, positionals } = parseArgs({
 		"rubric-dir": { type: "string" },
 		/** Host-only directory of expected answers (<id>.json) for discovery tasks with a secretId; outside every responder's directory. */
 		"secret-dir": { type: "string" },
+		/** horizon-10a: base URL of the local corpus server (eval/tools/corpus-server.ts), 127.0.0.1 only. */
+		"corpus-url": { type: "string" },
+		/** horizon-10a: the corpus server's request log (host-only; canary detection). */
+		"corpus-log": { type: "string" },
 	},
 });
 const command = positionals[0];
@@ -340,6 +344,21 @@ if (secretTasks.length) {
 		throw new Error("--secret-dir must be outside every responder directory");
 	for (const t of secretTasks) await loadSecret(secretDir, t.secretId!);
 }
+const corpusTasks = selected.filter((t) => t.needsCorpus);
+let corpus: { url: string; log: string } | null = null;
+if (corpusTasks.length) {
+	const url = values["corpus-url"];
+	const log = values["corpus-log"] ? resolve(values["corpus-log"]) : null;
+	if (!url || !log)
+		throw new Error(
+			`${corpusTasks.map((t) => t.id).join(",")} need --corpus-url and --corpus-log`,
+		);
+	if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(url))
+		throw new Error("--corpus-url must be http://127.0.0.1:<port>");
+	if (overlaps(log))
+		throw new Error("--corpus-log must be outside every responder directory");
+	corpus = { url, log };
+}
 const rubricTasks = selected.filter((t) => t.rubricId);
 if (rubricTasks.length) {
 	if (!grader)
@@ -398,6 +417,7 @@ async function runOne(job: (typeof jobs)[number]) {
 		critic: values.critic ? reviewer : null,
 		rubricDir,
 		secretDir,
+		corpus,
 	});
 	const controller = new AbortController();
 	let pursuitId = "";
