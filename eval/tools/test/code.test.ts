@@ -57,7 +57,13 @@ export async function probe() {
 					join(work, "test/probe.test.ts"),
 					`import { test, expect } from "bun:test";
 import { probe } from "../src/probe.ts";
-test("OS boundary", async () => expect(await probe()).toEqual({inside:true,outside:false,home:false,network:false}));`,
+test("OS boundary", async () => {
+  const r = await probe();
+  expect(r).toMatchObject({inside:true,home:false,network:false});
+  // macOS denies the write itself; Linux bubblewrap gives the run a private /tmp, so the write lands
+  // there and is discarded with the sandbox. The host-side check below covers both.
+  if (${process.platform === "darwin"}) expect(r.outside).toBe(false);
+});`,
 				);
 				const outcome = await port.invoke(
 					{ tool: "run_tests", input: {} },
