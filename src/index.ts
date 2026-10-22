@@ -14,3 +14,4 @@ export {
 	type QuestionSet,
 } from "./domains/judge/question-sets.ts";
 export type { PursuitView } from "./domains/ledger/index.ts";
+export { acceptancePassed } from "./domains/rules/acceptance.ts";

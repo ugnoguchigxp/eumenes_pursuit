@@ -1,3 +1,5 @@
+import { acceptancePassed } from "../acceptance.ts";
+import { acceptancePassed as publicAcceptancePassed } from "../../../index.ts";
 import { describe, expect, test } from "bun:test";
 import type { ToolDescriptor } from "../../../contracts/index.ts";
 import type { AttemptRow, PursuitView } from "../../ledger/types.ts";
@@ -462,4 +464,25 @@ test("consultation waits pause wall time and resume with remaining active budget
 		],
 	};
 	expect(remainingWallMs(answered, 1000 + budget * 2 + 100)).toBe(budget - 200);
+});
+
+describe("acceptancePassed (spec/fixes-2026-10-22.md §g)", () => {
+	const frozen = [{ id: "A1" }, { id: "A2" }];
+	const r = (id: string, passed = true) => ({ id, passed, evidence: "" });
+	test("exactly the frozen criteria, once each, in any order, all passed", () => {
+		expect(acceptancePassed(frozen, [r("A2"), r("A1")])).toBe(true);
+	});
+	test("a failed, missing, extra, duplicated or unknown criterion does not pass", () => {
+		expect(acceptancePassed(frozen, [r("A1"), r("A2", false)])).toBe(false);
+		expect(acceptancePassed(frozen, [r("A1")])).toBe(false);
+		expect(acceptancePassed(frozen, [r("A1"), r("A2"), r("A3")])).toBe(false);
+		expect(acceptancePassed(frozen, [r("A1"), r("A1")])).toBe(false);
+		expect(acceptancePassed(frozen, [r("A1"), r("B2")])).toBe(false);
+	});
+	test("empty acceptance never passes", () => {
+		expect(acceptancePassed([], [])).toBe(false);
+	});
+	test("the public entry point exports it", () => {
+		expect(publicAcceptancePassed).toBe(acceptancePassed);
+	});
 });

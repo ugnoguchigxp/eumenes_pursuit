@@ -59,6 +59,7 @@ import type {
 	PursuitView,
 	Rejection,
 } from "../ledger/types.ts";
+import { acceptancePassed } from "../rules/acceptance.ts";
 import {
 	attemptOutcome,
 	attemptsOf,
@@ -164,20 +165,6 @@ const budgetReasons = {
 } as const;
 
 const noChanges = { filesTouched: [], linesChanged: 0, protectedTouched: [] };
-
-/** Verification must cover exactly the frozen criteria, once each, in any order. */
-function acceptancePassed(
-	view: PursuitView,
-	criteria: readonly CriterionResult[],
-): boolean {
-	const expected = new Set(view.acceptance.map((c) => c.id));
-	return (
-		expected.size > 0 &&
-		criteria.length === expected.size &&
-		new Set(criteria.map((c) => c.id)).size === expected.size &&
-		criteria.every((c) => expected.has(c.id) && c.passed)
-	);
-}
 
 const reviewKinds: Readonly<Record<Review["decision"], DecisionKind>> = {
 	continue_strategy: "change_hypothesis",
@@ -452,7 +439,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			? []
 			: (known ?? (await runtime.acceptance.verify(signal)));
 		if (!deferred) checkTime(view, signal);
-		const verified = acceptancePassed(view, criteria);
+		const verified = acceptancePassed(view.acceptance, criteria);
 		const refs = new Map<string, ArtifactRef>();
 		for (const a of view.attempts) for (const r of a.refs) refs.set(r.uri, r);
 		const report: Report = {
@@ -557,7 +544,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			finalReport = {
 				...report,
 				criteria: finalCriteria,
-				verified: acceptancePassed(view, finalCriteria),
+				verified: acceptancePassed(view.acceptance, finalCriteria),
 			};
 		} catch {
 			const issue = signal.aborted ? "aborted" : "failed";
@@ -991,7 +978,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				checkTime(view, signal);
 				const criteria = await runtime.acceptance.verify(signal);
 				checkTime(view, signal);
-				const passed = acceptancePassed(view, criteria);
+				const passed = acceptancePassed(view.acceptance, criteria);
 				const verificationId = ids.next("ver");
 				await store.write((db) => {
 					ledger.insertVerification(db, {
@@ -1424,7 +1411,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						row: {
 							attemptId,
 							trigger: "attempt",
-							passed: acceptancePassed(current, criteria),
+							passed: acceptancePassed(current.acceptance, criteria),
 							criteria,
 						},
 						now: clock.now(),
