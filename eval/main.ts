@@ -512,6 +512,21 @@ if (
 	throw new Error(
 		"--private-data-version is required for private datasets/corpus; change it when contents change",
 	);
+/** One flag set for both the pursuit's conditions and its configId, so the two cannot drift apart. */
+const conditionFlags: Parameters<typeof conditionsFor>[1] = {
+	adapter,
+	language,
+	findings,
+	strategyChange,
+	selfCheck,
+	verifyOn,
+	prediction,
+	completionCheck,
+	claimFeedback,
+	attemptCount,
+	rollback,
+	verdictLabel,
+};
 const sourceId = sourceIdentity(resolve(import.meta.dir, ".."));
 const effectiveConfigs = new Map<
 	ConditionName,
@@ -561,20 +576,10 @@ for (const condition of conditionNames) {
 			// D0 ignores every pursuit-structure flag; its identity names only what applies to it.
 			conditions: (condition === "D0"
 				? { direct: true, claimFeedback, fullEntries: directFull }
-				: conditionsFor(condition, {
-						adapter,
-						language,
-						findings,
-						strategyChange,
-						selfCheck,
-						verifyOn,
-						prediction,
-						completionCheck,
-						claimFeedback,
-						attemptCount,
-						rollback,
-						verdictLabel,
-					})) as unknown as import("../src/index.ts").JsonValue,
+				: conditionsFor(
+						condition,
+						conditionFlags,
+					)) as unknown as import("../src/index.ts").JsonValue,
 			toolTier,
 			critic: values.critic!,
 			maxSteps: Number(values["max-steps"]),
@@ -773,20 +778,7 @@ async function runOne(job: (typeof jobs)[number]) {
 				acceptance: task.acceptance,
 				grant: task.grant,
 				policy,
-				conditions: conditionsFor(condition, {
-					adapter,
-					language,
-					findings,
-					strategyChange,
-					selfCheck,
-					verifyOn,
-					prediction,
-					completionCheck,
-					rollback,
-					verdictLabel,
-					claimFeedback,
-					attemptCount,
-				}),
+				conditions: conditionsFor(condition, conditionFlags),
 				goalRef: null,
 				label: task.id,
 				...(experience.length ? { experience } : {}),
