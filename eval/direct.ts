@@ -18,6 +18,7 @@ import {
 	type JsonObject,
 	type JsonValue,
 	type LlmPort,
+	observationText,
 	type ToolDescriptor,
 	type ToolOutcome,
 	type ToolPort,
@@ -125,18 +126,34 @@ function toolsBlock(
 		.join("\n");
 }
 
+/** Observation limits, as the pursuit's policy.observation (spec/fixes-2026-10-22.md §f). */
+export interface DirectObservation {
+	readonly latestChars: number;
+	readonly olderChars: number;
+}
+
 /**
- * One history line. Per entry, the same clipping as the pursuit's current-hypothesis view
- * (input 600, observation 1800 characters); entries older than `full` are one-line summaries.
+ * One history line. Per entry, the same clipping as the pursuit's proposal view (input 600; the
+ * latest tool observation up to latestChars, older ones olderChars, with the same notice on how to
+ * read the rest); entries older than `full` are one-line summaries.
  */
-function entryLine(e: DirectEntry, full: boolean): string {
+function entryLine(
+	e: DirectEntry,
+	full: boolean,
+	observed: number,
+	tools: readonly ToolDescriptor[],
+): string {
 	if (e.kind === "claim") return `#${e.n} 完了の申告 → ${e.verdict}`;
 	if (e.kind === "invalid") return `#${e.n} 無効な応答: ${e.message}`;
 	if (e.kind === "give_up") return `#${e.n} 断念: ${e.message}`;
 	const head = `#${e.n} ${e.tool} ${show(e.input, full ? 600 : 160)}`;
 	const status = `${e.status}${e.errorCode ? `(${e.errorCode})` : ""}`;
 	return full
-		? `${head}\n  観測: ${status} ${show(e.output, 1800)}`
+		? `${head}\n  観測: ${status} ${observationText(
+				e.output ?? null,
+				observed,
+				tools.find((t) => t.name === e.tool),
+			)}`
 		: `${head} → ${status}`;
 }
 
@@ -149,9 +166,12 @@ export function directRequest(input: {
 	budget: DirectBudget;
 	toolCalls: number;
 	full: number;
+	observation?: DirectObservation;
 }) {
 	const { entries } = input;
 	const cut = Math.max(0, entries.length - input.full);
+	const limits = input.observation ?? { latestChars: 8000, olderChars: 1800 };
+	const latestTool = entries.map((e) => e.kind).lastIndexOf("tool");
 	const lastClaim = [...entries].reverse().find((e) => e.kind === "claim");
 	return {
 		purpose: "direct" as const,
@@ -169,7 +189,14 @@ export function directRequest(input: {
 			entries.length
 				? [
 						`## これまでの行動（${entries.length} 件。古い ${cut} 件は要約）`,
-						...entries.map((e, i) => entryLine(e, i >= cut)),
+						...entries.map((e, i) =>
+							entryLine(
+								e,
+								i >= cut,
+								i === latestTool ? limits.latestChars : limits.olderChars,
+								input.tools,
+							),
+						),
 					].join("\n")
 				: "## これまでの行動\nまだありません。",
 			lastClaim && !lastClaim.passed
@@ -202,6 +229,8 @@ export async function runDirect(options: {
 	readonly signal: AbortSignal;
 	/** Entries shown in full; older ones are summarized (default 40). */
 	readonly fullEntries?: number;
+	/** Observation limits (default the policy default: latest 8000, older 1800 characters). */
+	readonly observation?: DirectObservation;
 	readonly now?: () => number;
 	/** Called after every entry (transcript persistence). */
 	readonly onEntry?: (entry: DirectEntry) => void;
@@ -277,6 +306,7 @@ export async function runDirect(options: {
 					budget: options.budget,
 					toolCalls,
 					full: options.fullEntries ?? 40,
+					...(options.observation ? { observation: options.observation } : {}),
 				}),
 				options.signal,
 			);

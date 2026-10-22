@@ -740,6 +740,7 @@ async function runOne(job: (typeof jobs)[number]) {
 					),
 				},
 				fullEntries: directFull,
+				observation: policy.observation,
 				signal: controller.signal,
 				onEntry: (entry: DirectEntry) =>
 					appendFileSync(transcript, `${JSON.stringify(entry)}\n`),

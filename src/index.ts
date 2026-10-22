@@ -15,4 +15,7 @@ export {
 } from "./domains/judge/question-sets.ts";
 export type { PursuitView } from "./domains/ledger/index.ts";
 export { acceptancePassed } from "./domains/rules/acceptance.ts";
-export { claimVerdictText } from "./domains/generation/prompts.ts";
+export {
+	claimVerdictText,
+	observationText,
+} from "./domains/generation/prompts.ts";

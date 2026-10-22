@@ -215,9 +215,9 @@ function pages(tool: ToolDescriptor | undefined): boolean {
 /**
  * An observation clipped to `limit` characters of its JSON text, saying how long it was and how
  * to read the rest (spec/fixes-2026-10-22.md §f). Clipping is only in this prompt; the ledger
- * keeps the whole observation.
+ * keeps the whole observation. The direct baseline (eval/direct.ts) uses the same words.
  */
-function observationText(
+export function observationText(
 	output: JsonValue,
 	limit: number,
 	tool: ToolDescriptor | undefined,

@@ -122,10 +122,9 @@ describe("direct baseline (D0)", () => {
 			expect(prompts[1]).toContain(word);
 		for (const word of ["仮説", "方針", "予測", "知見", "振り返"])
 			expect(prompts.join("\n")).not.toContain(word);
-		// Same per-entry clipping as the pursuit's current-hypothesis view (1800 characters).
-		expect(prompts[1]).toContain(
-			"…［この一覧での表示はここまで。実物は省略されていない］",
-		);
+		// The latest observation is shown up to 8000 characters, as in the pursuit's proposal view.
+		expect(prompts[1]).toContain(`{"text":"${"x".repeat(5000)}"}`);
+		expect(prompts[1]).not.toContain("観測は全");
 		// The final check runs at the end, as in the pursuit's finish().
 		expect(env.counts().verifies).toBe(1);
 	});
@@ -324,5 +323,35 @@ describe("direct baseline (D0)", () => {
 		expect(r.failedClaims).toBe(1);
 		expect(r.outcome).toBe("incomplete");
 		expect(r.verified).toBe(false);
+	});
+
+	test("observations: the latest up to 8000 characters, older 1800, with the pursuit's notice (spec/fixes-2026-10-22.md §f)", async () => {
+		const env = setup(99);
+		const { llm, prompts } = scripted([
+			use("read"),
+			use("read"),
+			step("give_up"),
+		]);
+		await runDirect({ ...base, ...env, llm, budget });
+		// Each observation is {"text":"x"×5000} = 5011 characters of JSON.
+		const p = prompts[2]!;
+		expect(p).toContain("観測は全 5011 字のうち先頭 1800 字だけ表示");
+		expect(p).not.toContain("観測は全 5011 字のうち先頭 8000");
+		const runs = p.match(/x+/g)!.map((m) => m.length);
+		expect(Math.max(...runs)).toBe(5000);
+		const small = scripted([use("read"), use("read"), step("give_up")]);
+		await runDirect({
+			...base,
+			...setup(99),
+			llm: small.llm,
+			budget,
+			observation: { latestChars: 100, olderChars: 50 },
+		});
+		expect(small.prompts[2]).toContain(
+			"観測は全 5011 字のうち先頭 50 字だけ表示",
+		);
+		expect(small.prompts[2]).toContain(
+			"観測は全 5011 字のうち先頭 100 字だけ表示",
+		);
 	});
 });
