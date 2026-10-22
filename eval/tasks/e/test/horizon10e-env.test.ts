@@ -255,7 +255,7 @@ describe("horizon-10e tasks", () => {
 				for (let i = 0; i < 39; i++) await t.invoke("probe", { inputs: "a" });
 				expect((await t.invoke("probe", { inputs: "a" })).status).toBe("error");
 				const visible = await t.invoke("run", {
-					command: "ls -R / 2>/dev/null | grep -c dev.py || true",
+					command: "ls -R / 2>/dev/null | grep -cx dev.py || true",
 				});
 				expect(JSON.stringify(visible.output)).toContain('"stdout":"0');
 			} finally {
