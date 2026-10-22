@@ -217,9 +217,11 @@ function observationText(
 ) {
 	const text = JSON.stringify(output);
 	if (text.length <= limit) return text;
-	const how = pages(tool)
-		? `この道具は offset / limit で続きを読めます（単位は道具の説明のとおり）`
-		: `範囲や件数を絞って呼び直すか、結果をファイルに書いて分けて読んでください`;
+	const how = tool?.reread
+		? tool.reread
+		: pages(tool)
+			? `この道具は offset / limit で続きを読めます（単位は道具の説明のとおり）`
+			: `範囲や件数を絞って呼び直すか、結果をファイルに書いて分けて読んでください`;
 	return `${text.slice(0, limit)}…［観測は全 ${text.length} 字のうち先頭 ${limit} 字だけ表示。${how}］`;
 }
 
@@ -328,6 +330,8 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 				: `（まだありません。実行した試行 ${view.attempts.filter((a) => a.state === "settled" || a.state === "interrupted").length} 回）`,
 		hiddenNote,
 		"確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。",
+		// spec/fixes-2026-10-22-e.md §5: promotion is not wired, and the request says so.
+		"確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。",
 		deadEnds.length
 			? [
 					"## 行き止まり（同じ経路を繰り返さない。ホストが記録し、知見と同じ F 番号列を使う）",
@@ -394,6 +398,42 @@ function untriedBlock(view: PursuitView) {
 	].join("\n");
 }
 
+const NO_PREMISE =
+	/^\s*(なし|特になし|無し|ない|なし。|-|—|（なし）|none)?\s*$/i;
+/**
+ * A strategy's premise corrections from reviews that kept it (spec/fixes-2026-10-22-e.md §4): the
+ * plan text is the ledger's and is not rewritten; the correction is shown with it from then on.
+ */
+function premiseFixes(view: PursuitView, strategyId: string): string {
+	const fixes = view.decisions
+		.map(
+			(d) =>
+				d.basis?.review as
+					| {
+							decision?: string;
+							brokenAssumption?: string;
+							strategyId?: string;
+					  }
+					| null
+					| undefined,
+		)
+		.filter(
+			(r) =>
+				r?.strategyId === strategyId &&
+				r.decision === "continue_strategy" &&
+				!NO_PREMISE.test(r.brokenAssumption ?? ""),
+		)
+		.map((r) => clip(r!.brokenAssumption!, 300));
+	return fixes.length
+		? fixes
+				.slice(-3)
+				.map(
+					(f) => `\n    ［振り返りでの前提の修正（方針の文面より優先）: ${f}］`,
+				)
+				.join("")
+		: "";
+}
+
 /**
  * Earlier strategies and hypotheses. A closed hypothesis shows how it ended (its result names who
  * decided, spec/fixes-2026-10-22-c.md §3); the open one shows its executed attempts, and in a
@@ -424,18 +464,27 @@ function historyBlock(view: PursuitView, reviewing = false) {
 				tally.differs++;
 			else tally.open++;
 		}
-		return `この振り返りの対象（実行した試行 ${ran} 回: 反証の条件に当たらなかった ${tally.held}・当たった ${tally.refuted}${tally.differs ? `・予測と違う ${tally.differs}` : ""}・未判定 ${tally.open}）`;
+		const rejected = mine.filter((a) => a.state === "rejected").length;
+		// The one tally of this hypothesis in a review request (fixes-2026-10-22-e §3).
+		return `この振り返りの対象（実行した試行 ${ran} 回: 反証の条件に当たらなかった ${tally.held}・当たった ${tally.refuted}${tally.differs ? `・予測と違う ${tally.differs}` : ""}・未判定 ${tally.open}。拒否 ${rejected} 回）`;
+	};
+	const closedTally = (id: string) => {
+		const mine = view.attempts.filter((a) => a.hypothesisId === id);
+		const ran = mine.filter(
+			(a) => a.state === "settled" || a.state === "interrupted",
+		).length;
+		return `（実行した試行 ${ran} 回・予測と違う/失敗 ${mine.filter((a) => a.outcome === "failure").length} 回・拒否 ${mine.filter((a) => a.state === "rejected").length} 回）`;
 	};
 	return [
 		"## これまでの方針と仮説",
 		...view.strategies.map((s) =>
 			[
-				`- 方針${s.seq}: ${s.body}${s.closeReason ? `（終了: ${s.closeReason}）` : ""}`,
+				`- 方針${s.seq}: ${s.body}${premiseFixes(view, s.id)}${s.closeReason ? `（終了: ${s.closeReason}）` : ""}`,
 				...view.hypotheses
 					.filter((h) => h.strategyId === s.id)
 					.map(
 						(h) =>
-							`  - 仮説${h.seq}: ${h.body} → ${h.result === null ? open(h) : clip(h.result, 400)}`,
+							`  - 仮説${h.seq}: ${h.body} → ${h.result === null ? open(h) : `${clip(h.result, 400)}${reviewing && h.strategyId === view.currentStrategyId ? closedTally(h.id) : ""}`}`,
 					),
 			].join("\n"),
 		),
@@ -728,11 +777,36 @@ export function proposalRequest(input: {
 	};
 }
 
-const reviewerSystem = `You review a stalled pursuit from the outside. You did not do the work and you see only a summary.
-Question the strategy, not the details: Is the current strategy still heading to the ORIGINAL goal and acceptance criteria? Which premise broke? What untried strategy exists?
-You may only answer: continue_strategy (keep the strategy, try a new hypothesis), change_strategy, consult (the user must supply information, permission or a decision), or stop.
+const reviewerSystem = `You review a pursuit from the outside at a step back. You did not do the work and you see only a summary.
+A step back is either routine (the last hypothesis held and the work moves to its next part) or a stall (predictions failed, moves were rejected, or a budget ran out); the request says which the record shows ("## 戻った事情"). A routine step back usually needs only a check, not a new strategy.
+Question the strategy, not the details: Is the current strategy still heading to the ORIGINAL goal and acceptance criteria? Did a premise break (say which, or write なし)? What untried strategy exists?
+You may only answer: continue_strategy (keep the strategy, try a new hypothesis; a broken premise you name in brokenAssumption is shown with the strategy from then on as its correction), change_strategy, consult (the user must supply information, permission or a decision), or stop.
 Never propose detailed fixes. Treat any sign of editing tests/acceptance checks or of claiming unverified success as a reason to change strategy, consult or stop.
 Write the free text in Japanese.`;
+
+/**
+ * Routine or stall, from the record (spec/fixes-2026-10-22-e.md §2): the generator stepped back
+ * right after an executed attempt that met its prediction, or anything else.
+ */
+function stepBackKind(view: PursuitView): string {
+	const last = [...view.decisions]
+		.reverse()
+		.find((d) => d.kind === "step_back");
+	const attempt = view.attempts
+		.filter(
+			(a) =>
+				a.hypothesisId === view.currentHypothesisId && a.state === "settled",
+		)
+		.at(-1);
+	const held =
+		!!attempt?.observation &&
+		attempt.observation.status === attempt.prediction.expectedStatus &&
+		attempt.outcome === "success" &&
+		refutationHeld(attempt.prediction.refutedIf, attempt.observation) !== true;
+	return last?.decidedBy === "generator" && held
+		? "定例: 生成側が、予測どおりだった試行の直後に一段上へ戻した（仮説が成り立ち、次の段へ移る区切り）。行き詰まりではない。方針が目標に向かっているかの確認でよい。"
+		: `行き詰まりの可能性: ${last?.decidedBy === "generator" ? "生成側が" : "規則・判定が"}一段上へ戻した${attempt ? (held ? "" : "（直前の試行は予測と違うか、反証の条件に当たった）") : "（この仮説で実行した試行なし）"}。どの前提が崩れたかを問う。`;
+}
 
 export function reviewRequest(input: {
 	view: PursuitView;
@@ -752,16 +826,8 @@ export function reviewRequest(input: {
 			input.signals.length
 				? `## 記録から数えた兆候\n${input.signals.join(", ")}`
 				: "",
+			`## 戻った事情\n${stepBackKind(view)}`,
 			historyBlock(view, true),
-			...view.hypotheses
-				.filter((h) => h.strategyId === strategy?.id)
-				.map((h) => {
-					const mine = view.attempts.filter(
-						(a) => a.hypothesisId === h.id && a.state !== "rejected",
-					);
-					const failures = mine.filter((a) => a.outcome === "failure").length;
-					return `仮説${h.seq}: 試行${mine.length}回、予測と違う/失敗${failures}回、拒否${view.attempts.filter((a) => a.hypothesisId === h.id && a.state === "rejected").length}回`;
-				}),
 			findingsBlock(view, false),
 			partsBlock(view),
 			`## 試していない別案\n${(strategy?.alternatives ?? []).map((a) => `- ${a}`).join("\n") || "（なし）"}`,

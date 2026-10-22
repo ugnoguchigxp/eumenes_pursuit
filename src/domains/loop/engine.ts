@@ -1773,6 +1773,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				? {
 						decision: reviewed.decision,
 						brokenAssumption: reviewed.brokenAssumption,
+						// Which strategy a continue_strategy correction belongs to (fixes-2026-10-22-e §4).
+						...(strategy ? { strategyId: strategy.id } : {}),
 					}
 				: null,
 			judge: fromJudge,

@@ -15,6 +15,12 @@ export interface ToolDescriptor {
 	readonly readsWorkspace?: boolean;
 	/** Returns the current deliverable itself, so calling it is a re-read (spec/completion-design.md). */
 	readonly readsBack?: boolean;
+	/**
+	 * How to read a clipped result of this tool again, when calling it again is not the way (e.g. a
+	 * budgeted probe whose results the host also keeps in a file). Shown in the clip notice
+	 * (spec/fixes-2026-10-22-e.md §8).
+	 */
+	readonly reread?: string;
 	/** Grant key the pursuit must hold to call this tool. */
 	readonly permission: string;
 	/** Input keys that define the attempt's conditions; absent = the whole input. */

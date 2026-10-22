@@ -105,8 +105,109 @@ describe("hz11h follow-ups in the engine (spec/fixes-2026-10-22-d.md §3)", () =
 			reason: "r",
 			signals: [],
 		}).prompt;
+		// hz11i: the tally was printed twice (fixes-2026-10-22-e §3).
+		expect(review).not.toMatch(/仮説1: 試行\d+回、予測と違う/);
+		expect(review).toContain("## 戻った事情\n行き詰まりの可能性");
 		expect(review).toContain(
-			"この振り返りの対象（実行した試行 3 回: 反証の条件に当たらなかった 1・当たった 1・未判定 1）",
+			"この振り返りの対象（実行した試行 3 回: 反証の条件に当たらなかった 1・当たった 1・未判定 1。拒否 0 回）",
 		);
+	});
+});
+
+describe("hz11i follow-ups (spec/fixes-2026-10-22-e.md)", () => {
+	const review = (over: Record<string, unknown> = {}) => ({
+		decision: "continue_strategy",
+		reason: "r",
+		brokenAssumption: "段2の入力は CSV ではなく JSON",
+		direction: "d",
+		...over,
+	});
+
+	test("§2 a step back right after a met prediction is routine; §4 the reviewer's premise fix stays with the strategy", async () => {
+		const { prompts, view } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					call("read", {}, { ...empty, refutedIf: 'contains:"FAILED"' }),
+					proposal("step_back", { ...empty, refutedIf: null }),
+					proposal("give_up", { ...empty, refutedIf: null }),
+				],
+				review: [review()],
+			},
+			reviewer: true,
+			conditions: { prediction: "falsifiable", findings: "all", review: true },
+			policy: one,
+			runtime: runtime({
+				invoke: () => ({ status: "ok", output: "all passed", refs: [] }),
+			}),
+		});
+		const rev = prompts.find((p) => p.purpose === "review");
+		expect(rev?.prompt).toContain("## 戻った事情\n定例:");
+		expect(rev?.system).toContain("routine");
+		expect(rev?.system).not.toContain("stalled pursuit");
+		const next = prompts.filter((p) => p.purpose === "hypothesize")[1]!.prompt;
+		expect(next).toContain(
+			"［振り返りでの前提の修正（方針の文面より優先）: 段2の入力は CSV ではなく JSON］",
+		);
+		expect(view.strategies[0]!.body).not.toContain("JSON");
+	});
+
+	test("§4 なし is not shown as a correction", async () => {
+		const { prompts } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					call("read", {}, empty),
+					proposal("step_back", empty),
+					proposal("give_up", empty),
+				],
+				review: [review({ brokenAssumption: "なし" })],
+			},
+			reviewer: true,
+			conditions: { findings: "all", review: true },
+			policy: one,
+		});
+		const next = prompts.filter((p) => p.purpose === "hypothesize")[1]!.prompt;
+		expect(next).not.toContain("振り返りでの前提の修正");
+	});
+
+	test("§5 the request says how a finding becomes 確認済み; §8 a tool's reread hint replaces the generic one", async () => {
+		const { prompts } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis],
+				propose: [
+					call("probe", {}, empty),
+					call("read", {}, empty),
+					proposal("give_up", empty),
+				],
+			},
+			conditions: { findings: "all" },
+			policy: (p: any) => ({
+				...one(p),
+				observation: { latestChars: 100, olderChars: 50 },
+			}),
+			runtime: runtime({
+				tools: [
+					{
+						name: "probe",
+						description: "p",
+						inputSchema: { type: "object", properties: {} },
+						sideEffect: "none",
+						permission: "data.read",
+						reread:
+							"全文は scratch/probe_log.jsonl にある（read_file で読める。呼び直すと回数を使う）",
+					},
+				],
+				invoke: () => ({ status: "ok", output: "x".repeat(500), refs: [] }),
+			}),
+		});
+		const last = prompts.filter((p) => p.purpose === "propose").at(-1)!.prompt;
+		expect(last).toContain(
+			"生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま",
+		);
+		expect(last).toContain("全文は scratch/probe_log.jsonl にある");
 	});
 });

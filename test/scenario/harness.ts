@@ -16,10 +16,15 @@ export type Script = Partial<Record<LlmPurpose, unknown[]>>;
 
 /** Scripted answers per purpose; records every prompt by purpose. */
 export function scripted(script: Script) {
-	const prompts: { purpose: LlmPurpose; prompt: string }[] = [];
+	const prompts: { purpose: LlmPurpose; prompt: string; system?: string }[] =
+		[];
 	const llm: LlmPort = {
 		async complete(request) {
-			prompts.push({ purpose: request.purpose, prompt: request.prompt });
+			prompts.push({
+				purpose: request.purpose,
+				prompt: request.prompt,
+				system: request.system,
+			});
 			const next = script[request.purpose]?.shift();
 			if (next === undefined)
 				throw new Error(`script_exhausted:${request.purpose}`);
@@ -143,6 +148,8 @@ export async function run(options: {
 	policy?: (p: Policy) => Policy;
 	runtime?: PursuitRuntime;
 	steps?: number;
+	/** Use the scripted LLM as the reviewer too (script.review). */
+	reviewer?: boolean;
 }) {
 	const { llm, prompts } = scripted(options.script);
 	const store = openStore(":memory:", migrations);
@@ -152,7 +159,7 @@ export async function run(options: {
 		clock: { now: () => 1000 + n },
 		ids: { next: (p) => `${p}${n++}` },
 		generator: llm,
-		reviewer: null,
+		reviewer: options.reviewer ? llm : null,
 		judge: null,
 	});
 	const base = startInput();
