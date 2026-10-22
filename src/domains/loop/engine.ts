@@ -69,6 +69,7 @@ import {
 	rejectionsInRow,
 	ruleRejections,
 	signals,
+	unrecordedFindingRefs,
 	type Signal,
 } from "../rules/checks.ts";
 import {
@@ -893,6 +894,15 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			);
 			return result(view, revision, view.status, "rejected");
 		};
+		// A citation of a finding the ledger does not hold (spec/fixes-2026-10-22.md §e).
+		if (conditions.rules && conditions.findings !== "off") {
+			const unrecorded = unrecordedFindingRefs(view, p);
+			if (unrecorded.length)
+				return refuse(
+					"finding_not_recorded",
+					`台帳にない知見を引用しています: ${unrecorded.join(", ")}（台帳の知見は ${view.findings.length} 件）。確かめた事実は findings に記録してから、その F番号で引用してください`,
+				);
+		}
 		if (
 			conditions.selfCheck === "parts" &&
 			(p.kind === "step_back" || p.kind === "give_up") &&

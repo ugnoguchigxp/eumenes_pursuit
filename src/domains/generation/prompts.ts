@@ -255,7 +255,7 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 						);
 					})
 					.join("\n")
-			: "（まだありません）",
+			: `（まだありません。実行した試行 ${view.attempts.filter((a) => a.state === "settled" || a.state === "interrupted").length} 回）`,
 		"確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。",
 		deadEnds.length
 			? [
@@ -274,11 +274,26 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 					"## 知見の記録",
 					"findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。",
 					"成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。",
+					"定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。",
 				].join("\n")
 			: "",
 	]
 		.filter(Boolean)
 		.join("\n");
+}
+
+/**
+ * Findings on, none recorded after several executed attempts: a light reminder in the plan and
+ * hypothesis requests (spec/fixes-2026-10-22.md §e). Not a requirement on every step.
+ */
+function findingsReminder(view: PursuitView) {
+	if (view.input.conditions.findings === "off") return "";
+	const executed = view.attempts.filter(
+		(a) => a.state === "settled" || a.state === "interrupted",
+	).length;
+	const recorded = view.findings.filter((f) => f.kind !== "dead_end").length;
+	if (recorded > 0 || executed < 5) return "";
+	return `知見: 0 件（実行した試行 ${executed} 回のあと）。これまでの観測で確かめた事実があれば、次の提案の findings に記録してください。`;
 }
 
 /** The current strategy's parts and the latest self-assessment (selfCheck "parts"). */
@@ -369,6 +384,7 @@ export function planRequest(input: {
 			toolsBlock(input.tools, view.input.grant),
 			historyBlock(view),
 			findingsBlock(view, false),
+			findingsReminder(view),
 			revertBlock(view),
 			consultationsBlock(view),
 			experienceBlock(view),
@@ -419,6 +435,7 @@ export function hypothesisRequest(input: {
 			toolsBlock(input.tools, view.input.grant),
 			historyBlock(view),
 			findingsBlock(view, false),
+			findingsReminder(view),
 			lastAttemptsBlock(view, 6),
 			revertBlock(view),
 			consultationsBlock(view),

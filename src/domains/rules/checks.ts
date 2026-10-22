@@ -298,3 +298,42 @@ export function remainingWallMs(view: PursuitView, now: number): number {
 		view.input.policy.budget.wallMs - (now - view.startedAt - waiting),
 	);
 }
+
+/**
+ * Finding numbers (F3) a proposal cites that the ledger does not hold (spec/fixes-2026-10-22.md
+ * §e). Looks at the structured references (uses, refute) and at F-numbers in the message, the
+ * self-assessment and the acceptance check: the ids are the host's own, so this is a structural
+ * check, not a reading of the text.
+ */
+export function unrecordedFindingRefs(
+	view: PursuitView,
+	proposal: {
+		message?: string;
+		uses?: readonly string[];
+		refute?: readonly { id: string }[];
+		assessment?: readonly { evidence: string; next: string }[];
+		acceptanceCheck?: readonly { where: string }[];
+	},
+): string[] {
+	const known = new Set(view.findings.map((f) => f.seq));
+	const cited = new Set<number>();
+	const scan = (text: string) => {
+		for (const m of text.matchAll(/(?<![A-Za-z0-9])F(\d{1,4})(?![A-Za-z0-9])/g))
+			cited.add(Number(m[1]));
+	};
+	for (const id of [
+		...(proposal.uses ?? []),
+		...(proposal.refute ?? []).map((r) => r.id),
+	]) {
+		const seq = /^\s*F?(\d+)\s*$/i.exec(id)?.[1];
+		if (seq) cited.add(Number(seq));
+		else scan(id);
+	}
+	scan(proposal.message ?? "");
+	for (const a of proposal.assessment ?? []) scan(`${a.evidence}\n${a.next}`);
+	for (const c of proposal.acceptanceCheck ?? []) scan(c.where);
+	return [...cited]
+		.filter((seq) => !known.has(seq))
+		.sort((a, b) => a - b)
+		.map((seq) => `F${seq}`);
+}
