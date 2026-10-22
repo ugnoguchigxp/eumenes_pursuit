@@ -353,16 +353,21 @@ describe("engine", () => {
 							budget: { ...input.policy.budget, transitions: 1 },
 						};
 					const { pursuitId } = await engine.start(input, "k");
-					const signal =
-						issue === "aborted"
-							? AbortSignal.abort()
-							: new AbortController().signal;
+					// cancel: the host's signal is already aborted. budget / give_up: W05 refuses to start
+					// a step on an aborted signal, so the host aborts while the final verification runs.
+					const controller = new AbortController();
+					if (issue === "aborted" && ending === "cancel") controller.abort();
+					const signal = controller.signal;
 					let calls = 0;
 					const rt = {
 						...runtime(false),
 						acceptance: {
 							verify: async () => {
 								calls++;
+								if (issue === "aborted") {
+									controller.abort();
+									return new Promise<never>(() => {});
+								}
 								throw new Error("verifier unavailable");
 							},
 						},
@@ -383,7 +388,9 @@ describe("engine", () => {
 					expect(view.report?.verified).toBe(false);
 					expect(view.report?.verificationIssue).toBe(issue);
 					expect(view.verifications.at(-1)?.passed).toBe(false);
-					expect(calls).toBe(issue === "aborted" ? 0 : 1);
+					expect(calls).toBe(
+						issue === "aborted" && ending === "cancel" ? 0 : 1,
+					);
 				} finally {
 					store.close();
 				}

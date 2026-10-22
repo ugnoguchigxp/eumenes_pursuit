@@ -520,6 +520,6 @@ describe("horizon-10u metrics", () => {
 				overStopped: false,
 			}),
 		]);
-		expect(table).toContain("| g | E1R | E | 3 | 1 | 0/0 | 1/1 |");
+		expect(table).toContain("| g@legacy | E1R | E | 3 | 1 | 0/0 | 1/1 |");
 	});
 });
