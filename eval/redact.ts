@@ -30,7 +30,14 @@ export function redactTools(
 		list: () => tools.list(),
 		async invoke(call, signal) {
 			const outcome = await tools.invoke(call, signal);
-			return { ...outcome, output: scrubJson(outcome.output, secrets) };
+			return {
+				...outcome,
+				output: scrubJson(outcome.output, secrets),
+				// Stored in the ledger for judging refutedIf (fixes-2026-10-22-d §3.1): scrubbed too.
+				...(outcome.unclipped
+					? { unclipped: outcome.unclipped.map((s) => scrub(s, secrets)) }
+					: {}),
+			};
 		},
 	};
 }

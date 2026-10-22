@@ -173,6 +173,41 @@ describe("horizon-10e tasks", () => {
 	);
 
 	maybe(
+		"run: clipped streams come back whole in unclipped (fixes-2026-10-22-d §3.1); awk and sqlite3 are documented as absent (§3.7)",
+		async () => {
+			const secretDir = fixtureSecrets(
+				"hz10e-room-utilization",
+				[{ name: "x", command: "true", expected: "x.out", timeoutMs: 5000 }],
+				{ "x.out": "" },
+			);
+			const t = await instance("hz10e-room-utilization", secretDir);
+			try {
+				const long = (await t.invoke("run", {
+					command: "python3 -c \"print('a'*4000 + 'NEEDLE' + 'b'*4000)\"",
+				})) as unknown as { output: { stdout: string }; unclipped?: string[] };
+				expect(long.output.stdout).not.toContain("NEEDLE");
+				expect(long.output.stdout).toContain("字を省略");
+				expect(long.unclipped?.[0]).toContain("NEEDLE");
+				const short = (await t.invoke("run", {
+					command: "echo hi",
+				})) as unknown as {
+					unclipped?: string[];
+				};
+				expect(short.unclipped).toBeUndefined();
+				const missing = await t.invoke("run", {
+					command: "command -v awk || command -v sqlite3 || echo none",
+				});
+				expect(JSON.stringify(missing.output)).toContain("none");
+				const run = t.inst.tools.list().find((d) => d.name === "run")!;
+				expect(run.description).toContain("awk と sqlite3 コマンドは無い");
+			} finally {
+				t.cleanup();
+				rmSync(secretDir, { recursive: true, force: true });
+			}
+		},
+	);
+
+	maybe(
 		"verify runs each case per seed on a fresh copy, mounts case files read-only, reports counts only",
 		async () => {
 			const secretDir = fixtureSecrets(

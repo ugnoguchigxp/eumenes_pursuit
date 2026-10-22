@@ -286,6 +286,23 @@ describe("direct baseline (D0)", () => {
 		);
 	});
 
+	test("end notice says a give_up or a host stop (fixes-2026-10-22-d §3.6)", () => {
+		const gave = endNoticeText("g", null, {
+			kind: "give_up",
+			reason: "手がかりが無い",
+		});
+		expect(gave).toContain("終わり方: 断念（give_up）。理由: 手がかりが無い");
+		expect(
+			endNoticeText("g", null, {
+				kind: "stop",
+				reason: "完了の申告の上限に達しました",
+			}),
+		).toContain(
+			"終わり方: ホストが打ち切った。理由: 完了の申告の上限に達しました",
+		);
+		expect(endNoticeText("g", null)).not.toContain("終わり方");
+	});
+
 	test("claim criteria are kept per claim for the end notice", async () => {
 		const env = setup(1);
 		const r = await runDirect({

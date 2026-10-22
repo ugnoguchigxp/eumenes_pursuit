@@ -68,6 +68,8 @@ const WORK_ROOT = join(import.meta.dir, "env-work");
 const MAX_READ = 20_000;
 const MAX_WRITE = 256 * 1024;
 const MAX_STREAM = 6_000;
+/** Kept unclipped for judging refutedIf (spec/fixes-2026-10-22-d.md §3.1); never shown. */
+const MAX_UNCLIPPED = 1_000_000;
 const MAX_WORK_BYTES = 200 * 1024 * 1024;
 const CRITERION = "hidden-checks";
 
@@ -243,7 +245,7 @@ export function createEnvTools(options: EnvToolOptions): ToolDef[] {
 			{
 				name: "run",
 				description:
-					"bash のコマンド行を、サンドボックスの中で /work（= work）を作業ディレクトリとして実行する。ネットワークはなく、/work 以外のホストのファイルは見えない（/usr は読み取り専用、/tmp は実行ごとに空）。python3・bash・coreutils などが使える。標準出力・標準エラー（それぞれ先頭と末尾 6000 文字まで）・終了コード・所要時間を返す。終了コードが 0 でないか時間切れなら error になる。",
+					"bash のコマンド行を、サンドボックスの中で /work（= work）を作業ディレクトリとして実行する。ネットワークはなく、/work 以外のホストのファイルは見えない（/usr は読み取り専用、/tmp は実行ごとに空）。python3（sqlite3 モジュールを含む）・bash・coreutils などが使える。awk と sqlite3 コマンドは無い（集計や SQLite の読み出しは python3 で）。標準出力・標準エラー（それぞれ先頭と末尾 6000 文字まで）・終了コード・所要時間を返す。終了コードが 0 でないか時間切れなら error になる。",
 				permission: "env.run",
 				sideEffect: "workspace",
 				properties: {
@@ -281,13 +283,18 @@ export function createEnvTools(options: EnvToolOptions): ToolDef[] {
 						? { warning: `work が ${MAX_WORK_BYTES} バイトを超えています` }
 						: {}),
 				};
+				const unclipped = [r.stdout, r.stderr]
+					.filter((s) => s.length > MAX_STREAM)
+					.map((s) => s.slice(0, MAX_UNCLIPPED));
+				const full = unclipped.length ? { unclipped } : {};
 				return r.exitCode === 0
-					? ok(output)
+					? { ...ok(output), ...full }
 					: {
 							status: "error",
 							errorCode: r.timedOut ? "timed_out" : "nonzero_exit",
 							output,
 							refs: [],
+							...full,
 						};
 			},
 		),

@@ -419,10 +419,18 @@ export function endNoticeText(
 		passed: boolean;
 		criteria: readonly { id: string; passed: boolean; evidence: string }[];
 	} | null,
+	/** How the task ended when not by a claim (spec/fixes-2026-10-22-d.md §3.6). */
+	ending: { kind: "give_up" | "stop"; reason: string } | null = null,
 ): string {
 	const head = goal.replace(/\s+/g, " ").trim().slice(0, 40);
+	const why = ending?.reason.replace(/\s+/g, " ").trim().slice(0, 200) ?? "";
 	return [
 		`前の課題（目標の冒頭: ${head}…）は終わりました。`,
+		...(ending?.kind === "give_up"
+			? [`終わり方: 断念（give_up）。理由: ${why}`]
+			: ending?.kind === "stop"
+				? [`終わり方: ホストが打ち切った。理由: ${why}`]
+				: []),
 		lastClaim
 			? `最後の完了の申告の照合: ${claimVerdictText(lastClaim.criteria, lastClaim.passed)}`
 			: "完了の申告はありませんでした。",

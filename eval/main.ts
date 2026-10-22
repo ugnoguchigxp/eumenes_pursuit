@@ -660,6 +660,7 @@ let noticeSeq = 0;
 function notifyEnd(
 	goal: string,
 	lastClaim: Parameters<typeof endNoticeText>[1],
+	ending: Parameters<typeof endNoticeText>[2] = null,
 ) {
 	if (claimFeedback !== "verdict" || !useFile) return;
 	const dir = resolve(values["llm-dir"]!, "notices");
@@ -668,9 +669,31 @@ function notifyEnd(
 	const name = `${process.pid}-${String(++noticeSeq).padStart(4, "0")}.txt`;
 	writeFileSync(
 		resolve(dir, `.${name}.tmp`),
-		`${endNoticeText(goal, lastClaim)}\n`,
+		`${endNoticeText(goal, lastClaim, ending)}\n`,
 	);
 	renameSync(resolve(dir, `.${name}.tmp`), resolve(dir, name));
+}
+
+/** A give_up or a host stop, for the end notice (spec/fixes-2026-10-22-d.md §3.6). */
+function directEnding(
+	result: Awaited<ReturnType<typeof runDirect>> | null,
+): Parameters<typeof endNoticeText>[2] {
+	if (!result) return null;
+	const last = result.entries.at(-1);
+	if (last?.kind === "give_up")
+		return { kind: "give_up", reason: last.message ?? result.reason };
+	return result.outcome === "stopped"
+		? { kind: "stop", reason: result.reason }
+		: null;
+}
+
+function pursuitEnding(view: {
+	decisions: readonly { kind: string; reason: string }[];
+}): Parameters<typeof endNoticeText>[2] {
+	const last = view.decisions.at(-1);
+	if (last?.kind === "give_up") return { kind: "give_up", reason: last.reason };
+	if (last?.kind === "stop") return { kind: "stop", reason: last.reason };
+	return null;
 }
 
 /** D0 transcripts (the direct baseline has no ledger): results/<run>/direct/<label>.jsonl. */
@@ -797,6 +820,7 @@ async function runOne(job: (typeof jobs)[number]) {
 						criteria: result.claimCriteria.at(-1) ?? [],
 					}
 				: null,
+			directEnding(result),
 		);
 		await finishRecord(
 			measureDirect(result, id, (model) => pricing[model]),
@@ -893,6 +917,7 @@ async function runOne(job: (typeof jobs)[number]) {
 		lastClaim
 			? { passed: lastClaim.passed, criteria: lastClaim.criteria }
 			: null,
+		pursuitEnding(view),
 	);
 	await finishRecord(
 		measure(view, (model) => pricing[model]),
