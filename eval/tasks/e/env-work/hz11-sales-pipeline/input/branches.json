@@ -1,0 +1,22 @@
+{
+	"tokyo": {
+		"encoding": "utf-8",
+		"date_format": "%Y-%m-%d %H:%M",
+		"currency": "JPY"
+	},
+	"osaka": {
+		"encoding": "utf-8",
+		"date_format": "%d/%m/%Y %H:%M",
+		"currency": "JPY"
+	},
+	"sapporo": {
+		"encoding": "cp932",
+		"date_format": "%Y/%m/%d %H:%M",
+		"currency": "JPY"
+	},
+	"honolulu": {
+		"encoding": "utf-8",
+		"date_format": "%m/%d/%Y %H:%M",
+		"currency": "USD"
+	}
+}

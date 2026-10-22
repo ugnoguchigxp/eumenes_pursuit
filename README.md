@@ -111,7 +111,7 @@ bun eval/analyze.ts --compare abl1-pursuit-r1 abl1-pursuit-r2 abl1-pursuit-r3 ab
 | `--claim-feedback` | off（既定）、verdict（完了の申告の結果 合格/不合格 を、そのあとの計画・仮説・提案・振り返りのすべての要求に書く。`--llm file` では課題が終わるたびに最後の申告の結果を `<llm-dir>/notices/` に書く。D0 にも効く） |
 | `--attempt-count` | all（既定）、mutating（仮説ごとの試行予算に、作業領域を変える道具＝書き込み・実行・提出だけを数える。資料の取得だけでは一段上へ戻らない。追求全体の予算はすべて数える） |
 | `--direct-full-entries` | D0 で全文を見せる直近の行動の数（既定 40。古いものは一行の要約） |
-| `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる）、`config/policy.v3.json`（v2 に加え、一段上へ戻る予算を 8 回にして、方針 3 × 仮説 3 と釣り合わせる）、`config/policy.v5-tight.json`（v5 の試行・壁時計・手順を半分にした比較用の予算。記録の `budgetTag` は v5-tight） |
+| `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる）、`config/policy.v3.json`（v2 に加え、一段上へ戻る予算を 8 回にして、方針 3 × 仮説 3 と釣り合わせる）、`config/policy.v5-tight.json`（v5 の試行・壁時計・手順を半分にした比較用の予算。記録の `budgetTag` は v5-tight）、`config/policy.v6-long.json`（長い課題 hz11 用: 試行 200・壁時計 120 分・手順 1500・方針 8・一段上へ 40。D0 と E1R で共通。[spec/long-horizon-11.md](spec/long-horizon-11.md)） |
 
 結果は `eval/results/<name>/` に残ります。既定では手元だけに残り（`.gitignore`）、公開する回だけを `eval/results/PUBLISHED` に名前で載せて、その記録（`runs.jsonl`）・集計（`summary.md`）・分析（`analysis.md`）を `git add -f` でレポジトリに入れます。台帳（sqlite）とログは常に手元に残します。`bun run verify` の `check:results` が、公開の一覧にない回の結果や台帳がインデックスに入っていれば失敗します（コミット前に自動で走らせるなら `git config core.hooksPath scripts/hooks`）。課題の作業領域は OS の一時ディレクトリに作ります。群 D と群 E では、LLM が書いたコードや式を手元で実行します。実行は sandbox（ネットワークなし、ホーム配下の読み取りなし）と時間制限の中で行い、道具の出力からは秘密の値を伏せます。
 

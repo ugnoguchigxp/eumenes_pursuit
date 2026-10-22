@@ -1,0 +1,10 @@
+{
+  "version": "2025-04",
+  "plans": {
+    "starter-2025": {"base_yen": 2980, "included_units": 100, "tiers": [{"width": 200, "rate": 12}, {"width": null, "rate": 9}]},
+    "pro-2025": {"base_yen": 9800, "included_units": 1000, "tiers": [{"width": 1000, "rate": 8}, {"width": 3000, "rate": 6}, {"width": null, "rate": 4}]},
+    "business-2024": {"base_yen": 24000, "included_units": 5000, "tiers": [{"width": 5000, "rate": 5}, {"width": null, "rate": 3}]},
+    "business-2025": {"base_yen": 26400, "included_units": 6000, "tiers": [{"width": 4000, "rate": 4}, {"width": 8000, "rate": 3}, {"width": null, "rate": 2}]},
+    "team-2025": {"base_yen": 15500, "included_units": 2500, "tiers": [{"width": 1500, "rate": 7}, {"width": null, "rate": 5}]}
+  }
+}
