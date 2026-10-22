@@ -95,3 +95,23 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `conditions.completionCheck`: `"off" | "acceptance"`（既定 `"off"`）。
 - 道具の記述子に `readsBack?: boolean`。成果物そのものを返す道具に付ける。
 - [spec/completion-design.md](completion-design.md) を参照。
+
+## v1.5（2026-10-22）
+
+- 照合結果のIDの完全性を検証する。stopped / incompleteは最終照合前に保存し、照合不能でも終了状態を維持する。
+- `Report.verificationIssue?`: `pending | aborted | failed`（省略可能、既存のJSON列に保存）。
+- [レビュー修正の設計と完了条件](review-fixes-2026-10-22.md) を参照。
+
+## v1.6（2026-10-22）
+
+[追加評価10件の実装記録](improvement-implementation-2026-10-22.md) に伴う変更。今回はユニットテストまで確認し、包括的な検証は別担当へ引き継いでいる。
+
+- migration `pursuit-0004-settlement`: `pursuit_attempt.settlement_json` に `need_post_judge / need_acceptance / need_rules / done` と対象workspace digest、判定の効果を保存する。結果保存済みの道具を再実行せず、未完了の確認を先に再開する。期限切れ・明示的な終了は終端状態を保存して未完了処理を閉じる。確認不能は記録し、合格の根拠にはしない。
+- migration `pursuit-0005-finding-sources`: `pursuit_finding.source_verification_id` を追加する。同じ主張でも保証水準・出典・適用範囲の異なる根拠を保持する。旧行の出典は上書きしない。
+- 試行の指紋は `v2:<道具契約の識別値>:<入力と状態の識別値>`。文字列の空白・改行は保持する。`ToolDescriptor.legacyFingerprintCompatible?` は、ホストが旧版と同じ指紋対象フィールド・状態依存性であると確認した場合だけtrueにする。宣言がなければ、旧履歴との比較は「照合不能」として見直しを求める。開始操作の再送判定は変更しない。
+- `interrupted` の `outcome` はnull（結果不明）。副作用なしを意味しない。試行予算を消費し、同条件の再試行に理由と回数制限を適用する。
+- コアは注入された時計で待機後・新規実行前に期限を確認する。ホストは残り時間でPortを中断し、相談待ちを除外する。評価ホストは `stepWithDeadline / cancelWithDeadline` を使用する。他ホストも同じ責任を持ち、同じpursuitのstepを並行実行しない。
+- D群の隠し検査はホスト所有の入力ケース・期待値比較へ移行した。提出コードの実行プロセスには期待値を渡さず、返り値・例外だけを未信頼のデータとして受け取る。ログの成功表示は合否に使わない。
+- E群採点は項目IDの完全性・一意性を検証し、ホストの検算結果を保証水準付きで渡す。数値近似を厳密な証明へ昇格させない。
+- 評価結果は `configId / jobKey` で識別する。旧記録はlegacyとして保持する。非公開データを使う評価では `--private-data-version` に内容変更時に更新する版IDが必要。
+- ホストの `usage_call` を利用量・費用の正本とし、job・役割・呼出しごとに保存する。`RunRecord.usd` は金額不明ならnull。ファイル応答のトークンは推定であり、請求額や実際の応答モデルは推定しない。

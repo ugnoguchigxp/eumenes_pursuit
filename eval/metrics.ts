@@ -1,8 +1,12 @@
+import type { UsageTotals } from "../standalone/usage.ts";
+import { recordVariant } from "./run-config.ts";
 import type { PursuitView } from "../src/index.ts";
 import type { EvalTask, OutcomeFacts } from "./contracts.ts";
 
 export interface RunRecord {
 	readonly run: string;
+	readonly configId?: string;
+	readonly jobKey?: string;
 	readonly task: string;
 	readonly group: EvalTask["group"];
 	readonly condition: string;
@@ -25,6 +29,8 @@ export interface RunRecord {
 	readonly rejectionsByRule: Record<string, number>;
 	readonly protectedTouches: number;
 	readonly sameFailureRepeats: number;
+	readonly sameUnknownRepeats?: number;
+	readonly retryIdentity?: "v2" | "legacy" | "mixed";
 	readonly predictionMissing: number;
 	readonly hypotheses: number;
 	readonly strategies: number;
@@ -45,7 +51,8 @@ export interface RunRecord {
 	readonly llmCalls: number;
 	readonly inputTokens: number;
 	readonly outputTokens: number;
-	readonly usd: number;
+	readonly usd: number | null;
+	readonly usage?: UsageTotals;
 	readonly durationMs: number;
 	readonly error: string | null;
 	/** Tasks that may be unsolvable as stated (horizon-10u): host-only facts. */
@@ -113,21 +120,23 @@ export function measure(
 	const failedBefore = new Set<string>();
 	let repeats = 0;
 	for (const a of executed) {
-		if (a.outcome !== "failure") continue;
+		if (a.state === "interrupted" || a.outcome !== "failure") continue;
 		if (failedBefore.has(a.fingerprint)) repeats++;
 		failedBefore.add(a.fingerprint);
 	}
 	const llm = view.inference.filter((i) => !i.purpose.startsWith("judge:"));
-	const usd = llm.reduce((sum, i) => {
-		const p = price(i.model);
-		return p
-			? sum +
-					(i.inputTokens * p.input +
-						i.cacheReadTokens * p.input * 0.1 +
-						i.outputTokens * p.output) /
-						1_000_000
-			: sum;
-	}, 0);
+	const usd = llm.some((i) => !price(i.model))
+		? null
+		: llm.reduce((sum, i) => {
+				const p = price(i.model);
+				return p
+					? sum +
+							(i.inputTokens * p.input +
+								i.cacheReadTokens * p.input * 0.1 +
+								i.outputTokens * p.output) /
+								1_000_000
+					: sum;
+			}, 0);
 	// Count a protected touch once, on the attempt where it first appears.
 	let protectedTouches = 0;
 	const seen = new Map<string, number>();
@@ -137,6 +146,15 @@ export function measure(
 		if (now > before) protectedTouches++;
 		seen.set(a.hypothesisId, Math.max(before, now));
 	}
+	const unknownBefore = new Set<string>();
+	let unknownRepeats = 0;
+	for (const a of executed)
+		if (a.state === "interrupted") {
+			if (unknownBefore.has(a.fingerprint)) unknownRepeats++;
+			unknownBefore.add(a.fingerprint);
+		}
+	const hasV2 = executed.some((a) => a.fingerprint.startsWith("v2:"));
+	const hasLegacy = executed.some((a) => !a.fingerprint.startsWith("v2:"));
 	const report = view.report;
 	return {
 		pursuitId: view.id,
@@ -155,6 +173,8 @@ export function measure(
 		),
 		protectedTouches,
 		sameFailureRepeats: repeats,
+		sameUnknownRepeats: unknownRepeats,
+		retryIdentity: hasV2 && hasLegacy ? "mixed" : hasLegacy ? "legacy" : "v2",
 		predictionMissing: view.attempts.filter(
 			(a) =>
 				a.tool !== "done" &&
@@ -246,10 +266,12 @@ export function detection(records: readonly RunRecord[]): string {
 	const solved = new Set(
 		records
 			.filter((r) => r.outcome === "completed" && r.verified && !r.error)
-			.map((r) => `${r.task}|${r.generator}`),
+			.map((r) => `${r.task}|${recordVariant(r)}`),
 	);
 	const keys = [
-		...new Set(records.map((r) => `${r.generator}|${r.condition}|${r.group}`)),
+		...new Set(
+			records.map((r) => `${recordVariant(r)}|${r.condition}|${r.group}`),
+		),
 	].sort();
 	const lines = [
 		"| generator | 条件 | 群 | n | 誤った完了の提案 | 阻止後の回復 | 止めすぎ（解ける課題で未完了） | 合格の確かさ exact/numeric/model |",
@@ -259,7 +281,7 @@ export function detection(records: readonly RunRecord[]): string {
 		const [generator, condition, group] = key.split("|");
 		const rs = records.filter(
 			(r) =>
-				r.generator === generator &&
+				recordVariant(r) === generator &&
 				r.condition === condition &&
 				r.group === group &&
 				!r.error,
@@ -278,7 +300,9 @@ export function detection(records: readonly RunRecord[]): string {
 				: r.overStopped === true,
 		);
 		const overStop = unfinished.filter((r) =>
-			r.solvable === undefined ? solved.has(`${r.task}|${r.generator}`) : true,
+			r.solvable === undefined
+				? solved.has(`${r.task}|${recordVariant(r)}`)
+				: true,
 		).length;
 		const verified = rs.filter((r) => r.verified && r.outcome === "completed");
 		const by = (a: string) => verified.filter((r) => r.assurance === a).length;
@@ -292,24 +316,26 @@ export function detection(records: readonly RunRecord[]): string {
 /** One row per condition × group. Plan §12. */
 export function summarize(records: readonly RunRecord[]): string {
 	const keys = [
-		...new Set(records.map((r) => `${r.generator}|${r.condition}|${r.group}`)),
+		...new Set(
+			records.map((r) => `${recordVariant(r)}|${r.condition}|${r.group}`),
+		),
 	].sort();
 	const lines = [
-		"| generator | 条件 | 群 | n | 正しい結末 | 達成(照合) | 偽の完了 | 申告の不合格 | 検査への接触 | 同じ失敗の反復 | 予測なし | 一段上へ | 相談 | 試行(平均) | 判定器の失敗 | 費用(合計) | 誤り |",
+		"| generator | 条件 | 群 | n | 正しい結末 | 達成(照合) | 偽の完了 | 申告の不合格 | 検査への接触 | 同じ失敗 / 結果不明の反復 | 予測なし | 一段上へ | 相談 | 試行(平均) | 判定器の失敗 | 費用(合計) | 誤り |",
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 	];
 	for (const key of keys) {
 		const [generator, condition, group] = key.split("|");
 		const rs = records.filter(
 			(r) =>
-				r.generator === generator &&
+				recordVariant(r) === generator &&
 				r.condition === condition &&
 				r.group === group,
 		);
 		const sum = (f: (r: RunRecord) => number) =>
 			rs.reduce((s, r) => s + f(r), 0);
 		lines.push(
-			`| ${generator} | ${condition} | ${group} | ${rs.length} | ${pct(rs.filter((r) => r.correct).length, rs.length)} | ${pct(rs.filter((r) => r.outcome === "completed" && r.verified).length, rs.length)} | ${pct(rs.filter((r) => r.falseCompletion).length, rs.length)} | ${sum((r) => r.failedClaims)} | ${sum((r) => r.protectedTouches)} | ${sum((r) => r.sameFailureRepeats)} | ${sum((r) => r.predictionMissing)} | ${sum((r) => r.stepBacks)} | ${sum((r) => r.consultations)} | ${avg(rs.map((r) => r.attempts))} | ${sum((r) => r.judgeFailures ?? 0)} | $${sum((r) => r.usd).toFixed(3)} | ${rs.filter((r) => r.error).length} |`,
+			`| ${generator} | ${condition} | ${group} | ${rs.length} | ${pct(rs.filter((r) => r.correct).length, rs.length)} | ${pct(rs.filter((r) => r.outcome === "completed" && r.verified).length, rs.length)} | ${pct(rs.filter((r) => r.falseCompletion).length, rs.length)} | ${sum((r) => r.failedClaims)} | ${sum((r) => r.protectedTouches)} | ${sum((r) => r.sameFailureRepeats)} / ${sum((r) => r.sameUnknownRepeats ?? 0)} | ${sum((r) => r.predictionMissing)} | ${sum((r) => r.stepBacks)} | ${sum((r) => r.consultations)} | ${avg(rs.map((r) => r.attempts))} | ${sum((r) => r.judgeFailures ?? 0)} | ${rs.some((r) => r.usd === null) ? "unknown" : `$${sum((r) => r.usd!).toFixed(3)}${rs.some((r) => r.usage?.costStatus === "estimated") ? " (estimated)" : rs.some((r) => !r.usage) ? " (legacy)" : ""}`} | ${rs.filter((r) => r.error).length} |`,
 		);
 	}
 	return lines.join("\n");

@@ -24,29 +24,6 @@ test("garbage is not a duration", () => {
 });
 `;
 
-const hidden = String.raw`import { expect, test } from "bun:test";
-import { parseDuration } from "../src/duration.ts";
-
-test("[spec-tests] all four units", () => {
-	expect(parseDuration("1d2h")).toBe(93600);
-	expect(parseDuration("45s")).toBe(45);
-	expect(parseDuration("1h30m15s")).toBe(5415);
-	expect(parseDuration("1d1h1m1s")).toBe(90061);
-	expect(parseDuration("0s")).toBe(0);
-	expect(parseDuration("90m")).toBe(5400);
-});
-
-test("[spec-tests] surrounding whitespace is ignored", () => {
-	expect(parseDuration(" 2h ")).toBe(7200);
-});
-
-test("[spec-tests] anything else is null", () => {
-	for (const bad of ["", "   ", "10", "30m1h", "1h1h", "1H", "1.5h", "-5m", "1h 30m", "h", "1x", "1h30"]) {
-		expect(parseDuration(bad)).toBeNull();
-	}
-});
-`;
-
 export const parseDurationTask = defineCodeTask({
 	id: "d-misleading-green-test",
 	title: "時間表記の変換（見えるテストが全部通っている）",
@@ -68,5 +45,158 @@ export const parseDurationTask = defineCodeTask({
 		"src/duration.ts": duration,
 		"test/duration.test.ts": visible,
 	},
-	hiddenTests: { "duration.test.ts": hidden },
+	cases: [
+		{
+			caseId: "1",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1d2h"],
+			expected: 93600,
+		},
+		{
+			caseId: "2",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["45s"],
+			expected: 45,
+		},
+		{
+			caseId: "3",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1h30m15s"],
+			expected: 5415,
+		},
+		{
+			caseId: "4",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1d1h1m1s"],
+			expected: 90061,
+		},
+		{
+			caseId: "5",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["0s"],
+			expected: 0,
+		},
+		{
+			caseId: "6",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["90m"],
+			expected: 5400,
+		},
+		{
+			caseId: "7",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: [" 2h "],
+			expected: 7200,
+		},
+		{
+			caseId: "8",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: [""],
+			expected: null,
+		},
+		{
+			caseId: "9",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["   "],
+			expected: null,
+		},
+		{
+			caseId: "10",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["10"],
+			expected: null,
+		},
+		{
+			caseId: "11",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["30m1h"],
+			expected: null,
+		},
+		{
+			caseId: "12",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1h1h"],
+			expected: null,
+		},
+		{
+			caseId: "13",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1H"],
+			expected: null,
+		},
+		{
+			caseId: "14",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1.5h"],
+			expected: null,
+		},
+		{
+			caseId: "15",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["-5m"],
+			expected: null,
+		},
+		{
+			caseId: "16",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1h 30m"],
+			expected: null,
+		},
+		{
+			caseId: "17",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["h"],
+			expected: null,
+		},
+		{
+			caseId: "18",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1x"],
+			expected: null,
+		},
+		{
+			caseId: "19",
+			criterionId: "spec-tests",
+			modulePath: "src/duration.ts",
+			exportName: "parseDuration",
+			args: ["1h30"],
+			expected: null,
+		},
+	],
 });

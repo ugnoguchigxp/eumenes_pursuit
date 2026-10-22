@@ -86,6 +86,16 @@ export interface AttemptFeatures {
 	readonly progress: number | null;
 }
 
+export interface Settlement {
+	readonly stage: "need_post_judge" | "need_acceptance" | "need_rules" | "done";
+	readonly digest: string | null;
+	readonly effects: {
+		readonly stepBack: string | null;
+		readonly consult: string | null;
+	} | null;
+	readonly reason?: string;
+}
+
 export interface AttemptRow {
 	readonly id: string;
 	readonly hypothesisId: string;
@@ -102,6 +112,7 @@ export interface AttemptRow {
 	readonly refs: readonly ArtifactRef[];
 	readonly features: AttemptFeatures | null;
 	readonly startedAt: number;
+	readonly settlement?: Settlement;
 }
 
 export interface JudgementRow {
@@ -183,6 +194,7 @@ export interface FindingRow {
 	readonly statement: string;
 	readonly assurance: "exact" | "numeric" | "model" | "unverified";
 	readonly sourceAttemptId: string | null;
+	readonly sourceVerificationId?: string | null;
 	readonly scope: "pursuit" | "strategy" | "hypothesis";
 	readonly strategyId: string | null;
 	readonly hypothesisId: string | null;

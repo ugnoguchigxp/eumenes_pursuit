@@ -1,7 +1,7 @@
+import type { UsageScope, UsageCall, UsageEvent } from "./usage.ts";
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { UsageMeter } from "./claude.ts";
 
@@ -40,7 +40,10 @@ export interface Settings {
 	require<K extends SettingKey>(key: K): SettingValue<K>;
 	set<K extends SettingKey>(key: K, value: unknown): void;
 	all(): Record<string, unknown>;
-	meter(): UsageMeter & { spentUsd(): number };
+	meter(
+		scope?: UsageScope,
+		role?: string,
+	): UsageMeter & { spentUsd(): number; events(jobId?: string): UsageEvent[] };
 	close(): void;
 }
 
@@ -53,6 +56,9 @@ export function openSettings(path = settingsPath): Settings {
 		id INTEGER PRIMARY KEY, model TEXT NOT NULL, input_tokens INTEGER NOT NULL,
 		output_tokens INTEGER NOT NULL, cache_read_tokens INTEGER NOT NULL,
 		cache_write_tokens INTEGER NOT NULL, usd REAL NOT NULL, at INTEGER NOT NULL) STRICT`);
+	db.run(`CREATE TABLE IF NOT EXISTS usage_call (
+     call_id TEXT PRIMARY KEY, job_id TEXT, event_json TEXT NOT NULL, spend_id INTEGER UNIQUE REFERENCES spend(id)
+    ) STRICT`);
 	const get = <K extends SettingKey>(key: K): SettingValue<K> | undefined => {
 		const row = db
 			.query("SELECT value_json FROM pursuit_setting WHERE key = ?")
@@ -88,49 +94,212 @@ export function openSettings(path = settingsPath): Settings {
 				).map((r) => [r.key, JSON.parse(r.value_json)]),
 			);
 		},
-		meter() {
-			const spentUsd = () =>
-				(
+		meter(scope, role = "unattributed") {
+			const spentUsd = () => {
+				const unknown = db
+					.query(
+						"SELECT 1 FROM usage_call WHERE json_extract(event_json, '$.costStatus') = 'unknown' AND COALESCE(json_extract(event_json, '$.provider'), 'claude') = 'claude' LIMIT 1",
+					)
+					.get();
+				if (unknown) return Infinity;
+				return (
 					db.query("SELECT COALESCE(SUM(usd), 0) AS usd FROM spend").get() as {
 						usd: number;
 					}
 				).usd;
+			};
+			function save(event: UsageEvent) {
+				db.transaction(() => {
+					if (
+						db
+							.query("SELECT 1 FROM usage_call WHERE call_id = ?")
+							.get(event.callId)
+					)
+						return;
+					let spendId: number | null = null;
+					if (event.usd !== null) {
+						const result = db
+							.query(
+								"INSERT INTO spend (model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, usd, at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+							)
+							.run(
+								event.servedModel!,
+								event.inputTokens ?? 0,
+								event.outputTokens ?? 0,
+								event.cacheReadTokens ?? 0,
+								event.cacheWriteTokens ?? 0,
+								event.usd,
+								Date.now(),
+							);
+						spendId = Number(result.lastInsertRowid);
+					}
+					db.query(
+						"INSERT INTO usage_call (call_id, job_id, event_json, spend_id) VALUES (?, ?, ?, ?)",
+					).run(
+						event.callId,
+						scope?.jobId ?? null,
+						JSON.stringify(event),
+						spendId,
+					);
+				})();
+			}
+			function metadata(call?: UsageCall): UsageCall {
+				return (
+					call ?? {
+						callId: crypto.randomUUID(),
+						requestedModel: "unattributed",
+						latencyMs: 0,
+						status: "response",
+					}
+				);
+			}
+			const priceVersion = () =>
+				new Bun.CryptoHasher("sha256")
+					.update(
+						JSON.stringify(
+							Object.entries(settings.require("spend.pricing")).sort(),
+						),
+					)
+					.digest("hex");
 			return {
 				spentUsd,
+				events(jobId) {
+					const rows = (
+						jobId === undefined
+							? db
+									.query("SELECT event_json FROM usage_call ORDER BY rowid")
+									.all()
+							: db
+									.query(
+										"SELECT event_json FROM usage_call WHERE job_id = ? ORDER BY rowid",
+									)
+									.all(jobId)
+					) as { event_json: string }[];
+					const events = rows.map(
+						(r) => JSON.parse(r.event_json) as UsageEvent,
+					);
+					if (jobId === undefined) {
+						const legacy = db
+							.query(
+								"SELECT * FROM spend WHERE id NOT IN (SELECT spend_id FROM usage_call WHERE spend_id IS NOT NULL)",
+							)
+							.all() as {
+							id: number;
+							model: string;
+							input_tokens: number;
+							output_tokens: number;
+							cache_read_tokens: number;
+							cache_write_tokens: number;
+							usd: number;
+						}[];
+						for (const r of legacy)
+							events.push({
+								callId: `legacy-${r.id}`,
+								requestedModel: "unattributed",
+								servedModel: r.model,
+								scope: null,
+								role: "unattributed",
+								inputTokens: r.input_tokens,
+								outputTokens: r.output_tokens,
+								cacheReadTokens: r.cache_read_tokens,
+								cacheWriteTokens: r.cache_write_tokens,
+								usd: r.usd,
+								pricingVersion: "legacy",
+								costStatus: "estimated",
+								status: "response",
+								latencyMs: 0,
+							});
+					}
+					return events;
+				},
 				assertWithinLimit() {
 					const limit = settings.require("spend.limitUsd");
 					if (spentUsd() >= limit)
-						throw new Error(`spend_limit_reached:${limit}`);
+						throw new Error(`spend_limit_reached_or_usage_unknown:${limit}`);
 				},
-				record(model: string, usage: Anthropic.Usage) {
+				record(model, usage, call) {
 					const pricing = settings.require("spend.pricing");
-					// An unknown served model (e.g. a fallback) is charged at the highest known rate,
-					// so the spend limit stays conservative; the call was billed either way.
-					const price = pricing[model] ?? {
-						input: Math.max(...Object.values(pricing).map((p) => p.input)),
-						output: Math.max(...Object.values(pricing).map((p) => p.output)),
-					};
-					if (!pricing[model])
-						console.warn(`[warn] spend_price_missing ${model}`);
-					const read = usage.cache_read_input_tokens ?? 0;
-					const write = usage.cache_creation_input_tokens ?? 0;
-					const usd =
-						(usage.input_tokens * price.input +
-							write * price.input * 1.25 +
-							read * price.input * 0.1 +
-							usage.output_tokens * price.output) /
-						1_000_000;
-					db.query(
-						"INSERT INTO spend (model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, usd, at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-					).run(
-						model,
-						usage.input_tokens,
-						usage.output_tokens,
-						read,
-						write,
+					const prices = Object.values(pricing);
+					const price =
+						pricing[model] ??
+						(prices.length
+							? {
+									input: Math.max(...prices.map((p) => p.input)),
+									output: Math.max(...prices.map((p) => p.output)),
+								}
+							: null);
+					const usd = price
+						? (usage.input_tokens * price.input +
+								(usage.cache_creation_input_tokens ?? 0) * price.input * 1.25 +
+								(usage.cache_read_input_tokens ?? 0) * price.input * 0.1 +
+								usage.output_tokens * price.output) /
+							1_000_000
+						: null;
+					save({
+						...metadata(call),
+						scope: scope ? { ...scope } : null,
+						role,
+						servedModel: model,
+						inputTokens: usage.input_tokens,
+						outputTokens: usage.output_tokens,
+						cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+						cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+						pricingVersion: priceVersion(),
+						costStatus: pricing[model]
+							? "known"
+							: price
+								? "estimated"
+								: "unknown",
 						usd,
-						Date.now(),
-					);
+					});
+				},
+				recordExternal(call, info) {
+					const price =
+						call.provider === "larm"
+							? settings.require("spend.pricing")[info.model]
+							: undefined;
+					const usd = price
+						? (info.inputTokens * price.input +
+								info.outputTokens * price.output +
+								(info.cacheReadTokens ?? 0) * price.input * 0.1) /
+							1_000_000
+						: null;
+					save({
+						...call,
+						scope: scope ? { ...scope } : null,
+						role,
+						servedModel: call.provider === "file" ? null : info.model,
+						reportedModel: info.model,
+						inputTokens: info.inputTokens,
+						outputTokens: info.outputTokens,
+						cacheReadTokens: info.cacheReadTokens ?? 0,
+						cacheWriteTokens: 0,
+						pricingVersion: price
+							? priceVersion()
+							: "external-billing-unavailable",
+						costStatus: price ? "known" : "unknown",
+						usd,
+					});
+				},
+				recordUnknown(call) {
+					save({
+						...call,
+						scope: scope ? { ...scope } : null,
+						role,
+						servedModel: null,
+						inputTokens: null,
+						outputTokens: null,
+						cacheReadTokens: null,
+						cacheWriteTokens: null,
+						pricingVersion: priceVersion(),
+						costStatus: "unknown",
+						usd: null,
+					});
+				},
+				markStatus(callId, status) {
+					db.query(
+						"UPDATE usage_call SET event_json = json_set(event_json, '$.status', ?) WHERE call_id = ?",
+					).run(status, callId);
 				},
 			};
 		},

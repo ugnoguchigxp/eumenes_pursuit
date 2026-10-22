@@ -72,23 +72,45 @@ describe("judge interpretation", () => {
 		expect(out.effects.match).toBe(0.25);
 		expect(out.effects.stepBack).toContain("thrashing");
 	});
-	test("an unconfident score is recorded but not used", () => {
+	test.each(["match", "progress"] as const)(
+		"an unconfident %s score is recorded but not used",
+		(id) => {
+			const out = interpret({
+				set: pursuitGuardsV1,
+				stage: "post",
+				attemptId: "a",
+				policy,
+				response: response({
+					[id]: {
+						type: "score",
+						score: 1,
+						confidence: 0.5,
+						probabilities: [0.2, 0.5, 0.2, 0.05, 0.05],
+					},
+				}),
+			});
+			expect(out.effects[id]).toBeNull();
+			expect(out.rows[0]?.usable).toBe(false);
+			expect(out.rows[0]?.answer).toMatchObject({ score: 1, confidence: 0.5 });
+		},
+	);
+	test("progress at the confidence threshold remains usable", () => {
 		const out = interpret({
 			set: pursuitGuardsV1,
 			stage: "post",
 			attemptId: "a",
 			policy,
 			response: response({
-				match: {
+				progress: {
 					type: "score",
 					score: 1,
-					confidence: 0.5,
+					confidence: policy.judge.confidence,
 					probabilities: [0.2, 0.5, 0.2, 0.05, 0.05],
 				},
 			}),
 		});
-		expect(out.effects.match).toBeNull();
-		expect(out.rows[0]?.usable).toBe(false);
+		expect(out.effects.progress).toBe(0.25);
+		expect(out.rows[0]?.usable).toBe(true);
 	});
 	test("needs_info asks for consultation", () => {
 		const out = interpret({

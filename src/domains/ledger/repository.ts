@@ -27,6 +27,7 @@ import type {
 	Rejection,
 	PartAssessment,
 	StrategyRow,
+	Settlement,
 	VerificationRow,
 } from "./types.ts";
 import { loadFindings } from "./findings.ts";
@@ -299,6 +300,7 @@ export function settleAttempt(
 		outcome: "success" | "failure";
 		refs: AttemptRow["refs"];
 		features: AttemptFeatures;
+		settlement?: Settlement;
 		now: number;
 	},
 ): void {
@@ -306,7 +308,7 @@ export function settleAttempt(
 	expectChanges(
 		db
 			.query(
-				`UPDATE pursuit_attempt SET state = 'settled', observation_json = ?, outcome = ?, refs_json = ?, features_json = ?, settled_at = ?
+				`UPDATE pursuit_attempt SET state = 'settled', observation_json = ?, outcome = ?, refs_json = ?, features_json = ?, settled_at = ?, settlement_json = ?
 				 WHERE id = ? AND state = 'started'`,
 			)
 			.run(
@@ -315,6 +317,9 @@ export function settleAttempt(
 				json(input.refs),
 				json(input.features),
 				input.now,
+				json(
+					input.settlement ?? { stage: "done", digest: null, effects: null },
+				),
 				input.id,
 			),
 		1,
@@ -331,7 +336,7 @@ export function interruptAttempt(
 	expectChanges(
 		db
 			.query(
-				"UPDATE pursuit_attempt SET state = 'interrupted', outcome = 'failure', settled_at = ? WHERE id = ? AND state = 'started'",
+				"UPDATE pursuit_attempt SET state = 'interrupted', outcome = NULL, settled_at = ? WHERE id = ? AND state = 'started'",
 			)
 			.run(input.now, input.id),
 		1,
@@ -518,6 +523,21 @@ export function insertReport(
 	).run(input.pursuitId, json(input.report), input.now);
 }
 
+/** Replace a pending terminal report once its final verification has settled. */
+export function updateReport(
+	db: LedgerDb,
+	input: { pursuitId: string; report: Report },
+): void {
+	requireTransaction(db);
+	expectChanges(
+		db
+			.query("UPDATE pursuit_report SET report_json = ? WHERE pursuit_id = ?")
+			.run(json(input.report), input.pursuitId),
+		1,
+		"report_update",
+	);
+}
+
 /**
  * Operation replay: the same key with the same digest returns the stored pursuit,
  * a different digest is a conflict, an unknown key is recorded.
@@ -628,6 +648,7 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		refs: parse<AttemptRow["refs"]>(r.refs_json),
 		features: nullable<AttemptFeatures>(r.features_json),
 		startedAt: Number(r.started_at),
+		settlement: parse<Settlement>(r.settlement_json),
 	}));
 	const judgements: JudgementRow[] = all(
 		"SELECT * FROM pursuit_judgement WHERE pursuit_id = ? ORDER BY created_at, rowid",
@@ -712,4 +733,32 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		report: report ? parse<Report>(report.report_json) : null,
 		findings: loadFindings(db, id),
 	};
+}
+
+export function updateSettlement(
+	db: LedgerDb,
+	id: string,
+	settlement: Settlement,
+): void {
+	requireTransaction(db);
+	expectChanges(
+		db
+			.query(
+				"UPDATE pursuit_attempt SET settlement_json = ? WHERE id = ? AND state = 'settled'",
+			)
+			.run(json(settlement), id),
+		1,
+		"settlement_update",
+	);
+}
+
+export function closeSettlements(
+	db: LedgerDb,
+	pursuitId: string,
+	reason: string,
+): void {
+	requireTransaction(db);
+	db.query(
+		"UPDATE pursuit_attempt SET settlement_json = json_set(settlement_json, '$.stage', 'done', '$.reason', ?) WHERE pursuit_id = ? AND json_extract(settlement_json, '$.stage') != 'done'",
+	).run(reason, pursuitId);
 }

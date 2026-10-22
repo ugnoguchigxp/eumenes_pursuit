@@ -1,3 +1,4 @@
+import { recordKey, recordVariant } from "./run-config.ts";
 /**
  * Failure patterns from the ledger: bun eval/analyze.ts <run> [--group E]
  * Per pursuit: how it ended, which criteria failed at the end, what the process looked like.
@@ -20,6 +21,8 @@ const { values, positionals } = parseArgs({
 	allowPositionals: true,
 	options: {
 		group: { type: "string" },
+		"config-id": { type: "string" },
+		"merge-configs": { type: "boolean", default: false },
 		strategies: { type: "boolean", default: false },
 		depth: { type: "boolean", default: false },
 		/** Long-horizon measures (spec/long-horizon-design.md): budget use, progress, returns. */
@@ -38,11 +41,21 @@ if (!existsSync(runsPath)) throw new Error(`no runs: ${runsPath}`);
 const latest = new Map<string, RunRecord>();
 for (const line of readFileSync(runsPath, "utf8").split("\n").filter(Boolean)) {
 	const r = JSON.parse(line) as RunRecord;
-	latest.set(`${r.task}|${r.condition}|${r.generator}|${r.repeat}`, r);
+	latest.set(recordKey(r), r);
 }
 const records = [...latest.values()].filter(
-	(r) => !values.group || r.group === values.group,
+	(r) =>
+		(!values.group || r.group === values.group) &&
+		(!values["config-id"] || (r.configId ?? "legacy") === values["config-id"]),
 );
+
+if (
+	new Set(records.map((r) => r.configId ?? "legacy")).size > 1 &&
+	!values["merge-configs"]
+)
+	throw new Error(
+		"multiple configs: select --config-id <id> or explicitly --merge-configs",
+	);
 
 const store = openStore(resolve(root, "ledger.sqlite"), migrations);
 const views = new Map<string, PursuitView>(
@@ -92,11 +105,11 @@ for (const r of [...records].sort((a, b) =>
 	byEnding.set(end, (byEnding.get(end) ?? 0) + 1);
 	for (const c of failed) byCriterion.set(c, (byCriterion.get(c) ?? 0) + 1);
 	lines.push(
-		`| ${r.task} | ${r.generator.split("/")[1] ?? "-"} | ${r.condition} | ${end} | ${failed.join(", ") || "-"} | ${r.failedClaims} | ${
+		`| ${r.task} | ${recordVariant(r)} | ${r.condition} | ${end} | ${failed.join(", ") || "-"} | ${r.failedClaims} | ${
 			Object.entries(r.rejectionsByRule)
 				.map(([k, n]) => `${k}×${n}`)
 				.join(" ") || "-"
-		} | ${r.stepBacks} | ${toolUse(v) || "-"} | $${r.usd.toFixed(3)} |`,
+		} | ${r.stepBacks} | ${toolUse(v) || "-"} | ${r.usd === null ? "unknown" : `$${r.usd.toFixed(3)}${r.usage?.costStatus === "estimated" ? " (estimated)" : !r.usage ? " (legacy)" : ""}`} |`,
 	);
 }
 lines.push(
@@ -120,7 +133,7 @@ if (values.strategies) {
 		),
 	)) {
 		const v = views.get(r.pursuitId);
-		const key = `${r.task} ${r.generator}`;
+		const key = `${r.task} ${recordVariant(r)}`;
 		counts.set(key, [...(counts.get(key) ?? []), v?.strategies.length ?? 0]);
 		out.push(`### ${key} #${r.repeat}（${ending(r, v)}）`);
 		for (const st of v?.strategies ?? [])
@@ -176,7 +189,7 @@ if (values.depth) {
 	const size = new Map(tasks.map((t) => [t.id, t.rubricSize ?? 0]));
 	const groups = new Map<string, RunRecord[]>();
 	for (const r of records) {
-		const key = `${r.task}|${r.condition}|${r.generator}`;
+		const key = `${r.task}|${r.condition}|${recordVariant(r)}`;
 		groups.set(key, [...(groups.get(key) ?? []), r]);
 	}
 	const mean = (xs: number[]) =>
@@ -256,7 +269,7 @@ if (values.horizon) {
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 		...rows.map(
 			({ r, v, h }) =>
-				`| ${r.task} | ${r.generator} | ${r.repeat} | ${h.ending} | ${h.budgetStop ?? "-"} | ${f2(h.use.attempts)} | ${f2(h.use.strategies)} | ${f2(h.use.stepBacks)} | ${f2(h.use.transitions)} | ${f2(h.use.wall)} | ${
+				`| ${r.task} | ${recordVariant(r)} | ${r.repeat} | ${h.ending} | ${h.budgetStop ?? "-"} | ${f2(h.use.attempts)} | ${f2(h.use.strategies)} | ${f2(h.use.stepBacks)} | ${f2(h.use.transitions)} | ${f2(h.use.wall)} | ${
 					size.get(r.task) ? f2(rubricScore(v, size.get(r.task)!)) : "-"
 				} | ${f2(h.progress.earlier)} | ${f2(h.progress.later)} | ${f2(h.progress.gain)} | ${h.returns.count} (${h.returns.maxSimilarity.map((x) => x.toFixed(2)).join(" ") || "-"}) |`,
 		),
@@ -267,7 +280,7 @@ if (values.horizon) {
 	];
 	const groups = new Map<string, typeof rows>();
 	for (const row of rows) {
-		const key = `${row.r.task}|${row.r.generator}`;
+		const key = `${row.r.task}|${recordVariant(row.r)}`;
 		groups.set(key, [...(groups.get(key) ?? []), row]);
 	}
 	for (const [key, rs] of [...groups].sort((a, b) =>

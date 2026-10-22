@@ -10,6 +10,7 @@ export function insertFinding(
 		statement: string;
 		assurance: FindingRow["assurance"];
 		sourceAttemptId: string | null;
+		sourceVerificationId?: string | null;
 		scope: FindingRow["scope"];
 		strategyId: string | null;
 		hypothesisId: string | null;
@@ -25,8 +26,8 @@ export function insertFinding(
 			.get(input.pursuitId) as { seq: number }
 	).seq;
 	db.query(
-		`INSERT INTO pursuit_finding (id, pursuit_id, seq, kind, statement, assurance, source_attempt_id, scope, strategy_id, hypothesis_id, status, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+		`INSERT INTO pursuit_finding (id, pursuit_id, seq, kind, statement, assurance, source_attempt_id, scope, strategy_id, hypothesis_id, status, created_at, source_verification_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
 	).run(
 		input.id,
 		input.pursuitId,
@@ -39,6 +40,7 @@ export function insertFinding(
 		input.strategyId,
 		input.hypothesisId,
 		input.now,
+		input.sourceVerificationId ?? null,
 	);
 }
 
@@ -86,10 +88,50 @@ export function loadFindings(db: LedgerDb, pursuitId: string): FindingRow[] {
 		assurance: r.assurance as FindingRow["assurance"],
 		sourceAttemptId:
 			r.source_attempt_id === null ? null : String(r.source_attempt_id),
+		sourceVerificationId:
+			r.source_verification_id === null
+				? null
+				: String(r.source_verification_id),
 		scope: r.scope as FindingRow["scope"],
 		strategyId: r.strategy_id === null ? null : String(r.strategy_id),
 		hypothesisId: r.hypothesis_id === null ? null : String(r.hypothesis_id),
 		status: r.status as FindingRow["status"],
 		reason: r.reason === null ? null : String(r.reason),
 	}));
+}
+
+/** Exact claim identity; never merge different premises or infer semantic equivalence. */
+export function findingClaimKey(
+	f: Pick<
+		FindingRow,
+		"kind" | "statement" | "scope" | "strategyId" | "hypothesisId"
+	>,
+): string {
+	return JSON.stringify([
+		f.kind,
+		f.statement,
+		f.scope,
+		f.strategyId,
+		f.hypothesisId,
+	]);
+}
+export function findingEvidenceKey(
+	f: Pick<
+		FindingRow,
+		| "kind"
+		| "statement"
+		| "scope"
+		| "strategyId"
+		| "hypothesisId"
+		| "assurance"
+		| "sourceAttemptId"
+		| "sourceVerificationId"
+	>,
+): string {
+	return JSON.stringify([
+		findingClaimKey(f),
+		f.assurance,
+		f.sourceAttemptId,
+		f.sourceVerificationId ?? null,
+	]);
 }

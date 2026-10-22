@@ -51,6 +51,8 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 
 Bun 1.4 以上と Python 3（sympy・mpmath。群 E の数値の検算に使う）が要ります。
 
+群 D のコード実行には、macOS の `sandbox-exec` または Linux の `bubblewrap`・`prlimit` が必要です。隔離できない環境では実行を拒否します。
+
 ```sh
 bun install
 bun run verify          # 整形・lint・型・境界・決定的な試験

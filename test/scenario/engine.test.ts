@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createPursuitEngine,
+	type CriterionResult,
 	type JudgePort,
 	type LlmPort,
 	type LlmPurpose,
 	type PursuitRuntime,
 	type ToolDescriptor,
 } from "../../src/index.ts";
-import { planRequest } from "../../src/domains/generation/prompts.ts";
+import {
+	hypothesisRequest,
+	planRequest,
+} from "../../src/domains/generation/prompts.ts";
 import * as ledger from "../../src/domains/ledger/index.ts";
 import { migrations } from "../../src/sqlite.ts";
 import { openStore } from "../../standalone/store.ts";
@@ -109,7 +113,325 @@ const conditions = (rules: boolean, judge = false) => ({
 	judge,
 });
 
+describe("acceptance result contract", () => {
+	const total = { id: "total", passed: true, evidence: "ok" };
+	const consistent = { id: "consistent", passed: true, evidence: "ok" };
+	const cases: {
+		name: string;
+		criteria: CriterionResult[];
+		passed: boolean;
+	}[] = [
+		{ name: "missing criterion", criteria: [total], passed: false },
+		{ name: "empty", criteria: [], passed: false },
+		{
+			name: "duplicate instead of missing",
+			criteria: [total, total],
+			passed: false,
+		},
+		{
+			name: "duplicate in otherwise complete set",
+			criteria: [total, consistent, total],
+			passed: false,
+		},
+		{
+			name: "unknown instead of expected",
+			criteria: [total, { ...consistent, id: "other" }],
+			passed: false,
+		},
+		{
+			name: "extra unknown",
+			criteria: [total, consistent, { ...total, id: "other" }],
+			passed: false,
+		},
+		{ name: "all pass", criteria: [total, consistent], passed: true },
+		{ name: "different order", criteria: [consistent, total], passed: true },
+		{
+			name: "failed criterion",
+			criteria: [total, { ...consistent, passed: false }],
+			passed: false,
+		},
+	];
+	for (const trigger of ["claim", "attempt", "final"] as const)
+		for (const row of cases)
+			test(`${trigger}: ${row.name}`, async () => {
+				const p =
+					trigger === "claim"
+						? proposal("done")
+						: proposal("tool", {
+								tool: "read",
+								inputJson: "{}",
+								expectedStatus: "ok",
+								expectedObservation: "値が読める",
+							});
+				const { engine, store } = setup(
+					scripted({ plan: [plan], hypothesize: [hypothesis], propose: [p] }),
+				);
+				try {
+					const { pursuitId } = await engine.start(
+						startInput({
+							acceptance: [
+								{ id: "total", text: "合計", method: "machine" },
+								{ id: "consistent", text: "整合性", method: "machine" },
+							],
+						}),
+						"k",
+					);
+					const rt = {
+						...runtime(false),
+						acceptance: { verify: async () => row.criteria },
+					};
+					if (trigger === "final")
+						await engine.cancel(
+							pursuitId,
+							"停止",
+							rt,
+							new AbortController().signal,
+						);
+					else {
+						await engine.step(pursuitId, rt, new AbortController().signal);
+						await engine.step(pursuitId, rt, new AbortController().signal);
+						await engine.step(pursuitId, rt, new AbortController().signal);
+					}
+					const view = (await engine.view(pursuitId))!;
+					expect(view.verifications.at(-1)?.passed).toBe(row.passed);
+					expect(view.status).toBe(
+						trigger === "final"
+							? "stopped"
+							: row.passed
+								? "completed"
+								: "proposing",
+					);
+					if (view.report) expect(view.report.verified).toBe(row.passed);
+					if (trigger === "claim" && !row.passed)
+						expect(
+							view.attempts.at(-1)?.rejection?.[0]?.detail.length,
+						).toBeGreaterThan(0);
+				} finally {
+					store.close();
+				}
+			});
+});
+
 describe("engine", () => {
+	for (const confidence of [0.1, 0.9])
+		test(`progress confidence ${confidence} controls rule intervention`, async () => {
+			let post = 0;
+			const judge: JudgePort = {
+				maxQuestions: 16,
+				async ask(request) {
+					return {
+						answers: request.questions.progress
+							? {
+									progress: {
+										type: "score" as const,
+										score: 4 - post++,
+										confidence,
+										probabilities: [0.2, 0.2, 0.2, 0.2, 0.2],
+									},
+								}
+							: {},
+						model: "fixture",
+						adapter: null,
+						inputTokens: 1,
+						latencyMs: 1,
+					};
+				},
+			};
+			const read = proposal("tool", {
+				tool: "read",
+				inputJson: "{}",
+				expectedStatus: "ok",
+				expectedObservation: "値が読める",
+			});
+			const { engine, store } = setup(
+				scripted({
+					plan: [plan],
+					hypothesize: [hypothesis],
+					propose: [read, read, read, read],
+				}),
+				judge,
+			);
+			try {
+				const { pursuitId } = await engine.start(
+					startInput({
+						conditions: { ...conditions(true, true), verifyOn: "claim" },
+					}),
+					"k",
+				);
+				for (let i = 0; i < 6; i++)
+					await engine.step(
+						pursuitId,
+						runtime(false),
+						new AbortController().signal,
+					);
+				const view = (await engine.view(pursuitId))!;
+				expect(view.status).toBe(confidence < 0.7 ? "proposing" : "reviewing");
+				expect(
+					view.decisions.some((d) => d.reason.includes("goal_drift")),
+				).toBe(confidence >= 0.7);
+				expect(
+					view.judgements
+						.filter((j) => j.questionId === "progress")
+						.every((j) => j.usable),
+				).toBe(confidence >= 0.7);
+			} finally {
+				store.close();
+			}
+		});
+	test("review direction reaches the next hypothesis without reviving older directions", async () => {
+		const direction = "未確認の境界値を先に調べる";
+		const generator = scripted({
+			plan: [plan],
+			hypothesize: [hypothesis, hypothesis],
+			propose: [proposal("step_back")],
+		});
+		const prompts: string[] = [];
+		const { engine, store } = setup(
+			{
+				async complete(request, signal) {
+					if (request.purpose === "hypothesize") prompts.push(request.prompt);
+					return generator.complete(request, signal);
+				},
+			},
+			null,
+			scripted({
+				review: [
+					{
+						decision: "continue_strategy",
+						reason: "前提を確かめ直す",
+						brokenAssumption: "不明",
+						direction,
+					},
+				],
+			}),
+		);
+		try {
+			const { pursuitId } = await engine.start(
+				startInput({ conditions: { ...conditions(true), review: true } }),
+				"k",
+			);
+			for (let i = 0; i < 5; i++)
+				await engine.step(
+					pursuitId,
+					runtime(false),
+					new AbortController().signal,
+				);
+			expect(prompts).toHaveLength(2);
+			expect(prompts[0]).not.toContain(direction);
+			expect(prompts[1]).toContain(direction);
+			const view = (await engine.view(pursuitId))!;
+			const last = view.decisions.at(-1)!;
+			const afterOtherDecision = {
+				...view,
+				decisions: [
+					...view.decisions,
+					{ ...last, id: "newer", kind: "consult" as const, basis: {} },
+				],
+			};
+			expect(
+				hypothesisRequest({ view: afterOtherDecision, tools: [tool] }).prompt,
+			).not.toContain(direction);
+		} finally {
+			store.close();
+		}
+	});
+	for (const issue of ["failed", "aborted"] as const)
+		for (const ending of ["cancel", "budget", "give_up"] as const)
+			test(`${ending} persists when final verification is ${issue}`, async () => {
+				const { engine, store } = setup(
+					scripted({
+						plan: [plan],
+						hypothesize: [hypothesis],
+						propose: [proposal("give_up")],
+					}),
+				);
+				try {
+					const input = startInput();
+					if (ending === "budget")
+						input.policy = {
+							...input.policy,
+							budget: { ...input.policy.budget, transitions: 1 },
+						};
+					const { pursuitId } = await engine.start(input, "k");
+					const signal =
+						issue === "aborted"
+							? AbortSignal.abort()
+							: new AbortController().signal;
+					let calls = 0;
+					const rt = {
+						...runtime(false),
+						acceptance: {
+							verify: async () => {
+								calls++;
+								throw new Error("verifier unavailable");
+							},
+						},
+					};
+					if (ending === "give_up") {
+						await engine.step(pursuitId, rt, new AbortController().signal);
+						await engine.step(pursuitId, rt, new AbortController().signal);
+					}
+					const result =
+						ending === "cancel"
+							? await engine.cancel(pursuitId, "停止", rt, signal)
+							: await engine.step(pursuitId, rt, signal);
+					const view = (await engine.view(pursuitId))!;
+					expect(result.done).toBe(true);
+					expect(view.status).toBe(
+						ending === "give_up" ? "incomplete" : "stopped",
+					);
+					expect(view.report?.verified).toBe(false);
+					expect(view.report?.verificationIssue).toBe(issue);
+					expect(view.verifications.at(-1)?.passed).toBe(false);
+					expect(calls).toBe(issue === "aborted" ? 0 : 1);
+				} finally {
+					store.close();
+				}
+			});
+
+	test("stopped is durable before verification returns, and abort ends an unresponsive verifier wait", async () => {
+		const { engine, store } = setup(scripted({}));
+		const controller = new AbortController();
+		const entered = Promise.withResolvers<void>();
+		const verification = Promise.withResolvers<readonly CriterionResult[]>();
+		try {
+			const { pursuitId } = await engine.start(startInput(), "k");
+			const rt = {
+				...runtime(false),
+				acceptance: {
+					verify: async () => {
+						entered.resolve();
+						return verification.promise;
+					},
+				},
+			};
+			const cancelling = engine.cancel(
+				pursuitId,
+				"停止",
+				rt,
+				controller.signal,
+			);
+			await entered.promise;
+			const pending = (await engine.view(pursuitId))!;
+			expect(pending.status).toBe("stopped");
+			expect(pending.report?.verificationIssue).toBe("pending");
+			expect((await engine.step(pursuitId, rt, controller.signal)).done).toBe(
+				true,
+			);
+			controller.abort();
+			expect((await cancelling).done).toBe(true);
+			expect((await engine.view(pursuitId))?.report?.verificationIssue).toBe(
+				"aborted",
+			);
+			// A late success cannot overwrite the aborted report.
+			verification.resolve([{ id: "total", passed: true, evidence: "late" }]);
+			await Promise.resolve();
+			expect((await engine.view(pursuitId))?.report?.verified).toBe(false);
+		} finally {
+			verification.resolve([]);
+			store.close();
+		}
+	});
 	test("E0 accepts a completion claim without verification; the report says unverified", async () => {
 		const { engine } = setup(
 			scripted({

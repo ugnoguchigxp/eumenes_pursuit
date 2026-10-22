@@ -1,3 +1,16 @@
+import { meterJudge } from "../standalone/metered-ports.ts";
+import { totalUsage, type UsageScope } from "../standalone/usage.ts";
+import {
+	configIdentity,
+	jobKey,
+	recordKey,
+	sourceIdentity,
+	type EffectiveRunConfig,
+} from "./run-config.ts";
+import {
+	stepWithDeadline,
+	cancelWithDeadline,
+} from "../standalone/deadline.ts";
 /**
  * Live evaluation: Claude (generator/reviewer) and d1 on LARM (judge), real tools.
  *
@@ -94,6 +107,8 @@ const { values, positionals } = parseArgs({
 		"rubric-dir": { type: "string" },
 		/** Host-only directory of expected answers (<id>.json) for discovery tasks with a secretId; outside every responder's directory. */
 		"secret-dir": { type: "string" },
+		"private-data-version": { type: "string" },
+		"file-responder-id": { type: "string" },
 		/** horizon-10a: base URL of the local corpus server (eval/tools/corpus-server.ts), 127.0.0.1 only. */
 		"corpus-url": { type: "string" },
 		/** horizon-10a: the corpus server's request log (host-only; canary detection). */
@@ -115,7 +130,7 @@ function readRecords(): RunRecord[] {
 		.split("\n")
 		.filter(Boolean)) {
 		const r = JSON.parse(line) as RunRecord;
-		latest.set(`${r.task}|${r.condition}|${r.generator}|${r.repeat}`, r);
+		latest.set(recordKey(r), r);
 	}
 	return [...latest.values()];
 }
@@ -177,17 +192,26 @@ const generatorRole = settings.require(
 const useFile = values.llm === "file";
 if (!["claude", "file"].includes(values.llm!))
 	throw new Error("--llm must be claude or file");
-const fileLlm = (role: string) =>
-	createFileLlm({ dir: values["llm-dir"]!, role });
-const generator = useFile
-	? fileLlm(values.generator!)
-	: createClaudeLlm(generatorRole, meter);
-const reviewer = useFile
-	? createFileLlm({
-			dir: values["reviewer-dir"] ?? values["llm-dir"]!,
-			role: "reviewer",
-		})
-	: createClaudeLlm(settings.require("llm.reviewer"), meter);
+function generatorFor(scope: UsageScope) {
+	const usage = settings.meter(scope, "generator");
+	return useFile
+		? createFileLlm({
+				dir: values["llm-dir"]!,
+				role: values.generator!,
+				meter: usage,
+			})
+		: createClaudeLlm(generatorRole, usage);
+}
+function reviewerFor(scope: UsageScope, role = "reviewer") {
+	const usage = settings.meter(scope, role);
+	return useFile
+		? createFileLlm({
+				dir: values["reviewer-dir"] ?? values["llm-dir"]!,
+				role,
+				meter: usage,
+			})
+		: createClaudeLlm(settings.require("llm.reviewer"), usage);
+}
 const graderRole = settings.get("llm.grader");
 // Default: claude when --llm claude; none when --llm file (the generator's responder must not grade itself).
 const graderMode = values["grader-llm"] ?? (useFile ? "none" : "claude");
@@ -206,12 +230,20 @@ if (
 	resolve(values["grader-dir"]!) === resolve(values["reviewer-dir"])
 )
 	throw new Error("--grader-dir must differ from --reviewer-dir");
-const grader =
-	graderMode === "file"
-		? createFileLlm({ dir: values["grader-dir"]!, role: "grader" })
+const graderAvailable =
+	graderMode === "file" || (graderMode === "claude" && !!graderRole);
+function graderFor(scope: UsageScope) {
+	const usage = settings.meter(scope, "grader");
+	return graderMode === "file"
+		? createFileLlm({
+				dir: values["grader-dir"]!,
+				role: "grader",
+				meter: usage,
+			})
 		: graderMode === "claude" && graderRole
-			? createClaudeLlm(graderRole, meter)
+			? createClaudeLlm(graderRole, usage)
 			: null;
+}
 const toolTier = Number(values.tools) as ToolTier;
 if (![0, 1, 2, 3].includes(toolTier))
 	throw new Error("--tools must be 0, 1, 2 or 3");
@@ -293,21 +325,31 @@ const lease = needsJudge
 	: null;
 const store = openStore(resolve(root, "ledger.sqlite"), migrations);
 let sequence = 0;
-const engine = createPursuitEngine({
-	store,
-	clock: { now: () => Date.now() },
-	ids: {
-		next: (prefix) =>
-			`${prefix}_${Date.now().toString(36)}_${(sequence++).toString(36)}_${crypto.randomUUID().slice(0, 8)}`,
-	},
-	generator,
-	reviewer,
-	judge: lease
-		? serialJudge(lease.judge, { retries: 6, baseDelayMs: 150 })
-		: null,
-	onWarning: (code, detail) =>
-		console.warn(`[warn] ${code}`, JSON.stringify(detail)),
-});
+const judgeQueue = { tail: Promise.resolve<unknown>(undefined) };
+function engineFor(scope: UsageScope) {
+	return createPursuitEngine({
+		store,
+		clock: { now: () => Date.now() },
+		ids: {
+			next: (prefix) =>
+				`${prefix}_${Date.now().toString(36)}_${(sequence++).toString(36)}_${crypto.randomUUID().slice(0, 8)}`,
+		},
+		generator: generatorFor(scope),
+		reviewer: reviewerFor(scope),
+		judge: lease
+			? serialJudge(
+					meterJudge(
+						lease.judge,
+						settings.meter(scope, "judge"),
+						settings.require("larm.decisionProfile"),
+					),
+					{ retries: 6, baseDelayMs: 150, queue: judgeQueue },
+				)
+			: null,
+		onWarning: (code, detail) =>
+			console.warn(`[warn] ${code}`, JSON.stringify(detail)),
+	});
+}
 
 const adapter = values.adapter
 	? {
@@ -361,7 +403,7 @@ if (corpusTasks.length) {
 }
 const rubricTasks = selected.filter((t) => t.rubricId);
 if (rubricTasks.length) {
-	if (!grader)
+	if (!graderAvailable)
 		throw new Error(
 			`${rubricTasks.map((t) => t.id).join(",")} need a grader (--grader-llm file|claude)`,
 		);
@@ -387,16 +429,108 @@ if (rubricTasks.length) {
 		throw new Error("--rubric-dir must be outside every responder directory");
 	for (const t of rubricTasks) await loadRubric(rubricDir, t.rubricId!);
 }
+// External datasets require an operator-owned opaque version; contents never enter model-visible metadata.
+if (
+	(rubricTasks.length || secretTasks.length || corpusTasks.length) &&
+	!values["private-data-version"]
+)
+	throw new Error(
+		"--private-data-version is required for private datasets/corpus; change it when contents change",
+	);
+const sourceId = sourceIdentity(resolve(import.meta.dir, ".."));
+const effectiveConfigs = new Map<
+	ConditionName,
+	{ id: string; config: EffectiveRunConfig }
+>();
+for (const condition of conditionNames) {
+	const config: EffectiveRunConfig = {
+		format: 1,
+		roles: {
+			generator: useFile
+				? {
+						provider: "file",
+						directory: resolve(values["llm-dir"]!),
+						responder: values["file-responder-id"] ?? null,
+						role: values.generator!,
+					}
+				: { provider: "claude", ...generatorRole },
+			reviewer: useFile
+				? {
+						provider: "file",
+						directory: resolve(values["reviewer-dir"] ?? values["llm-dir"]!),
+						responder: values["file-responder-id"] ?? null,
+					}
+				: { provider: "claude", ...settings.require("llm.reviewer") },
+			grader:
+				graderMode === "file"
+					? { provider: "file", directory: resolve(values["grader-dir"]!) }
+					: graderMode === "claude" && graderRole
+						? { provider: "claude", ...graderRole }
+						: null,
+		},
+		judge: needsJudge
+			? {
+					provider: "larm",
+					profile: settings.require("larm.decisionProfile"),
+					origin: settings.require("larm.controlOrigin"),
+					audience: settings.require("larm.audience"),
+				}
+			: null,
+		policy: policy as unknown as import("../src/index.ts").JsonValue,
+		execution: {
+			conditions: conditionsFor(condition, {
+				adapter,
+				language,
+				findings,
+				strategyChange,
+				selfCheck,
+				verifyOn,
+				prediction,
+				completionCheck,
+			}) as unknown as import("../src/index.ts").JsonValue,
+			toolTier,
+			critic: values.critic!,
+			maxSteps: Number(values["max-steps"]),
+			concurrency: Number(values.concurrency),
+			corpusUrl: corpus?.url ?? null,
+			runtime: {
+				bun: Bun.version,
+				platform: process.platform,
+				arch: process.arch,
+			},
+		},
+		experience,
+		sourceId,
+		privateDataVersion: values["private-data-version"] ?? null,
+	};
+	const id = configIdentity(config);
+	effectiveConfigs.set(condition, { id, config });
+	mkdirSync(join(root, "configs"), { recursive: true });
+	writeFileSync(
+		join(root, "configs", `${id}.json`),
+		JSON.stringify(config, null, 2) + "\n",
+	);
+}
 const done = new Set(
 	readRecords()
 		.filter((r) => !r.error)
-		.map((r) => `${r.task}|${r.condition}|${r.generator}|${r.repeat}`),
+		.filter((r) => !!r.configId)
+		.map(recordKey),
 );
 const jobs: { task: EvalTask; condition: ConditionName; repeat: number }[] = [];
 for (let repeat = 1; repeat <= Number(values.repeat); repeat++)
 	for (const condition of conditionNames)
 		for (const task of selected)
-			if (!done.has(`${task.id}|${condition}|${variant}|${repeat}`))
+			if (
+				!done.has(
+					jobKey(
+						task.id,
+						condition,
+						effectiveConfigs.get(condition)!.id,
+						repeat,
+					),
+				)
+			)
 				jobs.push({ task, condition, repeat });
 console.log(
 	`jobs: ${jobs.length} (skipping ${done.size} already recorded); spent so far $${meter.spentUsd().toFixed(3)}`,
@@ -404,6 +538,14 @@ console.log(
 
 async function runOne(job: (typeof jobs)[number]) {
 	const { task, condition, repeat } = job;
+	const configId = effectiveConfigs.get(condition)!.id;
+	const scope: UsageScope = {
+		runId: values.name!,
+		configId,
+		jobId: crypto.randomUUID(),
+		pursuitId: null,
+	};
+	const engine = engineFor(scope);
 	const label = `${task.id}/${condition}/${variant}/#${repeat}`;
 	const started = Date.now();
 	// Outside the project, so task code cannot reach .env by a relative path.
@@ -412,9 +554,9 @@ async function runOne(job: (typeof jobs)[number]) {
 	);
 	console.log(`[start] ${label} workspace ${directory}`);
 	const instance = await task.create(directory, {
-		grader,
+		grader: graderFor(scope),
 		toolTier,
-		critic: values.critic ? reviewer : null,
+		critic: values.critic ? reviewerFor(scope, "critic") : null,
 		rubricDir,
 		secretDir,
 		corpus,
@@ -448,19 +590,26 @@ async function runOne(job: (typeof jobs)[number]) {
 		);
 		if (startedPursuit.replayed) throw new Error("unexpected_replay");
 		pursuitId = startedPursuit.pursuitId;
+		scope.pursuitId = pursuitId;
 		const runtime = {
 			tools: redactTools(instance.tools, secrets),
 			workspace: instance.workspace,
 			acceptance: redactAcceptance(instance.acceptance, secrets),
 		};
 		for (let i = 0; i < Number(values["max-steps"]); i++) {
-			const step = await engine.step(pursuitId, runtime, controller.signal);
+			const step = await stepWithDeadline(
+				engine,
+				pursuitId,
+				runtime,
+				controller.signal,
+			);
 			if (step.done) break;
 			if (step.status === "awaiting_consultation") {
 				const view = (await engine.view(pursuitId))!;
 				const open = view.consultations.find((c) => c.answer === null)!;
 				if (view.consultations.length > 3) {
-					await engine.cancel(
+					await cancelWithDeadline(
+						engine,
 						pursuitId,
 						"相談が3回を超えました",
 						runtime,
@@ -473,7 +622,8 @@ async function runOne(job: (typeof jobs)[number]) {
 		}
 		const view = (await engine.view(pursuitId))!;
 		if (!terminalStatuses.includes(view.status))
-			await engine.cancel(
+			await cancelWithDeadline(
+				engine,
 				pursuitId,
 				"評価の手順数の上限",
 				runtime,
@@ -492,9 +642,17 @@ async function runOne(job: (typeof jobs)[number]) {
 		measure(view, (model) => pricing[model]),
 		facts,
 	);
+	const usage = totalUsage(meter.events(scope.jobId));
 	const record: RunRecord = {
 		...measured,
+		llmCalls: usage.calls,
+		inputTokens: usage.inputTokens,
+		outputTokens: usage.outputTokens,
+		usd: usage.usd,
+		usage,
 		run: values.name!,
+		configId,
+		jobKey: jobKey(task.id, condition, configId, repeat),
 		task: task.id,
 		group: task.group,
 		condition,
@@ -509,7 +667,7 @@ async function runOne(job: (typeof jobs)[number]) {
 	appendFileSync(runsPath, `${JSON.stringify(record)}\n`);
 	if (!values["keep-work"]) await instance.dispose();
 	console.log(
-		`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""} correct=${record.correct} attempts=${record.attempts} stepBacks=${record.stepBacks} $${record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
+		`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""} correct=${record.correct} attempts=${record.attempts} stepBacks=${record.stepBacks} $${record.usd === null ? "unknown" : record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
 	);
 }
 

@@ -23,7 +23,12 @@ import {
 import { createDirWorkspace } from "../../tools/workspace.ts";
 import { criterion } from "../kit.ts";
 import { createCritic } from "./critic.ts";
-import { createGrader, type Grade, type RubricItem } from "./grader.ts";
+import {
+	createGrader,
+	type Grade,
+	type RubricItem,
+	type ValidatedCheck,
+} from "./grader.ts";
 import {
 	createProofGrader,
 	loadRubric,
@@ -80,7 +85,7 @@ function goal(spec: ReasoningSpec, tier: TaskContext["toolTier"]): string {
 		);
 	if (spec.numericChecks)
 		rules.push(
-			"証明で使う数値の不等式・等式は、文書の末尾の ```checks ブロックに 1 行ずつ ASCII の式で列挙する（例: sqrt(7) > 2.645、2.645^2 < 7）。この欄は計算機で厳密に検算される。",
+			"証明で使う数値の不等式・等式は、文書の末尾の ```checks ブロックに 1 行ずつ ASCII の式で列挙する（例: sqrt(7) > 2.645、2.645^2 < 7）。この欄は計算機で検算され、厳密な結果と数値近似は区別される。",
 		);
 	if (spec.answer)
 		rules.push(
@@ -436,6 +441,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 				const out: CriterionResult[] = [];
 				const proof = spec.document ? await read(proofPath) : null;
 				let formatOk = true;
+				const validatedChecks: ValidatedCheck[] = [];
 				if (spec.document) {
 					if (proof === null) {
 						return acceptance(spec).map((a) =>
@@ -464,6 +470,16 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 							: checks.errors.slice(0, 3).join(" / ");
 						if (checksOk) {
 							const results = await runMath({ items: checks.items });
+							for (const [i, item] of checks.items.entries()) {
+								const r = results[i];
+								validatedChecks.push({
+									expression: item.line,
+									ok: r?.ok ?? false,
+									assurance: r?.assurance ?? "numeric",
+									...(r?.value === undefined ? {} : { value: r.value }),
+									...(r?.rhs === undefined ? {} : { rhs: r.rhs }),
+								});
+							}
 							const wrong = checks.items.filter((_, i) => !results[i]?.ok);
 							checksOk = wrong.length === 0;
 							// One numeric (tolerance-based) decision makes the whole criterion numeric.
@@ -506,6 +522,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 							rubric: spec.rubric,
 							reference: spec.reference ?? "",
 							proof,
+							checks: validatedChecks,
 							signal,
 						});
 						const failed = verdict.items

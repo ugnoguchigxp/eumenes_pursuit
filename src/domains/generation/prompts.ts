@@ -1,3 +1,4 @@
+import { findingClaimKey } from "../ledger/findings.ts";
 import { z } from "zod";
 import type {
 	JsonValue,
@@ -117,7 +118,7 @@ You work in small, explicit steps: a strategy (overall approach), then a hypothe
 Rules you must respect:
 - Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
 - The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
-- Do not repeat a failed attempt under the same conditions without stating what changed.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
 - Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
 - Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
 - Tools marked permitted:false must not be used; consult if you need them.
@@ -165,7 +166,8 @@ function attemptLine(a: AttemptRow, limit: number) {
 	const prediction = `予測: ${a.prediction.expectedStatus} / ${clip(a.prediction.expectedObservation || "（なし）", limit)}${a.prediction.refutedIf ? `\n  反証の条件: ${clip(a.prediction.refutedIf, limit)}` : ""}`;
 	if (a.state === "rejected")
 		return `${head}\n  ${prediction}\n  拒否: ${(a.rejection ?? []).map((r) => `${r.rule}: ${r.detail}`).join(" / ")}`;
-	if (a.state === "interrupted") return `${head}\n  ${prediction}\n  中断`;
+	if (a.state === "interrupted")
+		return `${head}\n  ${prediction}\n  中断（実行結果・副作用の有無は不明）`;
 	const observed = a.observation
 		? `${a.observation.status}${a.observation.errorCode ? `(${a.observation.errorCode})` : ""} ${show(a.observation.output, limit * 3)}`
 		: "（未観測）";
@@ -199,16 +201,37 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 	shown.sort(
 		(a, b) => order[a.assurance] - order[b.assurance] || b.seq - a.seq,
 	);
+	const groups = new Map<string, typeof shown>();
+	for (const f of shown) {
+		const key = findingClaimKey(f);
+		const rows = groups.get(key) ?? [];
+		rows.push(f);
+		groups.set(key, rows);
+	}
 	const deadEnds = view.findings.filter((f) => f.kind === "dead_end");
 	const superseded = view.findings
 		.filter((f) => f.status === "superseded" && f.kind !== "dead_end")
 		.slice(-5);
 	const line = (f: PursuitView["findings"][number]) =>
-		`- F${f.seq} [${f.kind}・${assuranceLabel[f.assurance]}・${scopeLabel(view, f)}] ${clip(f.statement, 400)}`;
+		`- F${f.seq} [${f.kind}・${assuranceLabel[f.assurance]}・${scopeLabel(view, f)}] ${clip(f.statement, 400)}${f.sourceAttemptId || f.sourceVerificationId ? ` (出典: ${f.sourceAttemptId ?? f.sourceVerificationId})` : ""}`;
 	return [
 		"## 知見（仮説を変えても残る）",
 		shown.length
-			? shown.slice(0, 20).map(line).join("\n")
+			? [...groups.values()]
+					.slice(0, 20)
+					.map((rows) => {
+						// Bound repeated evidence while retaining each assurance label and its provenance.
+						const representatives = [
+							...new Map(rows.map((f) => [f.assurance, f])).values(),
+						];
+						return (
+							representatives.map(line).join("\n") +
+							(rows.length > representatives.length
+								? `\n  （同じ主張の根拠は計${rows.length}件。全件は台帳に保存）`
+								: "")
+						);
+					})
+					.join("\n")
 			: "（まだありません）",
 		"確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。",
 		deadEnds.length
@@ -336,6 +359,12 @@ export function hypothesisRequest(input: {
 }): LlmRequest<z.infer<typeof hypothesisSchema>> {
 	const { view } = input;
 	const strategy = view.strategies.find((s) => s.id === view.currentStrategyId);
+	const last = view.decisions.at(-1);
+	const direction =
+		last?.kind === "change_hypothesis" &&
+		typeof last.basis.direction === "string"
+			? last.basis.direction
+			: null;
 	return {
 		purpose: "hypothesize",
 		system: executorSystem,
@@ -352,6 +381,7 @@ export function hypothesisRequest(input: {
 			`## 現在の方針\n${strategy?.body ?? ""}`,
 			partsBlock(view),
 			experienceBlock(view),
+			direction ? `## 振り返りからの方向づけ\n${direction}` : "",
 			"## 依頼",
 			"この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。",
 			view.input.conditions.selfCheck === "parts"

@@ -19,6 +19,8 @@ export interface ToolDescriptor {
 	readonly permission: string;
 	/** Input keys that define the attempt's conditions; absent = the whole input. */
 	readonly fingerprintFields?: readonly string[];
+	/** Host attests these fingerprint fields/state rules match its v1 descriptor. Absent = legacy history cannot be compared safely. */
+	readonly legacyFingerprintCompatible?: boolean;
 	/**
 	 * Input field that may be supplied as raw text (proofs, code) instead of inside
 	 * the JSON input, so the model does not have to escape it twice.
@@ -91,7 +93,7 @@ export interface CriterionResult {
 
 export type Assurance = "exact" | "numeric" | "model";
 
-/** Host-held verification. The procedure is outside the executor's reach. */
+/** Host-held verification, outside the executor's reach. Return every frozen criterion exactly once; no other IDs. */
 export interface AcceptancePort {
 	verify(signal: AbortSignal): Promise<readonly CriterionResult[]>;
 }

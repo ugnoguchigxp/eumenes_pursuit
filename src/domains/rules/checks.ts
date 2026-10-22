@@ -43,6 +43,7 @@ export function ruleRejections(input: {
 	prediction: Prediction;
 	whatChanged: string;
 	fingerprint: string;
+	sameConditions?: (attempt: AttemptRow) => boolean | null;
 	policy: Policy;
 	/** Also require what would refute the hypothesis (spec/verification-design.md §3). */
 	falsifiable?: boolean;
@@ -70,18 +71,28 @@ export function ruleRejections(input: {
 			rule: "hypothesis_budget",
 			detail: "この仮説の試行予算を使い切りました",
 		});
-	const failedSame = input.view.attempts.filter(
+	const priorFailures = input.view.attempts.filter(
 		(a) =>
-			a.state === "settled" &&
-			a.outcome === "failure" &&
-			a.fingerprint === input.fingerprint,
-	).length;
+			executed(a) && (a.outcome === "failure" || a.state === "interrupted"),
+	);
+	const matches = priorFailures.map((a) =>
+		input.sameConditions
+			? input.sameConditions(a)
+			: a.fingerprint === input.fingerprint,
+	);
+	if (matches.some((m) => m === null))
+		out.push({
+			rule: "retry_history_unavailable",
+			detail:
+				"以前の道具の同一性契約を確認できません。履歴を照合できる契約をホストで確認し、判断を見直してください",
+		});
+	const failedSame = matches.filter((m) => m === true).length;
 	if (failedSame > 0) {
 		if (!input.whatChanged.trim())
 			out.push({
 				rule: "same_failure",
 				detail:
-					"失敗した試行と同じ条件です。前回から何が変わったか（whatChanged）がなければ繰り返せません",
+					"失敗または結果不明の試行と同じ条件です。前回から何が変わったか（whatChanged）がなければ繰り返せません",
 			});
 		else if (failedSame > input.policy.retry.sameFingerprintWithReason)
 			out.push({
@@ -128,12 +139,19 @@ function trailing<T>(items: readonly T[], test: (item: T) => boolean): number {
 
 /** Rows strictly ordered by increasing (or non-improving) values at the tail. */
 function tailRun(
-	values: readonly number[],
+	values: readonly (number | null)[],
 	worse: (a: number, b: number) => boolean,
 ) {
 	let run = 0;
 	for (let i = values.length - 1; i > 0; i--) {
-		if (!worse(values[i - 1]!, values[i]!)) break;
+		const previous = values[i - 1];
+		const current = values[i];
+		if (
+			typeof previous !== "number" ||
+			typeof current !== "number" ||
+			!worse(previous, current)
+		)
+			break;
 		run++;
 	}
 	return run;
@@ -159,10 +177,11 @@ export function signals(
 		trailing(done, (a) => a.outcome === "failure"),
 		limits.consecutiveFailures,
 	);
-	const matches = done
-		.map((a) => a.features?.match)
-		.filter((m): m is number => typeof m === "number");
-	const mismatch = trailing(matches, (m) => m < policy.judge.mismatchBelow);
+	const matches = done.map((a) => a.features?.match ?? null);
+	const mismatch = trailing(
+		matches,
+		(m) => m !== null && m < policy.judge.mismatchBelow,
+	);
 	push(
 		"mismatch_not_shrinking",
 		mismatch >= 2 ? tailRun(matches.slice(-mismatch), (a, b) => b <= a) + 1 : 0,
@@ -180,9 +199,7 @@ export function signals(
 		done.filter((a) => (a.features?.protectedTouched.length ?? 0) > 0).length,
 		limits.protectedTouches,
 	);
-	const progress = done
-		.map((a) => a.features?.progress)
-		.filter((p): p is number => typeof p === "number");
+	const progress = done.map((a) => a.features?.progress ?? null);
 	push(
 		"goal_drift",
 		tailRun(progress, (a, b) => b < a),
@@ -222,12 +239,7 @@ export function pursuitBudgetExceeded(
 	const budget = view.input.policy.budget;
 	if (view.attempts.filter(executed).length >= budget.attempts)
 		return "attempts";
-	// Time spent waiting for the user's answer is not the pursuit's own time.
-	const waiting = view.consultations.reduce(
-		(sum, c) => sum + ((c.answeredAt ?? now) - c.askedAt),
-		0,
-	);
-	if (now - view.startedAt - waiting >= budget.wallMs) return "wall_time";
+	if (remainingWallMs(view, now) <= 0) return "wall_time";
 	if (view.revision >= budget.transitions) return "transitions";
 	return null;
 }
@@ -242,4 +254,16 @@ export function attemptOutcome(
 	if (prediction.expectedStatus !== status) return "failure";
 	if (match !== null && match < policy.judge.mismatchBelow) return "failure";
 	return "success";
+}
+
+/** Consultation waits pause the active wall budget. Host supplies the clock. */
+export function remainingWallMs(view: PursuitView, now: number): number {
+	const waiting = view.consultations.reduce(
+		(sum, c) => sum + ((c.answeredAt ?? now) - c.askedAt),
+		0,
+	);
+	return Math.max(
+		0,
+		view.input.policy.budget.wallMs - (now - view.startedAt - waiting),
+	);
 }

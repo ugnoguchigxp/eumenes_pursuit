@@ -65,12 +65,17 @@ import {
 	executed,
 	invariantRejections,
 	pursuitBudgetExceeded,
+	remainingWallMs,
 	rejectionsInRow,
 	ruleRejections,
 	signals,
 	type Signal,
 } from "../rules/checks.ts";
-import { digestJson, fingerprint } from "../rules/fingerprint.ts";
+import {
+	digestJson,
+	fingerprint,
+	sameConditions,
+} from "../rules/fingerprint.ts";
 
 /** What the host lends for one pursuit. In Eumenes: toolchain, workspace, verifier. */
 export interface PursuitRuntime {
@@ -159,12 +164,28 @@ const budgetReasons = {
 
 const noChanges = { filesTouched: [], linesChanged: 0, protectedTouched: [] };
 
+/** Verification must cover exactly the frozen criteria, once each, in any order. */
+function acceptancePassed(
+	view: PursuitView,
+	criteria: readonly CriterionResult[],
+): boolean {
+	const expected = new Set(view.acceptance.map((c) => c.id));
+	return (
+		expected.size > 0 &&
+		criteria.length === expected.size &&
+		new Set(criteria.map((c) => c.id)).size === expected.size &&
+		criteria.every((c) => expected.has(c.id) && c.passed)
+	);
+}
+
 const reviewKinds: Readonly<Record<Review["decision"], DecisionKind>> = {
 	continue_strategy: "change_hypothesis",
 	change_strategy: "revise_strategy",
 	consult: "consult",
 	stop: "stop",
 };
+
+class WallTimeExpired extends Error {}
 
 export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 	const { store, clock, ids } = deps;
@@ -219,8 +240,16 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		port: LlmPort,
 		request: LlmRequest<T>,
 		signal: AbortSignal,
+		view: PursuitView,
 	): Promise<LlmResult<T>> {
-		return port.complete(request, signal);
+		checkTime(view, signal);
+		const r = await port.complete(request, signal);
+		checkTime(view, signal);
+		return r;
+	}
+	function checkTime(view: PursuitView, signal: AbortSignal) {
+		if (remainingWallMs(view, clock.now()) <= 0) throw new WallTimeExpired();
+		signal.throwIfAborted();
 	}
 
 	async function askJudge(
@@ -234,6 +263,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		effects: JudgeEffects;
 		usage: InferenceRow;
 	} | null> {
+		checkTime(view, signal);
 		const conditions = view.input.conditions;
 		if (!conditions.judge || !deps.judge) return null;
 		const set = findQuestionSet(conditions.questionSet);
@@ -250,6 +280,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				},
 				signal,
 			);
+			checkTime(view, signal);
 			const { rows, effects } = interpret({
 				set,
 				stage,
@@ -270,7 +301,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				},
 			};
 		} catch (error) {
-			if (signal.aborted) throw error;
+			if (signal.aborted || error instanceof WallTimeExpired) throw error;
 			const code =
 				error && typeof error === "object" && "code" in error
 					? String(error.code)
@@ -310,28 +341,32 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			scope: "pursuit" | "strategy" | "hypothesis";
 		}[],
 		source: string | null,
+		sourceVerificationId: string | null = null,
 	) {
 		if (view.input.conditions.findings === "off") return;
 		const seen = new Set(
-			view.findings
+			ledger
+				.loadFindings(db, view.id)
 				.filter((f) => f.status === "active")
-				.map((f) => `${f.kind}|${f.statement.trim()}`),
+				.map(ledger.findingEvidenceKey),
 		);
 		for (const item of items) {
-			const key = `${item.kind}|${item.statement.trim()}`;
-			if (!item.statement.trim() || seen.has(key)) continue;
-			seen.add(key);
-			ledger.insertFinding(db, {
-				id: ids.next("fnd"),
-				pursuitId: view.id,
-				kind: item.kind,
-				statement: item.statement.trim(),
-				assurance: item.assurance,
+			if (!item.statement.trim()) continue;
+			const finding = {
+				...item,
 				sourceAttemptId: source,
-				scope: item.scope,
+				sourceVerificationId,
 				strategyId: item.scope === "pursuit" ? null : view.currentStrategyId,
 				hypothesisId:
 					item.scope === "hypothesis" ? view.currentHypothesisId : null,
+			};
+			const key = ledger.findingEvidenceKey(finding);
+			if (seen.has(key)) continue;
+			seen.add(key);
+			ledger.insertFinding(db, {
+				...finding,
+				id: ids.next("fnd"),
+				pursuitId: view.id,
 				now: clock.now(),
 			});
 		}
@@ -409,8 +444,13 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		signal: AbortSignal,
 		known?: readonly CriterionResult[],
 	): Promise<StepResult> {
-		const criteria = known ?? (await runtime.acceptance.verify(signal));
-		const verified = criteria.length > 0 && criteria.every((c) => c.passed);
+		const deferred = outcome !== "completed";
+		if (!deferred) checkTime(view, signal);
+		const criteria = deferred
+			? []
+			: (known ?? (await runtime.acceptance.verify(signal)));
+		if (!deferred) checkTime(view, signal);
+		const verified = acceptancePassed(view, criteria);
 		const refs = new Map<string, ArtifactRef>();
 		for (const a of view.attempts) for (const r of a.refs) refs.set(r.uri, r);
 		const report: Report = {
@@ -425,7 +465,9 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					: view.consultations.map((c) => c.missing).filter(Boolean),
 			refs: [...refs.values()],
 			stats: {
-				attempts: view.attempts.filter(executed).length,
+				attempts: view.attempts.filter(
+					(a) => executed(a) || a.state === "started",
+				).length,
 				rejected: view.attempts.filter((a) => a.state === "rejected").length,
 				hypotheses: view.hypotheses.length,
 				strategies: view.strategies.length,
@@ -456,12 +498,22 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					? "give_up"
 					: "stop";
 		const revision = await store.write((db) => {
-			ledger.insertVerification(db, {
-				id: ids.next("ver"),
-				pursuitId: view.id,
-				row: { attemptId: null, trigger: "final", passed: verified, criteria },
-				now: clock.now(),
-			});
+			for (const a of view.attempts)
+				if (a.state === "started")
+					ledger.interruptAttempt(db, { id: a.id, now: clock.now() });
+			ledger.closeSettlements(db, view.id, reason);
+			if (!deferred)
+				ledger.insertVerification(db, {
+					id: ids.next("ver"),
+					pursuitId: view.id,
+					row: {
+						attemptId: null,
+						trigger: "final",
+						passed: verified,
+						criteria,
+					},
+					now: clock.now(),
+				});
 			ledger.insertDecision(db, {
 				id: ids.next("dec"),
 				pursuitId: view.id,
@@ -471,7 +523,11 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				decidedBy,
 				now: clock.now(),
 			});
-			ledger.insertReport(db, { pursuitId: view.id, report, now: clock.now() });
+			ledger.insertReport(db, {
+				pursuitId: view.id,
+				report: deferred ? { ...report, verificationIssue: "pending" } : report,
+				now: clock.now(),
+			});
 			return ledger.advancePursuit(db, {
 				id: view.id,
 				expectedRevision: view.revision,
@@ -480,7 +536,54 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				finished: true,
 			});
 		});
-		return result(view, revision, status, "finished");
+		if (!deferred) return result(view, revision, status, "finished");
+
+		// Save terminal state before calling a fallible external verifier. Abort also
+		// ends our wait when a host verifier fails to honor its signal.
+		let finalReport: Report;
+		let onAbort = () => {};
+		try {
+			signal.throwIfAborted();
+			const aborted = new Promise<never>((_, reject) => {
+				onAbort = () => reject(signal.reason);
+				signal.addEventListener("abort", onAbort, { once: true });
+			});
+			const finalCriteria =
+				known ??
+				(await Promise.race([runtime.acceptance.verify(signal), aborted]));
+			signal.throwIfAborted();
+			finalReport = {
+				...report,
+				criteria: finalCriteria,
+				verified: acceptancePassed(view, finalCriteria),
+			};
+		} catch {
+			const issue = signal.aborted ? "aborted" : "failed";
+			finalReport = { ...report, verificationIssue: issue };
+			warn("final_verification_unavailable", { pursuitId: view.id, issue });
+		} finally {
+			signal.removeEventListener("abort", onAbort);
+		}
+		const finalRevision = await store.write((db) => {
+			ledger.insertVerification(db, {
+				id: ids.next("ver"),
+				pursuitId: view.id,
+				row: {
+					attemptId: null,
+					trigger: "final",
+					passed: finalReport.verified,
+					criteria: finalReport.criteria,
+				},
+				now: clock.now(),
+			});
+			ledger.updateReport(db, { pursuitId: view.id, report: finalReport });
+			return ledger.advancePursuit(db, {
+				id: view.id,
+				expectedRevision: revision,
+				now: clock.now(),
+			});
+		});
+		return result(view, finalRevision, status, "finished");
 	}
 
 	async function stepBack(
@@ -490,6 +593,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		basis: JsonObject,
 	): Promise<StepResult> {
 		const revision = await store.write((db) => {
+			ledger.closeSettlements(db, view.id, reason);
 			ledger.insertDecision(db, {
 				id: ids.next("dec"),
 				pursuitId: view.id,
@@ -518,6 +622,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 	): Promise<StepResult> {
 		const revision = await store.write((db) => {
 			extra(db);
+			ledger.closeSettlements(db, view.id, question);
 			ledger.insertConsultation(db, {
 				id: ids.next("con"),
 				pursuitId: view.id,
@@ -560,6 +665,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			deps.generator,
 			planRequest({ view, tools: runtime.tools.list(), direction }),
 			signal,
+			view,
 		);
 		const strategyId = ids.next("str");
 		const revision = await store.write((db) => {
@@ -595,7 +701,9 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			deps.generator,
 			hypothesisRequest({ view, tools: runtime.tools.list() }),
 			signal,
+			view,
 		);
+		checkTime(view, signal);
 		const checkpoint = runtime.workspace
 			? await runtime.workspace.checkpoint()
 			: null;
@@ -695,6 +803,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				deps.generator,
 				proposalRequest({ view, tools, feedback: null }),
 				signal,
+				view,
 			);
 		} catch (error) {
 			if (!(error instanceof LlmOutputError)) throw error;
@@ -867,17 +976,26 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						signal,
 					);
 				}
+				checkTime(view, signal);
 				const criteria = await runtime.acceptance.verify(signal);
-				const passed = criteria.length > 0 && criteria.every((c) => c.passed);
+				checkTime(view, signal);
+				const passed = acceptancePassed(view, criteria);
+				const verificationId = ids.next("ver");
 				await store.write((db) => {
 					ledger.insertVerification(db, {
-						id: ids.next("ver"),
+						id: verificationId,
 						pursuitId: view.id,
 						row: { attemptId: null, trigger: "claim", passed, criteria },
 						now: clock.now(),
 					});
 					inference(db, view, [usage]);
-					recordFindings(db, view, checkedFindings(criteria), null);
+					recordFindings(
+						db,
+						view,
+						checkedFindings(criteria),
+						null,
+						verificationId,
+					);
 				});
 				if (passed)
 					return finish(
@@ -904,10 +1022,12 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					[
 						{
 							rule: "claim_not_verified",
-							detail: criteria
-								.filter((c) => !c.passed)
-								.map((c) => `[${c.id}] ${c.evidence}`)
-								.join(" / "),
+							detail:
+								criteria
+									.filter((c) => !c.passed)
+									.map((c) => `[${c.id}] ${c.evidence}`)
+									.join(" / ") ||
+								"照合結果には、すべての受入条件のIDを過不足なく一度ずつ含めてください",
 						},
 					],
 					() => {},
@@ -1044,6 +1164,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					prediction,
 					whatChanged: p.whatChanged,
 					fingerprint: fp,
+					sameConditions: (a) =>
+						tool ? sameConditions(a, tool, input, digest) : false,
 					policy,
 					falsifiable: conditions.prediction === "falsifiable",
 				}),
@@ -1085,6 +1207,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				});
 			return result(view, revision, view.status, "rejected");
 		}
+		checkTime(view, signal);
 		const attemptId = ids.next("att");
 		await store.write((db) => {
 			ledger.insertAttempt(db, {
@@ -1109,6 +1232,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			});
 		});
 		let outcome: ToolOutcome;
+		checkTime(view, signal);
 		try {
 			outcome = await runtime.tools.invoke({ tool: tool.name, input }, signal);
 		} catch (error) {
@@ -1128,8 +1252,15 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			runtime.workspace && hypothesis.checkpoint
 				? await runtime.workspace.changesSince(hypothesis.checkpoint)
 				: noChanges;
-		let features: AttemptFeatures = { ...changes, match: null, progress: null };
-		let current = await read(view.id);
+		const features: AttemptFeatures = {
+			...changes,
+			match: null,
+			progress: null,
+		};
+		const awaitDigest = runtime.workspace
+			? await runtime.workspace.digest()
+			: null;
+		const current = await read(view.id);
 		await store.write((db) => {
 			ledger.settleAttempt(db, {
 				id: attemptId,
@@ -1141,6 +1272,11 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				outcome: attemptOutcome(prediction, outcome.status, null, policy),
 				refs: outcome.refs,
 				features,
+				settlement: {
+					stage: "need_post_judge",
+					digest: awaitDigest,
+					effects: null,
+				},
 				now: clock.now(),
 			});
 			recordFindings(
@@ -1158,39 +1294,85 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				now: clock.now(),
 			});
 		});
-		current = await read(view.id);
-		const settled = current.attempts.find((a) => a.id === attemptId)!;
-		const post = await askJudge(
-			current,
-			"post",
-			postState({
-				view: current,
-				attempt: settled,
-				fired: firedSignals(current, tools),
-			}),
-			attemptId,
-			signal,
-		);
-		if (post) {
-			features = {
-				...features,
-				match: post.effects.match,
-				progress: post.effects.progress,
-			};
-			const judged = post;
+		return resumeSettlement(await read(view.id), runtime, attemptId, signal);
+	}
+
+	async function resumeSettlement(
+		view: PursuitView,
+		runtime: PursuitRuntime,
+		attemptId: string,
+		signal: AbortSignal,
+	): Promise<StepResult> {
+		let current = view;
+		let settled = current.attempts.find((a) => a.id === attemptId)!;
+		let pending = settled.settlement!;
+		const tools = runtime.tools.list();
+		const policy = view.input.policy;
+		const conditions = view.input.conditions;
+		const digest = runtime.workspace ? await runtime.workspace.digest() : null;
+		if (pending.digest !== digest) {
+			// A paused workspace may have changed. Recompute facts and do not reuse old acceptance.
+			const hyp = current.hypotheses.find((h) => h.id === settled.hypothesisId);
+			const changes =
+				runtime.workspace && hyp?.checkpoint
+					? await runtime.workspace.changesSince(hyp.checkpoint)
+					: noChanges;
+			pending = { stage: "need_post_judge", digest, effects: null };
 			await store.write((db) => {
-				writeJudgements(db, current, judged);
+				ledger.updateSettlement(db, attemptId, pending);
+				ledger.updateAttemptFeatures(db, {
+					id: attemptId,
+					features: { ...changes, match: null, progress: null },
+					outcome: attemptOutcome(
+						settled.prediction,
+						settled.observation!.status,
+						null,
+						policy,
+					),
+				});
+			});
+			current = await read(view.id);
+			settled = current.attempts.find((a) => a.id === attemptId)!;
+		}
+		if (pending.stage === "need_post_judge") {
+			const post = await askJudge(
+				current,
+				"post",
+				postState({
+					view: current,
+					attempt: settled,
+					fired: firedSignals(current, tools),
+				}),
+				attemptId,
+				signal,
+			);
+			signal.throwIfAborted();
+			const features = {
+				...settled.features!,
+				match: post?.effects.match ?? null,
+				progress: post?.effects.progress ?? null,
+			};
+			pending = {
+				...pending,
+				stage: "need_acceptance",
+				effects: post
+					? { stepBack: post.effects.stepBack, consult: post.effects.consult }
+					: null,
+			};
+			await store.write((db) => {
+				writeJudgements(db, current, post);
 				ledger.updateAttemptFeatures(db, {
 					id: attemptId,
 					features,
 					outcome: attemptOutcome(
-						prediction,
-						outcome.status,
+						settled.prediction,
+						settled.observation!.status,
 						features.match,
 						policy,
 					),
 				});
-				return ledger.advancePursuit(db, {
+				ledger.updateSettlement(db, attemptId, pending);
+				ledger.advancePursuit(db, {
 					id: view.id,
 					expectedRevision: current.revision,
 					now: clock.now(),
@@ -1198,30 +1380,64 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			});
 			current = await read(view.id);
 		}
-		if (conditions.rules && conditions.verifyOn === "attempt") {
-			const criteria = await runtime.acceptance.verify(signal);
-			const passed = criteria.length > 0 && criteria.every((c) => c.passed);
-			// No findings from here: the hidden grader's lemma verdicts would leak (spec/verification-design.md §2).
-			await store.write((db) =>
-				ledger.insertVerification(db, {
-					id: ids.next("ver"),
-					pursuitId: view.id,
-					row: { attemptId, trigger: "attempt", passed, criteria },
-					now: clock.now(),
-				}),
-			);
-			if (passed)
-				return finish(
-					await read(view.id),
-					runtime,
-					"completed",
-					"照合を通過",
-					"rules",
-					signal,
-					criteria,
-				);
+		if (pending.stage === "need_acceptance") {
+			checkTime(current, signal);
+			let criteria: readonly CriterionResult[] | null = null;
+			let unavailable = false;
+			if (conditions.rules && conditions.verifyOn === "attempt") {
+				try {
+					criteria = await runtime.acceptance.verify(signal);
+				} catch (error) {
+					checkTime(current, signal);
+					unavailable = true;
+					criteria = [];
+					warn("attempt_verification_unavailable", {
+						pursuitId: view.id,
+						attemptId,
+						error: error instanceof Error ? error.name : "error",
+					});
+				}
+			}
+			checkTime(current, signal);
+			pending = {
+				...pending,
+				stage: "need_rules",
+				...(unavailable ? { reason: "acceptance_unavailable" } : {}),
+			};
+			await store.write((db) => {
+				if (criteria)
+					ledger.insertVerification(db, {
+						id: ids.next("ver"),
+						pursuitId: view.id,
+						row: {
+							attemptId,
+							trigger: "attempt",
+							passed: acceptancePassed(current, criteria),
+							criteria,
+						},
+						now: clock.now(),
+					});
+				ledger.updateSettlement(db, attemptId, pending);
+			});
 			current = await read(view.id);
 		}
+		const verified = [...current.verifications]
+			.reverse()
+			.find((v) => v.attemptId === attemptId && v.trigger === "attempt");
+		if (
+			conditions.rules &&
+			conditions.verifyOn === "attempt" &&
+			verified?.passed
+		)
+			return finish(
+				current,
+				runtime,
+				"completed",
+				"照合を通過",
+				"rules",
+				signal,
+				verified.criteria,
+			);
 		const fired = firedSignals(current, tools);
 		if (fired.length)
 			return stepBack(
@@ -1232,17 +1448,20 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			);
 		const persistent =
 			trajectoryStreak(current, attemptId) >= policy.judge.trajectoryPersist;
-		if (post?.effects.consult && persistent)
+		if (pending.effects?.consult && persistent)
 			return consult(
 				current,
 				"目標の達成に必要な情報・権限・前提が欠けているようです。補える情報はありますか？",
-				post.effects.consult,
+				pending.effects.consult,
 				"judge",
 			);
-		if (post?.effects.stepBack && persistent)
-			return stepBack(current, post.effects.stepBack, "judge", {
+		if (pending.effects?.stepBack && persistent)
+			return stepBack(current, pending.effects.stepBack, "judge", {
 				stage: "post",
 			});
+		await store.write((db) =>
+			ledger.updateSettlement(db, attemptId, { ...pending, stage: "done" }),
+		);
 		return result(current, current.revision, current.status, "executed");
 	}
 
@@ -1271,6 +1490,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				deps.reviewer,
 				reviewRequest({ view, reason, signals: fired.map((s) => s.code) }),
 				signal,
+				view,
 			);
 			reviewed = r.value;
 			usage.push(llmRow("review", r));
@@ -1532,17 +1752,27 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			}
 			if (view.status === "awaiting_consultation")
 				return result(view, view.revision, view.status, "consult_requested");
-			const over = pursuitBudgetExceeded(view, clock.now());
-			if (over)
-				return finish(
-					view,
-					runtime,
-					"stopped",
-					budgetReasons[over],
-					"rules",
-					signal,
-				);
+
 			try {
+				checkTime(view, signal);
+				const pending = view.attempts.find(
+					(a) =>
+						a.state === "settled" &&
+						a.settlement &&
+						a.settlement.stage !== "done",
+				);
+				if (pending)
+					return await resumeSettlement(view, runtime, pending.id, signal);
+				const over = pursuitBudgetExceeded(view, clock.now());
+				if (over)
+					return finish(
+						view,
+						runtime,
+						"stopped",
+						budgetReasons[over],
+						"rules",
+						signal,
+					);
 				switch (view.status) {
 					case "planning":
 						return await plan(view, runtime, signal);
@@ -1556,6 +1786,22 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						throw new Error(`pursuit_status_unhandled:${view.status}`);
 				}
 			} catch (error) {
+				if (
+					error instanceof WallTimeExpired ||
+					(signal.aborted && remainingWallMs(view, clock.now()) <= 0)
+				) {
+					// Already-expired verifier must not extend shutdown; finish persists first.
+					const expired = new AbortController();
+					expired.abort();
+					return finish(
+						await read(pursuitId),
+						runtime,
+						"stopped",
+						budgetReasons.wall_time,
+						"rules",
+						expired.signal,
+					);
+				}
 				if (!(error instanceof LlmOutputError)) throw error;
 				return finish(
 					await read(pursuitId),

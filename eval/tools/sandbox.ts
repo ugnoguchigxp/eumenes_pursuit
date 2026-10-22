@@ -104,7 +104,7 @@ export function bwrapArgs(options: SandboxOptions): string[] {
 	];
 }
 
-async function readCapped(
+export async function readCapped(
 	stream: ReadableStream<Uint8Array>,
 	max: number,
 ): Promise<string> {

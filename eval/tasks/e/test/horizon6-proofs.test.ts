@@ -169,7 +169,7 @@ describe("horizon-6 proof tasks (hz6-proof-*)", () => {
 		expect(decideProof(r, verdict("fail", ["c1", "c2", "c3"])).pass).toBe(
 			false,
 		);
-		// A checkpoint the grader did not mention counts as failed; unknown ids add nothing.
+		// Missing or unknown IDs make the entire grading response invalid, with no partial score.
 		const partial: ProofVerdict = {
 			verdict: "pass",
 			checkpoints: [
@@ -180,8 +180,9 @@ describe("horizon-6 proof tasks (hz6-proof-*)", () => {
 		};
 		expect(decideProof(r, partial)).toMatchObject({
 			pass: false,
-			failedCheckpoints: ["c2", "c3"],
-			score: 0.5,
+			failedCheckpoints: ["c1", "c2", "c3"],
+			score: 0,
+			contractIssue: "grading_response_invalid",
 		});
 	});
 

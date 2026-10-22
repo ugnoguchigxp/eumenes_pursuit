@@ -35,7 +35,7 @@ function normalized(answer: Answer): number | null {
 
 /**
  * Turn answers into ledger rows and effects. Discrete effects need confidence at
- * or above the threshold; scores feed features as expectations either way.
+ * or above the threshold; unconfident scores are recorded but not used as features.
  */
 export function interpret(input: {
 	set: QuestionSet;
@@ -87,7 +87,7 @@ export function interpret(input: {
 				}
 				break;
 			case "progress":
-				progress = normalized(answer);
+				progress = usable ? normalized(answer) : null;
 				break;
 			case "next_decision":
 				fired = true;

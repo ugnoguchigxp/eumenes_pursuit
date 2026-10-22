@@ -15,7 +15,7 @@ export function canonicalJson(value: JsonValue): string {
 		.join(",")}}`;
 }
 
-/** Normalize text inputs so whitespace-only edits do not count as a new condition. */
+/** Frozen v1 normalization, used only when comparing attested legacy history. */
 function normalize(value: JsonValue): JsonValue {
 	if (typeof value === "string") return value.replace(/\s+/g, " ").trim();
 	if (value === null || typeof value !== "object") return value;
@@ -37,7 +37,7 @@ function fnv1a64(text: string, seed: bigint): string {
 }
 
 /** Identity of an attempt's conditions (U5). Not a security hash. */
-export function fingerprint(
+export function legacyFingerprint(
 	tool: ToolDescriptor,
 	input: JsonObject,
 	stateDigest: string | null,
@@ -57,6 +57,49 @@ export function fingerprint(
 				: null,
 	});
 	return `${fnv1a64(text, 0xcbf29ce484222325n)}${fnv1a64(text, 0x84222325cbf29ce4n)}`;
+}
+
+function conditions(tool: ToolDescriptor, input: JsonObject): JsonObject {
+	const fields = tool.fingerprintFields;
+	return fields
+		? Object.fromEntries(
+				fields.filter((k) => k in input).map((k) => [k, input[k]!]),
+			)
+		: input;
+}
+function contract(tool: ToolDescriptor): string {
+	return digestJson({
+		name: tool.name,
+		fields: tool.fingerprintFields ? [...tool.fingerprintFields].sort() : null,
+		workspace: tool.sideEffect === "workspace" || tool.readsWorkspace === true,
+	});
+}
+/** v2 preserves string contents; only object key order is irrelevant. */
+export function fingerprint(
+	tool: ToolDescriptor,
+	input: JsonObject,
+	stateDigest: string | null,
+): string {
+	return `v2:${contract(tool)}:${digestJson({ input: conditions(tool, input), state: tool.sideEffect === "workspace" || tool.readsWorkspace ? stateDigest : null })}`;
+}
+/** Null means historical contract unknown: request review rather than reset history. */
+export function sameConditions(
+	previous: { tool: string; input: JsonObject; fingerprint: string },
+	tool: ToolDescriptor,
+	input: JsonObject,
+	stateDigest: string | null,
+): boolean | null {
+	if (previous.tool !== tool.name) return false;
+	if (previous.fingerprint.startsWith("v2:")) {
+		if (!previous.fingerprint.startsWith(`v2:${contract(tool)}:`)) return null;
+		return previous.fingerprint === fingerprint(tool, input, stateDigest);
+	}
+	if (!tool.legacyFingerprintCompatible) return null;
+	return (
+		previous.fingerprint === legacyFingerprint(tool, input, stateDigest) &&
+		canonicalJson(conditions(tool, previous.input)) ===
+			canonicalJson(conditions(tool, input))
+	);
 }
 
 /** Digest of an operation's input, for replay detection. */

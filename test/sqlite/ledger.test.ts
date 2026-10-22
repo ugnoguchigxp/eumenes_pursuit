@@ -17,6 +17,8 @@ describe("ledger", () => {
 			"caea9e75215a4f062622270d9e9c14b84793fa8449774af81912ae4e513dd4ea",
 			"5c45e46f0448d0f44108703a4ba96ebfbdc3ae7951d76d03efe7f0560a7b64cc",
 			"79653d2dfb89864bdd9ed2f22d05a2f55822f2c9efe3ac77f7b4a291a7a79cb6",
+			"c7af35e2971ff35b21f96a8312c61940561a81ba6ca3aa9813fbecc9ede1336b",
+			"5b8d4499ad9382fe54118585cdf4c6a3c50b5be6de329addd19f96f28ed6f9b0",
 		]);
 	});
 
@@ -183,4 +185,87 @@ describe("ledger", () => {
 		expect(view?.input.policy.budget.attempts).toBeGreaterThan(0);
 		store.close();
 	});
+});
+
+test("additive recovery migration conservatively marks legacy active tails only", async () => {
+	const store = openStore(":memory:", migrations.slice(0, 3));
+	try {
+		await store.write((db) => {
+			for (const [id, status] of [
+				["active", "proposing"],
+				["finished", "completed"],
+			] as const) {
+				ledger.insertPursuit(db, { id, start: startInput(), status, now: 1 });
+				ledger.insertStrategy(db, {
+					id: `s-${id}`,
+					pursuitId: id,
+					body: "s",
+					rationale: "r",
+					alternatives: [],
+					previousId: null,
+					now: 1,
+				});
+				ledger.insertHypothesis(db, {
+					id: `h-${id}`,
+					pursuitId: id,
+					strategyId: `s-${id}`,
+					body: "h",
+					rationale: "r",
+					tools: ["read"],
+					expected: "e",
+					budget: 5,
+					checkpoint: null,
+					now: 1,
+				});
+				ledger.advancePursuit(db, {
+					id,
+					expectedRevision: 1,
+					currentStrategyId: `s-${id}`,
+					currentHypothesisId: `h-${id}`,
+					now: 1,
+				});
+				ledger.insertAttempt(db, {
+					id: `a-${id}`,
+					pursuitId: id,
+					hypothesisId: `h-${id}`,
+					state: "started",
+					tool: "read",
+					input: {},
+					prediction: { expectedStatus: "ok", expectedObservation: "r" },
+					whatChanged: "",
+					fingerprint: "legacy",
+					rejection: null,
+					now: 1,
+				});
+				db.query(
+					"UPDATE pursuit_attempt SET state='settled', outcome='success', observation_json=?, features_json=? WHERE id=?",
+				).run(
+					JSON.stringify({ status: "ok", output: null, errorCode: null }),
+					JSON.stringify({
+						filesTouched: [],
+						linesChanged: 0,
+						protectedTouched: [],
+						match: null,
+						progress: null,
+					}),
+					`a-${id}`,
+				);
+			}
+			for (const m of migrations.slice(3)) db.exec(m.sql);
+		});
+		expect(
+			await store.readSnapshot(
+				(db) =>
+					ledger.loadPursuit(db, "active")!.attempts[0]!.settlement!.stage,
+			),
+		).toBe("need_post_judge");
+		expect(
+			await store.readSnapshot(
+				(db) =>
+					ledger.loadPursuit(db, "finished")!.attempts[0]!.settlement!.stage,
+			),
+		).toBe("done");
+	} finally {
+		store.close();
+	}
 });

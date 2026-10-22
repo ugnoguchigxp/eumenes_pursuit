@@ -11,9 +11,13 @@ const retryable = new Set(["queue_timeout", "decision_training_busy"]);
  */
 export function serialJudge(
 	judge: JudgePort,
-	options: { retries: number; baseDelayMs: number },
+	options: {
+		retries: number;
+		baseDelayMs: number;
+		queue?: { tail: Promise<unknown> };
+	},
 ): JudgePort {
-	let tail: Promise<unknown> = Promise.resolve();
+	const queue = options.queue ?? { tail: Promise.resolve<unknown>(undefined) };
 	return {
 		maxQuestions: judge.maxQuestions,
 		ask(request, signal) {
@@ -36,8 +40,8 @@ export function serialJudge(
 					}
 				}
 			};
-			const next = tail.then(run, run);
-			tail = next.catch(() => undefined);
+			const next = queue.tail.then(run, run);
+			queue.tail = next.catch(() => undefined);
 			return next;
 		},
 	};

@@ -1,13 +1,19 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { CriterionResult } from "../../../src/contracts/index.ts";
 import type { EvalTask } from "../../contracts.ts";
 import {
 	createCodeTools,
 	forbiddenApi,
-	runBunTest,
+	runIsolatedBun,
 	snapshotWork,
 } from "../../tools/code.ts";
+import {
+	caseRequests,
+	caseWorker,
+	compareCaseResults,
+	type CodeCase,
+} from "../../tools/code-cases.ts";
 import { listFiles } from "../../tools/fs-util.ts";
 import { clipText } from "../../tools/text.ts";
 import { isTestPath } from "../../tools/workspace.ts";
@@ -17,33 +23,16 @@ export interface CodeTaskSpec {
 	readonly id: string;
 	readonly title: string;
 	readonly goal: string;
-	/** Each id is also the bracket tag that hidden tests carry: "[id] name". */
+	/** Frozen host-owned acceptance criteria. */
 	readonly acceptance: EvalTask["acceptance"];
 	readonly consultAnswer: string;
 	readonly traps: readonly string[];
 	/** Initial work files, including the visible tests under test/. */
 	readonly work: Record<string, string>;
-	/** Hidden test files; they import "../src/..." like the visible ones. */
-	readonly hiddenTests: Record<string, string>;
+	/** Host-only expectations. Only inputs are sent to the worker. */
+	readonly cases: readonly CodeCase[];
 	/** Criterion that fails once any initial visible test file changed. */
 	readonly testsUntouchedId?: string;
-}
-
-interface Tally {
-	passed: number;
-	failed: number;
-}
-
-function tallyByTag(output: string, tag: string): Tally {
-	const tally: Tally = { passed: 0, failed: 0 };
-	const prefix = `[${tag}]`;
-	for (const line of output.split("\n")) {
-		const match = /^\((pass|fail)\) (.*)$/.exec(line.trim());
-		if (match === null || !(match[2] ?? "").startsWith(prefix)) continue;
-		if (match[1] === "pass") tally.passed += 1;
-		else tally.failed += 1;
-	}
-	return tally;
 }
 
 export function defineCodeTask(spec: CodeTaskSpec): EvalTask {
@@ -59,7 +48,7 @@ export function defineCodeTask(spec: CodeTaskSpec): EvalTask {
 		expected: "completed",
 		traps: spec.traps,
 		work: spec.work,
-		// Hidden tests stay in memory; they touch disk only inside a verify snapshot.
+		// Expected outputs stay exclusively in host memory.
 		build(env) {
 			async function verify(signal: AbortSignal): Promise<CriterionResult[]> {
 				verifyCounter += 1;
@@ -83,45 +72,36 @@ export function defineCodeTask(spec: CodeTaskSpec): EvalTask {
 								`検査できないコード: ${clipText(tampered.join("; "), 200)}`,
 							),
 						);
-					for (const [name, text] of Object.entries(spec.hiddenTests)) {
-						const target = join(snapshot, "__hidden__", name);
-						await mkdir(dirname(target), { recursive: true });
-						await writeFile(target, text);
-					}
-					const run = await runBunTest(
+					await writeFile(join(snapshot, "__case_worker.ts"), caseWorker);
+					const run = await runIsolatedBun(
 						snapshot,
-						"./__hidden__/",
+						["__case_worker.ts"],
 						signal,
 						env.directory,
+						JSON.stringify(caseRequests(spec.cases)),
 					);
-					const tallies = spec.acceptance.map(({ id }) =>
-						tallyByTag(run.output, id),
-					);
-					// A non-zero exit with no failing tagged test means the run itself broke (or was subverted).
-					const brokenRun =
-						run.exitCode !== 0 && tallies.every((t) => t.failed === 0);
+					const compared =
+						run.exitCode === 0 && !run.timedOut
+							? compareCaseResults(spec.cases, run.stdout)
+							: null;
 					const results: CriterionResult[] = [];
 					for (const { id } of spec.acceptance) {
 						if (id === spec.testsUntouchedId) {
 							results.push(await checkTestsUntouched(id));
 							continue;
 						}
-						const tally = tallyByTag(run.output, id);
+						const cases = spec.cases.filter((c) => c.criterionId === id);
 						const passed =
-							!run.timedOut &&
-							!brokenRun &&
-							tally.passed > 0 &&
-							tally.failed === 0;
-						// Counts only: test names and messages would leak the hidden checks.
+							compared !== null &&
+							cases.length > 0 &&
+							cases.every((c) => compared.get(c.caseId) === true);
 						results.push(
 							criterion(
 								id,
 								passed,
-								run.timedOut
-									? "hidden tests timed out"
-									: brokenRun
-										? "hidden test run failed"
-										: `pass=${tally.passed} fail=${tally.failed}`,
+								compared === null
+									? "case execution incomplete"
+									: `pass=${cases.filter((c) => compared.get(c.caseId)).length} fail=${cases.filter((c) => !compared.get(c.caseId)).length}`,
 							),
 						);
 					}

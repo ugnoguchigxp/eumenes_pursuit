@@ -59,6 +59,8 @@ export function defineTool(spec: ToolSpec, run: ToolDef["run"]): ToolDef {
 	};
 	const base = {
 		name: spec.name,
+		// These evaluation descriptors retain the v1 fingerprint fields and state rules.
+		legacyFingerprintCompatible: true,
 		description: spec.description,
 		inputSchema,
 		sideEffect: spec.sideEffect ?? "none",

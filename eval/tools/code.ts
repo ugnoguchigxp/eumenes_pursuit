@@ -1,10 +1,11 @@
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import type { JsonObject } from "../../src/contracts/index.ts";
 import { listFiles, replaceTree } from "./fs-util.ts";
 import { resolveInside } from "./paths.ts";
+import { readCapped, runSandboxed, sandboxAvailable } from "./sandbox.ts";
 import { clipText, stripAnsi } from "./text.ts";
 import { defineTool, fail, ok, prop, type ToolDef } from "./tool-port.ts";
 
@@ -18,14 +19,16 @@ export interface BunRun {
 	readonly exitCode: number | null;
 	readonly timedOut: boolean;
 	readonly output: string;
+	readonly stdout: string;
+	readonly stderr: string;
 }
 
 const sandboxExec = "/usr/bin/sandbox-exec";
 
 /**
  * macOS sandbox for agent-written code: no network, no reads under HOME (the
- * project, .env, credentials) except bun itself, no writes in the task
- * directory outside the run's own snapshot.
+ * project, .env, credentials) except bun itself. All filesystem writes are
+ * denied except within the run's own snapshot. The lexical filter is not a sandbox.
  */
 function sandboxProfile(cwd: string, taskDirectory: string): string {
 	const q = (p: string) => JSON.stringify(realpathSync(p));
@@ -35,6 +38,7 @@ function sandboxProfile(cwd: string, taskDirectory: string): string {
 		"(version 1)",
 		"(allow default)",
 		"(deny network*)",
+		"(deny file-write*)",
 		`(deny file-read-data (subpath ${q(home)}))`,
 		existsSync(bun) ? `(allow file-read-data (subpath ${q(bun)}))` : "",
 		`(deny file-read-data (subpath ${q(join(taskDirectory, "hidden"))}))`,
@@ -68,33 +72,55 @@ export function forbiddenApi(rel: string, content: string): string | null {
 	return null;
 }
 
-/** Runs `bun test <target>` with a minimal environment, a hard timeout and (on macOS) a sandbox. */
-export async function runBunTest(
+/** Runs Bun tests in an OS sandbox; refuses execution if isolation is unavailable. */
+export async function runIsolatedBun(
 	cwd: string,
-	target: string,
+	args: readonly string[],
 	signal?: AbortSignal,
 	taskDirectory?: string,
+	stdin?: string,
 ): Promise<BunRun> {
+	if (!taskDirectory) throw new Error("sandbox_workspace_required");
+	const inside = await resolveInside(
+		taskDirectory,
+		relative(resolve(taskDirectory), resolve(cwd)),
+	);
+	if (!inside.ok) throw new Error("sandbox_workspace_invalid");
+	if (process.platform === "linux" && sandboxAvailable()) {
+		const run = await runSandboxed({
+			workDir: inside.abs,
+			command: `/runtime/bun ${args.map((a) => "'" + a.replaceAll("'", "'\\''") + "'").join(" ")}`,
+			...(stdin === undefined ? {} : { stdin }),
+			readOnly: { [realpathSync(process.execPath)]: "/runtime/bun" },
+			timeoutMs: TEST_TIMEOUT_MS,
+			...(signal === undefined ? {} : { signal }),
+		});
+		return {
+			exitCode: run.exitCode,
+			timedOut: run.timedOut,
+			output: `${run.stdout}${run.stderr}`,
+			stdout: run.stdout,
+			stderr: run.stderr,
+		};
+	}
+	if (process.platform !== "darwin" || !existsSync(sandboxExec))
+		throw new Error("sandbox_unavailable");
 	const env: Record<string, string> = {};
 	for (const key of ["PATH", "HOME"]) {
 		const value = process.env[key];
 		if (value !== undefined) env[key] = value;
 	}
-	const command =
-		taskDirectory && existsSync(sandboxExec)
-			? [
-					sandboxExec,
-					"-p",
-					sandboxProfile(cwd, taskDirectory),
-					process.execPath,
-					"test",
-					target,
-				]
-			: [process.execPath, "test", target];
+	const command = [
+		sandboxExec,
+		"-p",
+		sandboxProfile(inside.abs, taskDirectory),
+		process.execPath,
+		...args,
+	];
 	const proc = Bun.spawn(command, {
 		cwd,
 		env,
-		stdin: "ignore",
+		stdin: stdin === undefined ? "ignore" : new Blob([stdin]),
 		stdout: "pipe",
 		stderr: "pipe",
 		timeout: TEST_TIMEOUT_MS,
@@ -102,8 +128,8 @@ export async function runBunTest(
 		...(signal === undefined ? {} : { signal }),
 	});
 	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(proc.stdout).text(),
-		new Response(proc.stderr).text(),
+		readCapped(proc.stdout, 1_000_000),
+		readCapped(proc.stderr, 1_000_000),
 		proc.exited,
 	]);
 	const timedOut = proc.killed && proc.signalCode === "SIGKILL";
@@ -111,7 +137,18 @@ export async function runBunTest(
 		exitCode: timedOut ? null : exitCode,
 		timedOut,
 		output: stripAnsi(`${stdout}${stderr}`),
+		stdout,
+		stderr,
 	};
+}
+
+export function runBunTest(
+	cwd: string,
+	target: string,
+	signal?: AbortSignal,
+	taskDirectory?: string,
+): Promise<BunRun> {
+	return runIsolatedBun(cwd, ["test", target], signal, taskDirectory);
 }
 
 /** Copies `workDir` to a fresh snapshot so runs never leave files in work. */

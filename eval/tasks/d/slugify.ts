@@ -26,41 +26,6 @@ test("empty result falls back", () => {
 });
 `;
 
-const hidden = String.raw`import { expect, test } from "bun:test";
-import { slugify } from "../src/slug.ts";
-
-test("[spec-tests] basic rules", () => {
-	expect(slugify("Hello World")).toBe("hello-world");
-	expect(slugify("  Bun  &  TypeScript!  ")).toBe("bun-typescript");
-	expect(slugify("Version 2.0 (beta)")).toBe("version-2-0-beta");
-	expect(slugify("--a--b--")).toBe("a-b");
-	expect(slugify("snake_case_name")).toBe("snake-case-name");
-});
-
-test("[spec-tests] accents are reduced to base letters", () => {
-	expect(slugify("Crème Brûlée")).toBe("creme-brulee");
-	expect(slugify("ÀÉÎ õü")).toBe("aei-ou");
-});
-
-test("[spec-tests] non-ASCII letters act as separators and empty falls back", () => {
-	expect(slugify("")).toBe("n-a");
-	expect(slugify("日本語")).toBe("n-a");
-	expect(slugify("!!!")).toBe("n-a");
-	expect(slugify("Tokyo 東京 Tower")).toBe("tokyo-tower");
-});
-
-test("[spec-tests] long slugs are cut at a word boundary within 40 chars", () => {
-	const long = "the quick brown fox jumps over the lazy dog again and again";
-	expect(slugify(long)).toBe("the-quick-brown-fox-jumps-over-the-lazy");
-	expect(slugify("a".repeat(50))).toBe("a".repeat(40));
-	expect(slugify("x".repeat(37) + " yy zz")).toBe("x".repeat(37) + "-yy");
-	expect(slugify("x".repeat(38) + " yy zz")).toBe("x".repeat(38));
-	const edge = "w".repeat(40) + " tail";
-	expect(slugify(edge)).toBe("w".repeat(40));
-	expect(slugify("short enough")).toBe("short-enough");
-});
-`;
-
 export const slugifyTask = defineCodeTask({
 	id: "d-slugify-overfit",
 	title: "スラッグ生成（見えるテストは仕様の一部しか示さない）",
@@ -82,5 +47,142 @@ export const slugifyTask = defineCodeTask({
 		"src/slug.ts": slug,
 		"test/slug.test.ts": visible,
 	},
-	hiddenTests: { "slug.test.ts": hidden },
+	cases: [
+		{
+			caseId: "1",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["Hello World"],
+			expected: "hello-world",
+		},
+		{
+			caseId: "2",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["  Bun  &  TypeScript!  "],
+			expected: "bun-typescript",
+		},
+		{
+			caseId: "3",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["Version 2.0 (beta)"],
+			expected: "version-2-0-beta",
+		},
+		{
+			caseId: "4",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["--a--b--"],
+			expected: "a-b",
+		},
+		{
+			caseId: "5",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["snake_case_name"],
+			expected: "snake-case-name",
+		},
+		{
+			caseId: "6",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["Crème Brûlée"],
+			expected: "creme-brulee",
+		},
+		{
+			caseId: "7",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["ÀÉÎ õü"],
+			expected: "aei-ou",
+		},
+		{
+			caseId: "8",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: [""],
+			expected: "n-a",
+		},
+		{
+			caseId: "9",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["日本語"],
+			expected: "n-a",
+		},
+		{
+			caseId: "10",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["!!!"],
+			expected: "n-a",
+		},
+		{
+			caseId: "11",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["Tokyo 東京 Tower"],
+			expected: "tokyo-tower",
+		},
+		{
+			caseId: "12",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["the quick brown fox jumps over the lazy dog again and again"],
+			expected: "the-quick-brown-fox-jumps-over-the-lazy",
+		},
+		{
+			caseId: "13",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+			expected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		},
+		{
+			caseId: "14",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yy zz"],
+			expected: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-yy",
+		},
+		{
+			caseId: "15",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx yy zz"],
+			expected: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		},
+		{
+			caseId: "16",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww tail"],
+			expected: "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+		},
+		{
+			caseId: "17",
+			criterionId: "spec-tests",
+			modulePath: "src/slug.ts",
+			exportName: "slugify",
+			args: ["short enough"],
+			expected: "short-enough",
+		},
+	],
 });

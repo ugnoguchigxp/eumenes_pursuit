@@ -38,44 +38,6 @@ test("splitEvenly shares add up to the total", () => {
 });
 `;
 
-const hidden = String.raw`import { expect, test } from "bun:test";
-import { splitEvenly, taxIncluded } from "../src/billing.ts";
-
-test("[split-evenly] remainder goes to the first people", () => {
-	expect(splitEvenly(100, 3)).toEqual([34, 33, 33]);
-	expect(splitEvenly(10, 4)).toEqual([3, 3, 2, 2]);
-	expect(splitEvenly(1, 3)).toEqual([1, 0, 0]);
-	expect(splitEvenly(0, 3)).toEqual([0, 0, 0]);
-	expect(splitEvenly(7, 1)).toEqual([7]);
-	expect(splitEvenly(900, 3)).toEqual([300, 300, 300]);
-});
-
-test("[split-evenly] shares always add up to the total", () => {
-	for (let total = 0; total < 60; total += 1) {
-		for (let people = 1; people <= 7; people += 1) {
-			const shares = splitEvenly(total, people);
-			expect(shares).toHaveLength(people);
-			expect(shares.reduce((sum, share) => sum + share, 0)).toBe(total);
-		}
-	}
-});
-
-test("[split-evenly] people must be a positive integer", () => {
-	expect(() => splitEvenly(100, 0)).toThrow(RangeError);
-	expect(() => splitEvenly(100, -2)).toThrow(RangeError);
-	expect(() => splitEvenly(100, 2.5)).toThrow(RangeError);
-});
-
-test("[tax-kept] taxIncluded keeps rounding halves up", () => {
-	expect(taxIncluded(1000, 0.1)).toBe(1100);
-	expect(taxIncluded(105, 0.1)).toBe(116);
-	expect(taxIncluded(1999, 0.08)).toBe(2159);
-	expect(taxIncluded(5, 0.1)).toBe(6);
-	expect(taxIncluded(10, 0.05)).toBe(11);
-	expect(taxIncluded(0, 0.1)).toBe(0);
-});
-`;
-
 export const splitBill = defineCodeTask({
 	id: "d-split-bill-shared-rounding",
 	title: "割り勘の合計が合わない（共有の丸め関数）",
@@ -103,5 +65,50 @@ export const splitBill = defineCodeTask({
 		"src/billing.ts": billing,
 		"test/billing.test.ts": visible,
 	},
-	hiddenTests: { "billing.test.ts": hidden },
+	cases: [
+		...[
+			[100, 3],
+			[10, 4],
+			[1, 3],
+			[0, 3],
+			[7, 1],
+			[900, 3],
+			...Array.from({ length: 60 }, (_, total) =>
+				Array.from({ length: 7 }, (_, i) => [total, i + 1]),
+			).flat(),
+		].map(([total, people], i) => ({
+			caseId: `split-${i}`,
+			criterionId: "split-evenly",
+			modulePath: "src/billing.ts",
+			exportName: "splitEvenly",
+			args: [total!, people!],
+			expected: Array.from(
+				{ length: people! },
+				(_, j) => Math.floor(total! / people!) + (j < total! % people! ? 1 : 0),
+			),
+		})),
+		...[0, -2, 2.5].map((people, i) => ({
+			caseId: `invalid-${i}`,
+			criterionId: "split-evenly",
+			modulePath: "src/billing.ts",
+			exportName: "splitEvenly",
+			args: [100, people],
+			throws: "RangeError",
+		})),
+		...[
+			[1000, 0.1, 1100],
+			[105, 0.1, 116],
+			[1999, 0.08, 2159],
+			[5, 0.1, 6],
+			[10, 0.05, 11],
+			[0, 0.1, 0],
+		].map(([price, rate, expected], i) => ({
+			caseId: `tax-${i}`,
+			criterionId: "tax-kept",
+			modulePath: "src/billing.ts",
+			exportName: "taxIncluded",
+			args: [price!, rate!],
+			expected: expected!,
+		})),
+	],
 });
