@@ -654,7 +654,13 @@ export function claimVerdictText(
 	criteria: readonly { id: string; passed: boolean; evidence: string }[],
 	passed: boolean,
 ): string {
-	return `${passed ? "合格" : "不合格"}: ${criteria.map((r) => `[${r.id}] ${r.passed ? "ok" : "ng"} ${clip(r.evidence, 300)}`).join(" / ")}`;
+	// Evidence that only repeats the criterion's verdict (--claim-evidence binary) is not shown
+	// again: 「合格: [hidden-checks] ok」, not 「… ok 合格」 (spec/fixes-2026-10-22-c.md §2).
+	const said = (r: { passed: boolean; evidence: string }) =>
+		r.evidence.trim() === (r.passed ? "合格" : "不合格")
+			? ""
+			: ` ${clip(r.evidence, 300)}`;
+	return `${passed ? "合格" : "不合格"}: ${criteria.map((r) => `[${r.id}] ${r.passed ? "ok" : "ng"}${said(r)}`).join(" / ")}`;
 }
 
 /** claimFeedback "verdict": every claim's result, in every later generator and reviewer prompt. */

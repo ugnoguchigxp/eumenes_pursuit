@@ -108,7 +108,7 @@ describe("direct baseline (D0)", () => {
 		expect([r.toolCalls, r.claims, r.failedClaims, r.requests]).toEqual([
 			2, 2, 1, 4,
 		]);
-		expect(prompts[2]).toContain("完了の申告 → 不合格: [a] ng 不合格");
+		expect(prompts[2]).toContain("完了の申告 → 不合格: [a] ng");
 		expect(prompts[2]).toContain("直近の完了の申告は不合格でした");
 		expect(env.counts().verifies).toBe(2);
 	});
@@ -280,7 +280,7 @@ describe("direct baseline (D0)", () => {
 			criteria: [{ id: "a", passed: true, evidence: "合格" }],
 		});
 		expect(passed).toContain("前の課題（目標の冒頭: 目標の文 目標の文");
-		expect(passed).toContain("最後の完了の申告の照合: 合格: [a] ok 合格");
+		expect(passed).toContain("最後の完了の申告の照合: 合格: [a] ok");
 		expect(endNoticeText("g", null)).toContain(
 			"完了の申告はありませんでした。",
 		);

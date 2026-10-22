@@ -10,6 +10,9 @@ import {
 import { directStopReasons, runDirect } from "../direct.ts";
 import { isCorrect, isForcedStop } from "../metrics.ts";
 import { headTail } from "../tasks/e/env.ts";
+import { countSentence, binarySentence } from "../claim-oracle.ts";
+import { tasks } from "../tasks/index.ts";
+import { claimVerdictText } from "../../src/domains/generation/prompts.ts";
 
 const hidden = {
 	verify: async () => [
@@ -125,5 +128,34 @@ describe("run output cap says how to read the rest (§4)", () => {
 		expect(out).toContain("全 10000 字のうち中ほどの 4000 字を省略");
 		expect(out).toContain("read_file の offset / limit");
 		expect(headTail("short", 6000)).toBe("short");
+	});
+});
+
+describe("goal and verdict wording follow the claim evidence (spec/fixes-2026-10-22-c.md §1-§2)", () => {
+	test("hz11 env goals state counts; binary replaces that sentence, the same for D0 and E*", () => {
+		const env = tasks.filter((t) => t.goal.includes("隠された検査"));
+		expect(env.length).toBeGreaterThan(0);
+		for (const t of env) expect(t.goal).toContain(countSentence);
+		const o = parseClaimOracle({ "claim-evidence": "binary" });
+		const g = oracleGoal(env[0]!.goal, o);
+		expect(g).not.toContain(countSentence);
+		expect(g).toContain(binarySentence);
+		expect(
+			oracleGoal(env[0]!.goal, parseClaimOracle({ "claim-limit": "2" })),
+		).toContain(countSentence);
+	});
+	test("a criterion whose evidence only repeats its verdict is not repeated", () => {
+		expect(
+			claimVerdictText(
+				[{ id: "hidden-checks", passed: true, evidence: "合格" }],
+				true,
+			),
+		).toBe("合格: [hidden-checks] ok");
+		expect(
+			claimVerdictText(
+				[{ id: "h", passed: false, evidence: "隠された検査 3/5 通過" }],
+				false,
+			),
+		).toBe("不合格: [h] ng 隠された検査 3/5 通過");
 	});
 });

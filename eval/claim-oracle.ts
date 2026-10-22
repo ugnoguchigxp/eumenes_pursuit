@@ -58,9 +58,19 @@ export function oracleAcceptance(
 	};
 }
 
-/** The goal both conditions receive: the task's goal plus the claim rules when not default. */
+/** The hz11 env tasks' goal sentence on what a claim returns (eval/tasks/e/env.ts). */
+export const countSentence = "返るのは通過した検査の数だけ。";
+export const binarySentence = "返るのは受入条件ごとの合格・不合格だけ。";
+
+/**
+ * The goal both conditions receive: the task's goal plus the claim rules when not default. With
+ * binary evidence, the task's own sentence on what a claim returns follows the setting
+ * (spec/fixes-2026-10-22-c.md §1).
+ */
 export function oracleGoal(goal: string, o: ClaimOracle): string {
 	if (isDefaultOracle(o)) return goal;
+	if (o.evidence === "binary")
+		goal = goal.replaceAll(countSentence, binarySentence);
 	const rules = [
 		o.limit === null
 			? ""

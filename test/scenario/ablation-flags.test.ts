@@ -214,7 +214,7 @@ describe("ablation flags (default off keeps earlier runs reproducible)", () => {
 		expect(proposals[1]!.prompt).toContain(
 			"## 完了の申告の結果（ホストの照合）",
 		);
-		expect(proposals[1]!.prompt).toContain("申告1: 不合格: [total] ng 不合格");
+		expect(proposals[1]!.prompt).toContain("申告1: 不合格: [total] ng");
 		expect(proposals[1]!.prompt).toContain("直近の完了の申告は不合格でした");
 		// After the step back (3 rejections in a row), the next hypothesis still sees it.
 		const second = prompts.filter((p) => p.purpose === "hypothesize")[1]!;
@@ -269,7 +269,7 @@ describe("ablation flags (default off keeps earlier runs reproducible)", () => {
 		expect(review(full.view)).toContain(
 			"申告2: 不合格: [total] ng 隠された検査 7/9 通過",
 		);
-		expect(review(binary.view)).toContain("申告2: 不合格: [total] ng 不合格");
+		expect(review(binary.view)).toContain("申告2: 不合格: [total] ng");
 		const all = [
 			...binary.prompts.map((p) => p.prompt),
 			review(binary.view),
