@@ -683,7 +683,7 @@ async function runOne(job: (typeof jobs)[number]) {
 	appendFileSync(runsPath, `${JSON.stringify(record)}\n`);
 	if (!values["keep-work"]) await instance.dispose();
 	console.log(
-		`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""} correct=${record.correct} attempts=${record.attempts} stepBacks=${record.stepBacks} $${record.usd === null ? "unknown" : record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
+		`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""}${record.verificationIssue ? ` (final verification ${record.verificationIssue}: not judged)` : ""} correct=${record.correct} attempts=${record.attempts} stepBacks=${record.stepBacks} $${record.usd === null ? "unknown" : record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
 	);
 }
 

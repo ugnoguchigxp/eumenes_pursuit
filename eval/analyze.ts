@@ -14,7 +14,7 @@ import { listPursuitIds, loadPursuit, migrations } from "../src/sqlite.ts";
 import type { PursuitView } from "../src/index.ts";
 import { openStore } from "../standalone/store.ts";
 import { ending, horizonRow } from "./horizon.ts";
-import type { RunRecord } from "./metrics.ts";
+import { type RunRecord, verificationIssues } from "./metrics.ts";
 import { tasks } from "./tasks/index.ts";
 
 const { values, positionals } = parseArgs({
@@ -122,6 +122,18 @@ lines.push(
 		.sort((a, b) => b[1] - a[1])
 		.map(([k, n]) => `- ${k}: ${n}`),
 );
+// Final verification unfinished: whether the work passed is unknown (spec/fixes-2026-10-22.md §h).
+const unfinished = records.filter((r) => r.verificationIssue);
+if (unfinished.length)
+	lines.push(
+		"",
+		`## 最終照合が終わっていない追求（保留/中止/失敗 = ${verificationIssues(unfinished)}）`,
+		"合否が分からないため、照合の通過数と区間の分母から除く。",
+		...unfinished.map(
+			(r) =>
+				`- ${r.task} ${recordVariant(r)} #${r.repeat}: ${r.outcome}、最終照合 ${r.verificationIssue}`,
+		),
+	);
 console.log(lines.join("\n"));
 
 if (values.strategies) {
@@ -153,6 +165,10 @@ if (values.strategies) {
 		);
 	console.log(out.join("\n"));
 }
+
+/** n, or "judged (+k 未了)" when some final verifications did not finish. */
+const nJudged = (n: number, judged: number) =>
+	n === judged ? `${n}` : `${judged} (+${n - judged} 未了)`;
 
 /** Wilson score interval at 95%, as percentages. */
 function wilson(k: number, n: number): string {
@@ -212,6 +228,7 @@ if (values.depth) {
 		const solved = rs.filter(
 			(r) => r.verified && r.outcome === "completed",
 		).length;
+		const judged = rs.filter((r) => !r.verificationIssue).length;
 		// The final check passed but nobody claimed completion (spec/verification-design.md §1).
 		const missed = rs.filter(
 			(r) => r.verified && r.outcome !== "completed",
@@ -232,7 +249,7 @@ if (values.depth) {
 		});
 		const endings = rs.map((r, i) => ending(r, vs[i]));
 		out.push(
-			`| ${task} | ${condition} | ${variant} | ${rs.length} | ${solved} | ${wilson(solved, rs.length)} | ${
+			`| ${task} | ${condition} | ${variant} | ${nJudged(rs.length, judged)} | ${solved} | ${wilson(solved, judged)} | ${
 				size.get(task)
 					? mean(vs.map((v) => rubricScore(v, size.get(task)!)))
 					: "-"
@@ -290,11 +307,12 @@ if (values.horizon) {
 		const solved = rs.filter(
 			({ r }) => r.verified && r.outcome === "completed",
 		).length;
+		const judged = rs.filter(({ r }) => !r.verificationIssue).length;
 		const endings = new Map<string, number>();
 		for (const { h } of rs)
 			endings.set(h.ending, (endings.get(h.ending) ?? 0) + 1);
 		out.push(
-			`| ${task} | ${variant} | ${rs.length} | ${solved} | ${wilson(solved, rs.length)} | ${
+			`| ${task} | ${variant} | ${nJudged(rs.length, judged)} | ${solved} | ${wilson(solved, judged)} | ${
 				size.get(task)
 					? f2(avg(rs.map(({ v }) => rubricScore(v, size.get(task)!))))
 					: "-"

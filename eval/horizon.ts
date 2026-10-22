@@ -19,10 +19,13 @@ type View = Pick<
 
 /** How the pursuit ended, as a stable class rather than free text. */
 export function ending(
-	r: Pick<RunRecord, "error" | "outcome" | "verified" | "reason">,
+	r: Pick<RunRecord, "error" | "outcome" | "verified" | "reason"> &
+		Partial<Pick<RunRecord, "verificationIssue">>,
 	v: Pick<PursuitView, "decisions"> | undefined,
 ): string {
 	if (r.error) return "harness_error";
+	// Unknown whether the work passed: kept apart from every judged ending.
+	if (r.verificationIssue) return `verification_${r.verificationIssue}`;
 	if (r.outcome === "completed")
 		return r.verified ? "verified" : "claimed_unverified";
 	if (isForcedStop(r.reason))
