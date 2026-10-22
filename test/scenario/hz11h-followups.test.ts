@@ -163,7 +163,9 @@ describe("hz11i follow-ups (spec/fixes-2026-10-22-e.md)", () => {
 					proposal("step_back", empty),
 					proposal("give_up", empty),
 				],
-				review: [review({ brokenAssumption: "なし" })],
+				review: [
+					review({ brokenAssumption: "壊れた前提はない。注意点は既存テスト" }),
+				],
 			},
 			reviewer: true,
 			conditions: { findings: "all", review: true },

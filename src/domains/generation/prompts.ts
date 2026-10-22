@@ -398,8 +398,9 @@ function untriedBlock(view: PursuitView) {
 	].join("\n");
 }
 
+// "なし", or a sentence that opens by saying no premise broke (hz11i: 「壊れた前提はない。注意点は…」).
 const NO_PREMISE =
-	/^\s*(なし|特になし|無し|ない|なし。|-|—|（なし）|none)?\s*$/i;
+	/^\s*(?:$|(?:なし|特になし|無し|ない|-|—|（なし）|none|(?:壊れた|崩れた|誤った)?前提は?(?:ない|なし|ありません|崩れていない|壊れていない))(?:[。．.、\s]|$))/i;
 /**
  * A strategy's premise corrections from reviews that kept it (spec/fixes-2026-10-22-e.md §4): the
  * plan text is the ledger's and is not rewritten; the correction is shown with it from then on.
