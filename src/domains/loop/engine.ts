@@ -996,9 +996,15 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 							id: target.id,
 							pursuitId: view.id,
 							status: "refuted",
-							reason: added.length
-								? `${refute.reason}［同じ一手で記録: ${added.join(", ")}］`
-								: refute.reason,
+							reason:
+								(added.length
+									? `${refute.reason}［同じ一手で記録: ${added.join(", ")}］`
+									: refute.reason) +
+								citationNote(
+									refute.reason,
+									target.seq,
+									ledger.loadFindings(db, view.id),
+								),
 							now: clock.now(),
 						});
 				}
@@ -1639,7 +1645,12 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		if (conditions.review && deps.reviewer) {
 			const r = await call(
 				deps.reviewer,
-				reviewRequest({ view, reason, signals: fired.map((s) => s.code) }),
+				reviewRequest({
+					view,
+					reason,
+					signals: fired.map((s) => s.code),
+					tools,
+				}),
 				signal,
 				view,
 			);
@@ -2073,6 +2084,36 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 }
 
 /** F numbers cited in a text, by the same pattern as the citation check (checks.ts). */
+/**
+ * fixes g §10: a refutation reason that cites F numbers is checked against them. A number not in the
+ * ledger, the refuted finding itself, or a cited statement sharing no word or number with the reason
+ * gets a note. Heuristic (shared tokens only): a note does not mean the reason is wrong.
+ */
+export function citationNote(
+	reason: string,
+	refuted: number,
+	findings: readonly { seq: number; statement: string }[],
+): string {
+	const notes: string[] = [];
+	const body = reason.replace(/(?<![A-Za-z0-9])F\d{1,4}(?![A-Za-z0-9])/g, " ");
+	const tokens = [
+		...(body.match(/\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_.]{2,}/g) ?? []),
+		...(
+			body.match(/[\p{Script=Han}\p{Script=Katakana}ー]{2,}/gu) ?? []
+		).flatMap((run) => [...run].slice(0, -1).map((c, i) => c + run[i + 1])),
+	];
+	for (const n of findingRefs(reason)) {
+		const cited = findings.find((f) => f.seq === n);
+		if (!cited) notes.push(`F${n} は台帳にない番号`);
+		else if (n === refuted) notes.push(`F${n} は反証する知見そのもの`);
+		else if (!tokens.some((t) => cited.statement.includes(t)))
+			notes.push(`F${n} の本文に、理由の語や数値が見当たらない`);
+	}
+	return notes.length
+		? `［注: ${notes.join("。")}（ホストの簡易な照合。誤りとは限らない）］`
+		: "";
+}
+
 function findingRefs(text: string): number[] {
 	return [
 		...new Set(

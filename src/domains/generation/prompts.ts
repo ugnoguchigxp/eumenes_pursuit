@@ -18,6 +18,13 @@ const clip = (text: string, limit: number) =>
 		: `${text.slice(0, limit)}…［表示は全 ${text.length} 字のうち先頭 ${limit} 字。台帳には全文がある］`;
 const show = (value: JsonValue, limit: number) =>
 	clip(JSON.stringify(value), limit);
+/** A tool input (not an observation): labelled so its clip is not read as the observation's (fixes g §3). */
+const showInput = (value: JsonValue, limit: number) => {
+	const text = JSON.stringify(value);
+	return text.length <= limit
+		? text
+		: `${text.slice(0, limit)}…［入力の表示は全 ${text.length} 字のうち先頭 ${limit} 字（観測ではない）。台帳には全文がある］`;
+};
 
 export const planSchema = z.strictObject({
 	strategy: z.string().min(1),
@@ -234,7 +241,7 @@ function attemptLine(
 		tools: [],
 	},
 ) {
-	const head = `#${a.seq} ${a.tool} ${show(a.input, limit)}`;
+	const head = `#${a.seq} ${a.tool} ${showInput(a.input, limit)}`;
 	const prediction = `予測: ${a.prediction.expectedStatus} / ${clip(a.prediction.expectedObservation || "（なし）", limit)}${a.prediction.refutedIf ? `\n  反証の条件: ${clip(a.prediction.refutedIf, limit)}` : ""}`;
 	if (a.state === "rejected")
 		return `${head}\n  ${prediction}\n  拒否: ${(a.rejection ?? []).map((r) => `${r.rule}: ${r.detail}`).join(" / ")}`;
@@ -275,7 +282,7 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 			(mode === "all" || f.assurance !== "unverified"),
 	);
 	shown.sort(
-		(a, b) => order[a.assurance] - order[b.assurance] || b.seq - a.seq,
+		(a, b) => order[a.assurance] - order[b.assurance] || a.seq - b.seq,
 	);
 	const groups = new Map<string, typeof shown>();
 	for (const f of shown) {
@@ -312,6 +319,9 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 	return [
 		"## 知見（仮説を変えても残る）",
 		shown.length
+			? "（確かさの順、同じ確かさの中は番号の古い順。F 番号は記録の順に振られ、行き止まり・反証済み・置き換え済みも同じ番号列なので、ここに無い番号がある）"
+			: "",
+		shown.length
 			? [...groups.values()]
 					.slice(0, 20)
 					.map((rows) => {
@@ -342,7 +352,7 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 			: "",
 		refuted.length
 			? [
-					"## 反証済み（使わない。番号は引用できる）",
+					"## 反証済み（使わない。番号は引用できる。誤って反証したと分かったら、同じ主張を根拠の試行とともに新しい知見として記録し直す。元の番号は反証済みのまま残る）",
 					...refuted
 						.slice(-10)
 						.map(
@@ -360,7 +370,10 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 		forProposal
 			? [
 					"## 知見の記録",
-					`次に記録される知見の番号は F${Math.max(0, ...view.findings.map((f) => f.seq)) + 1} から（記録した順に振られる。ホストが記録する行き止まりも同じ番号列を使うので、まだ記録されていない番号を先回りして引用しない）。`,
+					(() => {
+						const next = Math.max(0, ...view.findings.map((f) => f.seq)) + 1;
+						return `次に記録される知見の番号は F${next} から。この一手の findings は書いた順に F${next}, F${next + 1}, F${next + 2} になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。`;
+					})(),
 					"findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。",
 					"成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。",
 					"定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。",
@@ -399,6 +412,53 @@ function partsBlock(view: PursuitView) {
 			return `- 部品${i + 1}: ${text} → ${label[a.status]}${a.evidence ? `（${clip(a.evidence, 200)}）` : ""}${a.next ? ` 次の一手: ${clip(a.next, 200)}` : ""}`;
 		}),
 	].join("\n");
+}
+
+/**
+ * Host notes on the self-assessment, for the reviewer (spec/fixes-2026-10-22-g.md §9). Heuristic and
+ * advisory: a 詰まり part at a routine step back, and a 済み part when every attempt executed under
+ * the strategy used only read-only tools.
+ */
+export function partsCheckBlock(
+	view: PursuitView,
+	tools: readonly ToolDescriptor[],
+): string {
+	const strategy = view.strategies.find((s) => s.id === view.currentStrategyId);
+	if (view.input.conditions.selfCheck !== "parts" || !strategy?.assessment)
+		return "";
+	const notes: string[] = [];
+	const blocked = strategy.assessment.filter((a) => a.status === "blocked");
+	if (blocked.length && stepBackKind(view).startsWith("定例"))
+		notes.push(
+			`- 定例の区切りだが、自己評価では部品${blocked.map((a) => a.part).join("・")}が詰まり。区切りと詰まりのどちらが実情かを確かめること。`,
+		);
+	const done = strategy.assessment.filter((a) => a.status === "done");
+	const hyps = new Set(
+		view.hypotheses
+			.filter((h) => h.strategyId === strategy.id)
+			.map((h) => h.id),
+	);
+	const ran = view.attempts.filter(
+		(a) => a.state === "settled" && a.hypothesisId && hyps.has(a.hypothesisId),
+	);
+	const readOnly = new Set(
+		tools.filter((t) => t.sideEffect === "none").map((t) => t.name),
+	);
+	if (
+		done.length &&
+		tools.length &&
+		ran.length &&
+		ran.every((a) => readOnly.has(a.tool))
+	)
+		notes.push(
+			`- 部品${done.map((a) => a.part).join("・")}は済みとされたが、この方針で実行した試行 ${ran.length} 回はすべて読むだけの道具（${[...new Set(ran.map((a) => a.tool))].join(", ")}）。実行や変更を約束した部品なら、済みの根拠を確かめること。`,
+		);
+	return notes.length
+		? [
+				"## 自己評価についてのホストの注記（簡易な照合。誤りとは限らない）",
+				...notes,
+			].join("\n")
+		: "";
 }
 
 /** Alternatives listed by earlier strategies; which one a later strategy adopted is not recorded. */
@@ -649,6 +709,7 @@ export function hypothesisRequest(input: {
 			experienceBlock(view),
 			direction ? `## 振り返りからの方向づけ\n${direction}` : "",
 			"## 依頼",
+			`この方針で立てる仮説は ${view.hypotheses.filter((h) => h.strategyId === view.currentStrategyId).length + 1}/${view.input.policy.budget.hypothesesPerStrategy} 件目（上限に達した仮説が閉じると、規則で方針を立て直す。仮説ごとの試行予算は ${view.input.policy.budget.attemptsPerHypothesis} 回）。`,
 			"この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。",
 			input.tools.some((t) => t.sideEffect === "workspace")
 				? "targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
@@ -662,24 +723,24 @@ export function hypothesisRequest(input: {
 	};
 }
 
-/** The latest executed attempt gets policy.observation.latestChars; older ones get olderChars × share. */
-function observedFor(
-	view: PursuitView,
-	tools: readonly ToolDescriptor[],
-	share = 1,
-) {
+/**
+ * One rule everywhere (spec/fixes-2026-10-22-g.md §3): the latest executed attempt's observation gets
+ * policy.observation.latestChars, every older one olderChars. Inputs and predictions are clipped separately.
+ */
+function observedFor(view: PursuitView, tools: readonly ToolDescriptor[]) {
 	const latest = [...view.attempts]
 		.reverse()
 		.find((a) => a.state === "settled" || a.state === "interrupted");
 	const limits = view.input.policy.observation;
 	return (a: AttemptRow) => ({
-		chars:
-			a.id === latest?.id
-				? limits.latestChars
-				: Math.max(1, Math.round(limits.olderChars * share)),
+		chars: a.id === latest?.id ? limits.latestChars : limits.olderChars,
 		tools,
 	});
 }
+
+/** fixes g §8: the #numbers are the task's running count, so they need not start at this hypothesis. */
+const ATTEMPT_NUMBERS =
+	"（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）";
 
 function lastAttemptsBlock(
 	view: PursuitView,
@@ -688,9 +749,10 @@ function lastAttemptsBlock(
 ) {
 	const shown = view.attempts.slice(-n);
 	if (!shown.length) return "";
-	const observed = observedFor(view, tools, 0.5);
+	const observed = observedFor(view, tools);
 	return [
 		"## 直近の試行",
+		ATTEMPT_NUMBERS,
 		...shown.map((a) =>
 			attemptLine(a, 300, view.input.conditions.verdictLabel, observed(a)),
 		),
@@ -755,6 +817,7 @@ export function proposalRequest(input: {
 			mine.length
 				? [
 						"## この仮説での試行",
+						ATTEMPT_NUMBERS,
 						...mine.map((a) =>
 							attemptLine(
 								a,
@@ -847,7 +910,12 @@ function stepBackKind(view: PursuitView): string {
  * What is left, counted by the host (spec/fixes-2026-10-22-f.md §E): the pursuit's budgets, and for
  * each tool whose latest observation reports `calls_left`, that number (e.g. probe).
  */
-function budgetBlock(view: PursuitView): string {
+function budgetBlock(
+	view: PursuitView,
+	counted: (attempts: readonly AttemptRow[]) => readonly AttemptRow[] = (xs) =>
+		xs.filter((a) => a.state === "settled" || a.state === "interrupted"),
+	countNote = "",
+): string {
 	const b = view.input.policy.budget;
 	const executed = view.attempts.filter(
 		(a) => a.state === "settled" || a.state === "interrupted",
@@ -856,11 +924,8 @@ function budgetBlock(view: PursuitView): string {
 		(h) => h.id === view.currentHypothesisId,
 	);
 	const inHypothesis = hypothesis
-		? view.attempts.filter(
-				(a) =>
-					a.hypothesisId === hypothesis.id &&
-					(a.state === "settled" || a.state === "interrupted"),
-			).length
+		? counted(view.attempts.filter((a) => a.hypothesisId === hypothesis.id))
+				.length
 		: 0;
 	const inStrategy = view.hypotheses.filter(
 		(h) => h.strategyId === view.currentStrategyId,
@@ -881,7 +946,7 @@ function budgetBlock(view: PursuitView): string {
 	}
 	return [
 		"## 残りの予算（ホストが数えた値）",
-		`- 試行: 全体で ${executed}/${b.attempts} 回使用${hypothesis ? `、この仮説で ${inHypothesis}/${hypothesis.budget} 回` : ""}`,
+		`- 試行: 全体で ${executed}/${b.attempts} 回使用${hypothesis ? `、この仮説で ${inHypothesis}/${hypothesis.budget} 回${countNote}` : ""}`,
 		`- 仮説: この方針で ${inStrategy}/${b.hypothesesPerStrategy} 件（上限に達すると規則で方針を立て直す）`,
 		`- 方針: ${view.strategies.length}/${b.strategies} 件、一段上へ戻る: ${stepBacks}/${b.stepBacks} 回`,
 		...[...tools].map(
@@ -894,6 +959,8 @@ export function reviewRequest(input: {
 	view: PursuitView;
 	reason: string;
 	signals: readonly string[];
+	/** The run's tools: lets the parts check tell read-only attempts apart (fixes g §9). */
+	tools?: readonly ToolDescriptor[];
 }): LlmRequest<Review> {
 	const { view } = input;
 	const strategy = view.strategies.find((s) => s.id === view.currentStrategyId);
@@ -913,6 +980,7 @@ export function reviewRequest(input: {
 			historyBlock(view, true),
 			findingsBlock(view, false),
 			partsBlock(view),
+			partsCheckBlock(view, input.tools ?? []),
 			`## 試していない別案\n${(strategy?.alternatives ?? []).map((a) => `- ${a}`).join("\n") || "（なし）"}`,
 			consultationsBlock(view),
 			"## 依頼\n方針レベルで判断してください。direction には、次の方針や相談の方向を一文で書いてください。",
