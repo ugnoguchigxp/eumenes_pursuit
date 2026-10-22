@@ -45,13 +45,22 @@ import { openDecisionLease } from "../standalone/larm/connection.ts";
 import { serialJudge } from "../standalone/larm/serial.ts";
 import { openSettings } from "../standalone/settings.ts";
 import { openStore } from "../standalone/store.ts";
-import { conditionsFor, type ConditionName } from "./conditions.ts";
-import type { EvalTask, ToolTier } from "./contracts.ts";
 import {
+	conditionNames as knownConditions,
+	conditionsFor,
+	type ConditionName,
+} from "./conditions.ts";
+import { endNoticeText, runDirect, type DirectEntry } from "./direct.ts";
+import type { EvalTask, ToolTier } from "./contracts.ts";
+import type { LlmPort } from "../src/index.ts";
+import {
+	compare,
 	detection,
+	withDiagnostics,
 	withOutcomeFacts,
 	isCorrect,
 	measure,
+	measureDirect,
 	summarize,
 	type RunRecord,
 } from "./metrics.ts";
@@ -117,6 +126,12 @@ const { values, positionals } = parseArgs({
 		"corpus-url": { type: "string" },
 		/** horizon-10a: the corpus server's request log (host-only; canary detection). */
 		"corpus-log": { type: "string" },
+		/** After a completion claim: off, or verdict (合格/不合格 stated in every later prompt). Ablation fix (a). */
+		"claim-feedback": { type: "string", default: "off" },
+		/** Per-hypothesis attempt budget counts all attempts, or only mutating ones. Ablation fix (b). */
+		"attempt-count": { type: "string", default: "all" },
+		/** D0: history entries shown in full (older ones are one-line summaries). */
+		"direct-full-entries": { type: "string", default: "40" },
 	},
 });
 const command = positionals[0];
@@ -152,7 +167,7 @@ function describeLive(records: RunRecord[]): string {
 		),
 	);
 	const judged = records.some(
-		(r) => !["E0", "E1", "E1R"].includes(r.condition),
+		(r) => !["E0", "E1", "E1R", "D0"].includes(r.condition),
 	);
 	const conditions = [...new Set(records.map((r) => r.condition))].join("・");
 	return [
@@ -176,6 +191,10 @@ function writeSummary() {
 		"",
 		detection(records),
 		"",
+		"## 効率（道具の呼び出し・応答要求・時間。追求と直接解法 D0 の比較にも使う）",
+		"",
+		compare(records),
+		"",
 	].join("\n");
 	writeFileSync(resolve(root, "summary.md"), text);
 	console.log(text);
@@ -187,6 +206,10 @@ if (command === "report") {
 }
 if (command !== "run") throw new Error("usage: run | report");
 
+const conditionNames = values.conditions!.split(",") as ConditionName[];
+for (const c of conditionNames)
+	if (!knownConditions.includes(c)) throw new Error(`unknown condition ${c}`);
+const pursuitConditions = conditionNames.filter((c) => c !== "D0");
 const settings = openSettings();
 const meter = settings.meter();
 const pricing = settings.require("spend.pricing");
@@ -206,7 +229,12 @@ function generatorFor(scope: UsageScope) {
 			})
 		: createClaudeLlm(generatorRole, usage);
 }
-function reviewerFor(scope: UsageScope, role = "reviewer") {
+function reviewerFor(scope: UsageScope, role = "reviewer"): LlmPort {
+	// A direct-only run (D0) has no reviewer: no reviewer directory is created or read.
+	if (role === "reviewer" && !pursuitConditions.length && !values.critic)
+		return {
+			complete: () => Promise.reject(new Error("D0 has no reviewer")),
+		};
 	const usage = settings.meter(scope, role);
 	return useFile
 		? createFileLlm({
@@ -276,6 +304,15 @@ if (!["refutation", "status"].includes(verdictLabel))
 const rollback = values["rollback"] as "notify" | "keep";
 if (!["notify", "keep"].includes(rollback))
 	throw new Error("--rollback must be notify or keep");
+const claimFeedback = values["claim-feedback"] as "off" | "verdict";
+if (!["off", "verdict"].includes(claimFeedback))
+	throw new Error("--claim-feedback must be off or verdict");
+const attemptCount = values["attempt-count"] as "all" | "mutating";
+if (!["all", "mutating"].includes(attemptCount))
+	throw new Error("--attempt-count must be all or mutating");
+const directFull = Number(values["direct-full-entries"]);
+if (!Number.isInteger(directFull) || directFull < 1)
+	throw new Error("--direct-full-entries must be a positive integer");
 /** The kept lessons, as "cue → operation" lines (spec/lessons-design.md). */
 const lessonsFile = values.lessons
 	? (JSON.parse(readFileSync(values.lessons, "utf8")) as {
@@ -299,11 +336,23 @@ const experience = lessonsFile
 const policy = policySchema.parse(
 	JSON.parse(readFileSync(values.policy!, "utf8")),
 );
-const variant = [
+/** Policy file label: "v5" for config/policy.v5.json, "v5-tight" for config/policy.v5-tight.json. */
+const budgetTag = values
+	.policy!.split("/")
+	.at(-1)!
+	.replace(/^policy\./, "")
+	.replace(/\.json$/, "");
+const policyPart =
+	budgetTag === `v${policy.version}`
+		? policy.version === 1
+			? ""
+			: `/P-v${policy.version}`
+		: `/P-${budgetTag}`;
+const pursuitVariant = [
 	`${values.generator}/T${toolTier}`,
 	findings === "off" ? "" : `/F-${findings}`,
 	strategyChange === "free" ? "" : "/S-distinct",
-	policy.version === 1 ? "" : `/P-v${policy.version}`,
+	policyPart,
 	values.critic ? "/C" : "",
 	selfCheck === "off" ? "" : `/K-${selfCheck}`,
 	verifyOn === "attempt" ? "" : `/V-${verifyOn}`,
@@ -311,6 +360,8 @@ const variant = [
 	completionCheck === "off" ? "" : `/A-${completionCheck}`,
 	verdictLabel === "refutation" ? "" : `/VL-${verdictLabel}`,
 	rollback === "notify" ? "" : `/RB-${rollback}`,
+	claimFeedback === "off" ? "" : `/CF-${claimFeedback}`,
+	attemptCount === "all" ? "" : `/AC-${attemptCount}`,
 	useFile ? "/LLM-file" : "",
 	graderMode === "file" ? "/G-file" : "",
 	values.lessons
@@ -320,10 +371,22 @@ const variant = [
 				.replace(/\.json$/, "")}`
 		: "",
 ].join("");
+/** D0 ignores every pursuit-structure flag, so its variant names only what applies to it. */
+const directVariant = [
+	`${values.generator}/T${toolTier}`,
+	policyPart,
+	"/DIRECT",
+	claimFeedback === "off" ? "" : `/CF-${claimFeedback}`,
+	useFile ? "/LLM-file" : "",
+	graderMode === "file" ? "/G-file" : "",
+].join("");
+const variantOf = (c: ConditionName) =>
+	c === "D0" ? directVariant : pursuitVariant;
 const secrets = secretValues(process.env);
-const conditionNames = values.conditions!.split(",") as ConditionName[];
 // E0, E1 and E1R never ask the judge, so they run without LARM.
-const needsJudge = conditionNames.some((c) => !["E0", "E1", "E1R"].includes(c));
+const needsJudge = conditionNames.some(
+	(c) => !["E0", "E1", "E1R", "D0"].includes(c),
+);
 const token = process.env.LARM_API_TOKEN;
 if (needsJudge && !token) throw new Error("LARM_API_TOKEN is required");
 const lease = needsJudge
@@ -466,13 +529,18 @@ for (const condition of conditionNames) {
 						role: values.generator!,
 					}
 				: { provider: "claude", ...generatorRole },
-			reviewer: useFile
-				? {
-						provider: "file",
-						directory: resolve(values["reviewer-dir"] ?? values["llm-dir"]!),
-						responder: values["file-responder-id"] ?? null,
-					}
-				: { provider: "claude", ...settings.require("llm.reviewer") },
+			reviewer:
+				condition === "D0" && !values.critic
+					? null
+					: useFile
+						? {
+								provider: "file",
+								directory: resolve(
+									values["reviewer-dir"] ?? values["llm-dir"]!,
+								),
+								responder: values["file-responder-id"] ?? null,
+							}
+						: { provider: "claude", ...settings.require("llm.reviewer") },
 			grader:
 				graderMode === "file"
 					? { provider: "file", directory: resolve(values["grader-dir"]!) }
@@ -490,18 +558,23 @@ for (const condition of conditionNames) {
 			: null,
 		policy: policy as unknown as import("../src/index.ts").JsonValue,
 		execution: {
-			conditions: conditionsFor(condition, {
-				adapter,
-				language,
-				findings,
-				strategyChange,
-				selfCheck,
-				verifyOn,
-				prediction,
-				completionCheck,
-				rollback,
-				verdictLabel,
-			}) as unknown as import("../src/index.ts").JsonValue,
+			// D0 ignores every pursuit-structure flag; its identity names only what applies to it.
+			conditions: (condition === "D0"
+				? { direct: true, claimFeedback, fullEntries: directFull }
+				: conditionsFor(condition, {
+						adapter,
+						language,
+						findings,
+						strategyChange,
+						selfCheck,
+						verifyOn,
+						prediction,
+						completionCheck,
+						claimFeedback,
+						attemptCount,
+						rollback,
+						verdictLabel,
+					})) as unknown as import("../src/index.ts").JsonValue,
 			toolTier,
 			critic: values.critic!,
 			maxSteps: Number(values["max-steps"]),
@@ -550,8 +623,27 @@ console.log(
 	`jobs: ${jobs.length} (skipping ${done.size} already recorded); spent so far $${meter.spentUsd().toFixed(3)}`,
 );
 
+/** --claim-feedback verdict with --llm file: end-of-task notices for the generator's responder (show.sh prints them). */
+let noticeSeq = 0;
+function notifyEnd(
+	goal: string,
+	lastClaim: Parameters<typeof endNoticeText>[1],
+) {
+	if (claimFeedback !== "verdict" || !useFile) return;
+	const dir = resolve(values["llm-dir"]!, "notices");
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(
+		resolve(dir, `${process.pid}-${String(++noticeSeq).padStart(4, "0")}.txt`),
+		`${endNoticeText(goal, lastClaim)}\n`,
+	);
+}
+
+/** D0 transcripts (the direct baseline has no ledger): results/<run>/direct/<label>.jsonl. */
+const directDir = resolve(root, "direct");
+
 async function runOne(job: (typeof jobs)[number]) {
 	const { task, condition, repeat } = job;
+	const variant = variantOf(condition);
 	const configId = effectiveConfigs.get(condition)!.id;
 	const scope: UsageScope = {
 		runId: values.name!,
@@ -559,7 +651,6 @@ async function runOne(job: (typeof jobs)[number]) {
 		jobId: crypto.randomUUID(),
 		pursuitId: null,
 	};
-	const engine = engineFor(scope);
 	const label = `${task.id}/${condition}/${variant}/#${repeat}`;
 	const started = Date.now();
 	// Outside the project, so task code cannot reach .env by a relative path.
@@ -576,6 +667,103 @@ async function runOne(job: (typeof jobs)[number]) {
 		corpus,
 	});
 	const controller = new AbortController();
+	const common = {
+		run: values.name!,
+		task: task.id,
+		group: task.group,
+		condition,
+		generator: variant,
+		level: task.level ?? null,
+		repeat,
+		expected: task.expected,
+		budgetTag,
+		...(task.needsCorpus && corpus ? { corpus } : {}),
+	};
+	const finishRecord = async (
+		measured: ReturnType<typeof measure>,
+		error: string | null,
+	) => {
+		const facts = instance.outcomeFacts
+			? await instance.outcomeFacts().catch(() => null)
+			: null;
+		const folded = withDiagnostics(
+			withOutcomeFacts(measured, facts),
+			instance.diagnostics?.() ?? null,
+		);
+		const usage = totalUsage(meter.events(scope.jobId));
+		const record: RunRecord = {
+			...folded,
+			llmCalls: usage.calls,
+			inputTokens: usage.inputTokens,
+			outputTokens: usage.outputTokens,
+			usd: usage.usd,
+			usage,
+			...common,
+			configId,
+			jobKey: jobKey(task.id, condition, configId, repeat),
+			correct: isCorrect(task.expected, { ...folded, error }),
+			durationMs: Date.now() - started,
+			error,
+		};
+		appendFileSync(runsPath, `${JSON.stringify(record)}\n`);
+		if (!values["keep-work"]) await instance.dispose();
+		console.log(
+			`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""}${record.verificationIssue ? ` (final verification ${record.verificationIssue}: not judged)` : ""} correct=${record.correct} tools=${record.toolCalls} requests=${record.responderRequests} stepBacks=${record.stepBacks} $${record.usd === null ? "unknown" : record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
+		);
+	};
+	if (condition === "D0") {
+		const id = `direct_${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
+		mkdirSync(directDir, { recursive: true });
+		const transcript = resolve(directDir, `${task.id}-r${repeat}-${id}.jsonl`);
+		let error: string | null = null;
+		let result: Awaited<ReturnType<typeof runDirect>> | null = null;
+		try {
+			result = await runDirect({
+				goal: task.goalFor?.(toolTier) ?? task.goal,
+				acceptance: task.acceptance,
+				grant: task.grant,
+				tools: redactTools(instance.tools, secrets),
+				workspace: instance.workspace,
+				acceptancePort: redactAcceptance(instance.acceptance, secrets),
+				llm: generatorFor(scope),
+				budget: {
+					toolCalls: policy.budget.attempts,
+					wallMs: policy.budget.wallMs,
+					requests: Math.min(
+						policy.budget.transitions,
+						Number(values["max-steps"]),
+					),
+				},
+				fullEntries: directFull,
+				signal: controller.signal,
+				onEntry: (entry: DirectEntry) =>
+					appendFileSync(transcript, `${JSON.stringify(entry)}\n`),
+			});
+		} catch (e) {
+			error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+			console.error(`[error] ${label}`, error);
+		}
+		if (!result) {
+			if (!values["keep-work"]) await instance.dispose();
+			return;
+		}
+		const last = [...result.entries].reverse().find((e) => e.kind === "claim");
+		notifyEnd(
+			task.goalFor?.(toolTier) ?? task.goal,
+			last
+				? {
+						passed: last.passed === true,
+						criteria: result.claimCriteria.at(-1) ?? [],
+					}
+				: null,
+		);
+		await finishRecord(
+			measureDirect(result, id, (model) => pricing[model]),
+			error,
+		);
+		return;
+	}
+	const engine = engineFor(scope);
 	let pursuitId = "";
 	let error: string | null = null;
 	try {
@@ -596,6 +784,8 @@ async function runOne(job: (typeof jobs)[number]) {
 					completionCheck,
 					rollback,
 					verdictLabel,
+					claimFeedback,
+					attemptCount,
 				}),
 				goalRef: null,
 				label: task.id,
@@ -651,39 +841,18 @@ async function runOne(job: (typeof jobs)[number]) {
 	}
 	const view = pursuitId ? await engine.view(pursuitId) : null;
 	if (!view) return;
-	const facts = instance.outcomeFacts
-		? await instance.outcomeFacts().catch(() => null)
-		: null;
-	const measured = withOutcomeFacts(
-		measure(view, (model) => pricing[model]),
-		facts,
+	const lastClaim = view.verifications
+		.filter((v) => v.trigger === "claim")
+		.at(-1);
+	notifyEnd(
+		task.goalFor?.(toolTier) ?? task.goal,
+		lastClaim
+			? { passed: lastClaim.passed, criteria: lastClaim.criteria }
+			: null,
 	);
-	const usage = totalUsage(meter.events(scope.jobId));
-	const record: RunRecord = {
-		...measured,
-		llmCalls: usage.calls,
-		inputTokens: usage.inputTokens,
-		outputTokens: usage.outputTokens,
-		usd: usage.usd,
-		usage,
-		run: values.name!,
-		configId,
-		jobKey: jobKey(task.id, condition, configId, repeat),
-		task: task.id,
-		group: task.group,
-		condition,
-		generator: variant,
-		level: task.level ?? null,
-		repeat,
-		expected: task.expected,
-		correct: isCorrect(task.expected, { ...measured, error }),
-		durationMs: Date.now() - started,
+	await finishRecord(
+		measure(view, (model) => pricing[model]),
 		error,
-	};
-	appendFileSync(runsPath, `${JSON.stringify(record)}\n`);
-	if (!values["keep-work"]) await instance.dispose();
-	console.log(
-		`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""}${record.verificationIssue ? ` (final verification ${record.verificationIssue}: not judged)` : ""} correct=${record.correct} attempts=${record.attempts} stepBacks=${record.stepBacks} $${record.usd === null ? "unknown" : record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
 	);
 }
 

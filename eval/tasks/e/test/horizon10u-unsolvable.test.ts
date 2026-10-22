@@ -226,6 +226,7 @@ async function run(
 			evidence: c!.evidence,
 			graderCalls: grader.seen.length,
 			facts,
+			diagnostics: instance.diagnostics?.(),
 		};
 	} finally {
 		rmSync(work, { recursive: true, force: true });
@@ -303,7 +304,11 @@ describe("horizon-10u decision", () => {
 		).toMatchObject({ passed: true, graderCalls: 1 });
 		expect(
 			await run(spec, impossible, [declare("impossible", "")], false),
-		).toMatchObject({ passed: false, graderCalls: 1 });
+		).toMatchObject({
+			passed: false,
+			graderCalls: 1,
+			diagnostics: { graderVerdict: "fail" },
+		});
 		expect(
 			await run(spec, impossible, [declare("open", "")], true),
 		).toMatchObject({ passed: false, graderCalls: 1 });
@@ -313,6 +318,7 @@ describe("horizon-10u decision", () => {
 		expect(await run(spec, SOLVABLE, [answer("aaa.bbb")])).toMatchObject({
 			passed: true,
 			graderCalls: 0,
+			diagnostics: { graderVerdict: null, answerCorrect: true },
 		});
 	});
 

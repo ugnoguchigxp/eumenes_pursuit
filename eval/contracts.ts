@@ -45,7 +45,25 @@ export interface TaskInstance {
 	 * whether the task was solvable as stated and what the executor last submitted.
 	 */
 	outcomeFacts?(): Promise<OutcomeFacts>;
+	/**
+	 * Host-only facts from the latest acceptance check, for the metrics (never shown to the
+	 * executor): canary hits, the grader's verdict, hidden checks passed.
+	 */
+	diagnostics?(): TaskDiagnostics;
 	dispose(): Promise<void>;
+}
+
+export interface TaskDiagnostics {
+	/** horizon-10a: canaries obeyed (count and kind only; the canary texts stay host-only). */
+	readonly canaryHits?: number;
+	readonly canaryKinds?: readonly ("phrase" | "file" | "collect")[];
+	/** Exact answer fields right (horizon-10a) or answer right (horizon-10u). */
+	readonly answerCorrect?: boolean;
+	/** Rubric grader's verdict on the latest check; null when the grader was not asked. */
+	readonly graderVerdict?: "pass" | "fail" | null;
+	/** horizon-10e: hidden checks passed of total in the latest check. */
+	readonly hiddenPassed?: number;
+	readonly hiddenTotal?: number;
 }
 
 export interface OutcomeFacts {

@@ -6,6 +6,8 @@ import { recordKey, recordVariant } from "./run-config.ts";
  * --strategies lists each pursuit's strategies, to see how varied the approaches were.
  * --depth compares variants by solve rate (Wilson 95%), partial credit and depth of work.
  * --horizon shows budget use, later-vs-earlier progress and returns to a construction (horizon-1).
+ * --compare <run> [<run> …] puts pursuit and direct (D0) side by side over several runs
+ *   (one run per condition × repeat in the ablation): bun eval/analyze.ts --compare abl-pursuit-r1 abl-direct-r1 …
  */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -14,7 +16,7 @@ import { listPursuitIds, loadPursuit, migrations } from "../src/sqlite.ts";
 import type { PursuitView } from "../src/index.ts";
 import { openStore } from "../standalone/store.ts";
 import { ending, horizonRow } from "./horizon.ts";
-import { type RunRecord, verificationIssues } from "./metrics.ts";
+import { compare, type RunRecord, verificationIssues } from "./metrics.ts";
 import { tasks } from "./tasks/index.ts";
 
 const { values, positionals } = parseArgs({
@@ -27,8 +29,34 @@ const { values, positionals } = parseArgs({
 		depth: { type: "boolean", default: false },
 		/** Long-horizon measures (spec/long-horizon-design.md): budget use, progress, returns. */
 		horizon: { type: "boolean", default: false },
+		/** Pursuit vs direct over the runs named as positionals (runs.jsonl only, no ledger). */
+		compare: { type: "boolean", default: false },
 	},
 });
+if (values.compare) {
+	if (!positionals.length)
+		throw new Error("usage: bun eval/analyze.ts --compare <run> [<run> …]");
+	const all: RunRecord[] = [];
+	for (const name of positionals) {
+		const path = resolve(import.meta.dir, "results", name, "runs.jsonl");
+		if (!existsSync(path)) throw new Error(`no runs: ${path}`);
+		const last = new Map<string, RunRecord>();
+		for (const line of readFileSync(path, "utf8").split("\n").filter(Boolean)) {
+			const r = JSON.parse(line) as RunRecord;
+			last.set(`${r.task}|${r.condition}|${r.generator}|${r.repeat}`, r);
+		}
+		all.push(...last.values());
+	}
+	console.log(
+		[
+			`# 追求と直接解法の比較: ${positionals.join(", ")}`,
+			"",
+			compare(all.filter((r) => !values.group || r.group === values.group)),
+			"",
+		].join("\n"),
+	);
+	process.exit(0);
+}
 const run = positionals[0];
 if (!run)
 	throw new Error(

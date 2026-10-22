@@ -13,7 +13,11 @@ import type {
 	CriterionResult,
 	JsonObject,
 } from "../../../src/contracts/index.ts";
-import type { EvalTask, TaskContext } from "../../contracts.ts";
+import type {
+	EvalTask,
+	TaskContext,
+	TaskDiagnostics,
+} from "../../contracts.ts";
 import { listFiles, replaceTree } from "../../tools/fs-util.ts";
 import { resolveInside } from "../../tools/paths.ts";
 import {
@@ -429,6 +433,7 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 			});
 
 			let verifyCount = 0;
+			let diagnostics: TaskDiagnostics = {};
 			async function verify(signal: AbortSignal): Promise<CriterionResult[]> {
 				if (!context.secretDir)
 					return [criterion(CRITERION, false, "照合の準備がありません")];
@@ -483,6 +488,7 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 					}
 				}
 				const all = passed === total;
+				diagnostics = { hiddenPassed: passed, hiddenTotal: total };
 				// Counts only: names, inputs and outputs of the hidden checks stay on the host.
 				return [
 					criterion(
@@ -502,6 +508,7 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 						spec.protectedPrefixes.some((p) => rel.startsWith(p)),
 				}),
 				acceptance: { verify },
+				diagnostics: () => diagnostics,
 				async dispose() {
 					if (existsSync(directory))
 						await rm(join(directory, "verify"), {

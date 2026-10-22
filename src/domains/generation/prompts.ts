@@ -649,6 +649,48 @@ function continuing(view: PursuitView): number {
 		: 0;
 }
 
+/** One claim verdict line; the direct baseline (eval/direct.ts) uses the same words. */
+export function claimVerdictText(
+	criteria: readonly { id: string; passed: boolean; evidence: string }[],
+	passed: boolean,
+): string {
+	return `${passed ? "合格" : "不合格"}: ${criteria.map((r) => `[${r.id}] ${r.passed ? "ok" : "ng"} ${clip(r.evidence, 300)}`).join(" / ")}`;
+}
+
+/** claimFeedback "verdict": every claim's result, in every later generator and reviewer prompt. */
+function claimFeedbackBlock(view: PursuitView) {
+	if (view.input.conditions.claimFeedback !== "verdict") return "";
+	const claims = view.verifications.filter((v) => v.trigger === "claim");
+	if (!claims.length) return "";
+	return [
+		"## 完了の申告の結果（ホストの照合）",
+		...claims.map(
+			(c, i) => `- 申告${i + 1}: ${claimVerdictText(c.criteria, c.passed)}`,
+		),
+		claims.at(-1)!.passed
+			? ""
+			: "直近の完了の申告は不合格でした。受入条件はまだ満たされていません。",
+	]
+		.filter(Boolean)
+		.join("\n");
+}
+
+/** Attempts that count toward a hypothesis budget (conditions.attemptCount). */
+export function budgetCounted(
+	view: PursuitView,
+	attempts: readonly AttemptRow[],
+	tools: readonly ToolDescriptor[],
+): AttemptRow[] {
+	const executed = attempts.filter(
+		(a) => a.state === "settled" || a.state === "interrupted",
+	);
+	if (view.input.conditions.attemptCount !== "mutating") return executed;
+	const writers = new Set(
+		tools.filter((t) => t.sideEffect === "workspace").map((t) => t.name),
+	);
+	return executed.filter((a) => writers.has(a.tool));
+}
+
 export function planRequest(input: {
 	view: PursuitView;
 	tools: readonly ToolDescriptor[];
@@ -669,6 +711,7 @@ export function planRequest(input: {
 			findingsBlock(view, false),
 			findingsReminder(view),
 			revertBlock(view),
+			claimFeedbackBlock(view),
 			consultationsBlock(view),
 			experienceBlock(view),
 			input.direction ? `## 振り返りからの方向づけ\n${input.direction}` : "",
@@ -726,6 +769,7 @@ export function hypothesisRequest(input: {
 			findingsReminder(view),
 			lastAttemptsBlock(view, 6, input.tools),
 			revertBlock(view),
+			claimFeedbackBlock(view),
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
 			partsBlock(view),
@@ -836,7 +880,7 @@ export function proposalRequest(input: {
 			partsBlock(view),
 			revertBlock(view),
 			readBackBlock(view, input.tools),
-			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}${hypothesis?.targets.length ? `\n変える対象（宣言）: ${hypothesis.targets.join(", ")}` : ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
+			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}${hypothesis?.targets.length ? `\n変える対象（宣言）: ${hypothesis.targets.join(", ")}` : ""}\n試行予算: ${view.input.conditions.attemptCount === "mutating" ? `${budgetCounted(view, mine, input.tools).length}/${hypothesis?.budget ?? 0}（数えるのは作業領域を変える道具だけ）` : `${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`}`,
 			mine.length
 				? [
 						"## この仮説での試行",
@@ -851,15 +895,17 @@ export function proposalRequest(input: {
 						),
 					].join("\n")
 				: "## この仮説での試行\nまだありません。",
-			claims.length
-				? [
-						"## 完了の申告に対する照合",
-						...claims.map(
-							(c) =>
-								`- ${c.passed ? "通過" : "不合格"}: ${c.criteria.map((r) => `[${r.id}] ${r.passed ? "ok" : "ng"} ${clip(r.evidence, 300)}`).join(" / ")}`,
-						),
-					].join("\n")
-				: "",
+			view.input.conditions.claimFeedback === "verdict"
+				? claimFeedbackBlock(view)
+				: claims.length
+					? [
+							"## 完了の申告に対する照合",
+							...claims.map(
+								(c) =>
+									`- ${c.passed ? "通過" : "不合格"}: ${c.criteria.map((r) => `[${r.id}] ${r.passed ? "ok" : "ng"} ${clip(r.evidence, 300)}`).join(" / ")}`,
+							),
+						].join("\n")
+					: "",
 			input.feedback ? `## 前の提案への指摘\n${input.feedback}` : "",
 			[
 				"## 依頼",
@@ -1002,6 +1048,7 @@ export function reviewRequest(input: {
 			budgetBlock(view),
 			historyBlock(view, true),
 			findingsBlock(view, false),
+			claimFeedbackBlock(view),
 			partsBlock(view),
 			partsCheckBlock(view, input.tools ?? []),
 			`## 試していない別案\n${(strategy?.alternatives ?? []).map((a) => `- ${a}`).join("\n") || "（なし）"}`,

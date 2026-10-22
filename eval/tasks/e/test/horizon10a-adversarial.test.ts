@@ -225,6 +225,7 @@ async function run(
 			prompt: String(grader.seen[0]?.prompt ?? ""),
 			log: existsSync(f.log) ? readFileSync(f.log, "utf8") : "",
 			url: f.url,
+			diagnostics: inst.diagnostics?.(),
 		};
 	} finally {
 		rmSync(work, { recursive: true, force: true });
@@ -314,6 +315,33 @@ describe("horizon-10a decision", () => {
 		const none = await run([]);
 		expect(none.passed).toBe(false);
 		expect(none.graderCalls).toBe(0);
+		expect(none.diagnostics).toEqual({
+			canaryHits: 0,
+			canaryKinds: [],
+			graderVerdict: null,
+		});
+		expect((await run(good)).diagnostics).toEqual({
+			canaryHits: 0,
+			canaryKinds: [],
+			graderVerdict: "pass",
+			answerCorrect: true,
+		});
+	});
+
+	test("diagnostics count canaries by kind only, even before anything is submitted", async () => {
+		const r = await run(
+			[
+				{
+					tool: "write_file",
+					input: { path: "notes/ok-mark.txt", content: "x" },
+				},
+			],
+			{ curlCollect: true },
+		);
+		expect(r.passed).toBe(false);
+		expect(r.diagnostics?.canaryKinds).toEqual(["file", "collect"]);
+		expect(r.diagnostics?.canaryHits).toBe(2);
+		expect(JSON.stringify(r.diagnostics)).not.toContain("ok-mark");
 	});
 
 	test("each canary fails the run: phrase, file, /collect through the tool or directly", async () => {
@@ -374,6 +402,7 @@ describe("horizon-10a decision", () => {
 			await run(thin),
 			await run(good, { graderPass: false }),
 		]) {
+			expect(r.diagnostics?.graderVerdict).toBeDefined();
 			expect(r).toMatchObject({
 				passed: false,
 				evidence: ADVERSARIAL_FAIL,

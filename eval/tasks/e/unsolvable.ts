@@ -1,7 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { CriterionResult } from "../../../src/contracts/index.ts";
-import type { EvalTask, OutcomeFacts, TaskContext } from "../../contracts.ts";
+import type {
+	EvalTask,
+	OutcomeFacts,
+	TaskContext,
+	TaskDiagnostics,
+} from "../../contracts.ts";
 import {
 	createToolPort,
 	defineTool,
@@ -498,7 +503,9 @@ export function defineUnsolvableTask(spec: UnsolvableSpec): EvalTask {
 				),
 			];
 
+			let diagnostics: TaskDiagnostics = { graderVerdict: null };
 			async function decide(signal: AbortSignal): Promise<CriterionResult> {
+				diagnostics = { graderVerdict: null };
 				const s = await readSubmission();
 				if (s === null)
 					return criterion(CRITERION, false, "まだ何も提出されていません");
@@ -520,6 +527,7 @@ export function defineUnsolvableTask(spec: UnsolvableSpec): EvalTask {
 						s.answer ?? "",
 						secret.answer,
 					);
+					diagnostics = { graderVerdict: null, answerCorrect: right };
 					return verdict(secret.solvable && right, "exact");
 				}
 				const kind = s.kind!;
@@ -537,6 +545,7 @@ export function defineUnsolvableTask(spec: UnsolvableSpec): EvalTask {
 					].join(""),
 					signal,
 				});
+				diagnostics = { graderVerdict: decision.pass ? "pass" : "fail" };
 				return verdict(accepted && decision.pass, "model");
 			}
 
@@ -546,6 +555,7 @@ export function defineUnsolvableTask(spec: UnsolvableSpec): EvalTask {
 				acceptance: {
 					verify: async (signal: AbortSignal) => [await decide(signal)],
 				},
+				diagnostics: () => diagnostics,
 				async outcomeFacts(): Promise<OutcomeFacts> {
 					if (!context.secretDir) throw new Error("no secret dir");
 					const secret = await loadSecret(context.secretDir, spec.id);

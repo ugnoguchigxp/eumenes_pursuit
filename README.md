@@ -87,6 +87,10 @@ bun eval/analyze.ts base                # 失敗の傾向（止まり方・落�
 bun eval/analyze.ts math --depth        # 照合の通過（95% 区間）・部分点・深さ
 bun eval/analyze.ts math --strategies   # 追求ごとの方針の一覧
 bun eval/trace.ts base <task>           # 一つの追求の経緯
+
+# 追求と直接解法の比較（ablation-1。実行ごとに別の名前）
+bun eval/main.ts run --name abl1-direct-r1 --conditions D0 --policy config/policy.v5.json ...
+bun eval/analyze.ts --compare abl1-pursuit-r1 abl1-pursuit-r2 abl1-pursuit-r3 abl1-direct-r1 abl1-direct-r2 abl1-direct-r3
 ```
 
 | 選択肢 | 値 |
@@ -103,7 +107,11 @@ bun eval/trace.ts base <task>           # 一つの追求の経緯
 | `--rollback` | notify（既定。一段上へ戻るときに作業領域を戻したら、戻したファイルを台帳に残し、次の要求で生成器に伝える）、keep（戻さない） |
 | `--verdict-label` | refutation（既定。試行の判定を、機械で判定できる refutedIf と観測の突き合わせで示し、それ以外は「未判定」とする）、status（以前の表示。道具の状態が予測どおりなら「予測どおり」） |
 | `--prediction` | status（状態と観測を予測する）、falsifiable（どんな観測が出たら仮説が誤りかも書かせる） |
-| `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる）、`config/policy.v3.json`（v2 に加え、一段上へ戻る予算を 8 回にして、方針 3 × 仮説 3 と釣り合わせる） |
+| `--conditions D0` | 直接解法（追求の構造なし）。同じ課題・道具・照合・採点で、毎回 道具を 1 回使う／完了を申告する／断念する を選ばせる。予算は policy の追求全体の予算（試行・壁時計・手順）に合わせる。[spec/ablation-design.md](spec/ablation-design.md) |
+| `--claim-feedback` | off（既定）、verdict（完了の申告の結果 合格/不合格 を、そのあとの計画・仮説・提案・振り返りのすべての要求に書く。`--llm file` では課題が終わるたびに最後の申告の結果を `<llm-dir>/notices/` に書く。D0 にも効く） |
+| `--attempt-count` | all（既定）、mutating（仮説ごとの試行予算に、作業領域を変える道具＝書き込み・実行・提出だけを数える。資料の取得だけでは一段上へ戻らない。追求全体の予算はすべて数える） |
+| `--direct-full-entries` | D0 で全文を見せる直近の行動の数（既定 40。古いものは一行の要約） |
+| `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる）、`config/policy.v3.json`（v2 に加え、一段上へ戻る予算を 8 回にして、方針 3 × 仮説 3 と釣り合わせる）、`config/policy.v5-tight.json`（v5 の試行・壁時計・手順を半分にした比較用の予算。記録の `budgetTag` は v5-tight） |
 
 結果は `eval/results/<name>/` に残ります。既定では手元だけに残り（`.gitignore`）、公開する回だけを `eval/results/PUBLISHED` に名前で載せて、その記録（`runs.jsonl`）・集計（`summary.md`）・分析（`analysis.md`）を `git add -f` でレポジトリに入れます。台帳（sqlite）とログは常に手元に残します。`bun run verify` の `check:results` が、公開の一覧にない回の結果や台帳がインデックスに入っていれば失敗します（コミット前に自動で走らせるなら `git config core.hooksPath scripts/hooks`）。課題の作業領域は OS の一時ディレクトリに作ります。群 D と群 E では、LLM が書いたコードや式を手元で実行します。実行は sandbox（ネットワークなし、ホーム配下の読み取りなし）と時間制限の中で行い、道具の出力からは秘密の値を伏せます。
 

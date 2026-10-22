@@ -215,6 +215,10 @@ describe("horizon-10e tasks", () => {
 				const [c] = await t.inst.acceptance.verify(signal);
 				expect(c!.passed).toBe(false);
 				expect(c!.evidence).toBe("隠された検査 4/5 通過");
+				expect(t.inst.diagnostics?.()).toEqual({
+					hiddenPassed: 4,
+					hiddenTotal: 5,
+				});
 				const files = await t.invoke("list_files", {});
 				expect(JSON.stringify(files.output)).not.toContain("left-behind");
 			} finally {

@@ -122,7 +122,13 @@ export interface AcceptancePort {
 	verify(signal: AbortSignal): Promise<readonly CriterionResult[]>;
 }
 
-export type LlmPurpose = "plan" | "hypothesize" | "propose" | "review";
+export type LlmPurpose =
+	| "plan"
+	| "hypothesize"
+	| "propose"
+	| "review"
+	/** The direct baseline (eval/direct.ts), outside the pursuit engine. */
+	| "direct";
 
 export interface LlmRequest<T> {
 	readonly purpose: LlmPurpose;

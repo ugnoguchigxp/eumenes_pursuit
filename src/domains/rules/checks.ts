@@ -47,6 +47,8 @@ export function ruleRejections(input: {
 	policy: Policy;
 	/** Also require what would refute the hypothesis (spec/verification-design.md §3). */
 	falsifiable?: boolean;
+	/** Attempts counted toward the hypothesis budget (conditions.attemptCount); default all executed. */
+	budgetUsed?: number;
 }): Rejection[] {
 	const out: Rejection[] = [];
 	const expected = input.prediction.expectedObservation.trim();
@@ -65,8 +67,10 @@ export function ruleRejections(input: {
 					"refutedIf に、どんな観測が出たらこの仮説が誤りと分かるかを、予測とは別に具体的に書いてください",
 			});
 	}
-	const used = attemptsOf(input.view, input.hypothesis.id).filter(executed);
-	if (used.length >= input.hypothesis.budget)
+	const used =
+		input.budgetUsed ??
+		attemptsOf(input.view, input.hypothesis.id).filter(executed).length;
+	if (used >= input.hypothesis.budget)
 		out.push({
 			rule: "hypothesis_budget",
 			detail: "この仮説の試行予算を使い切りました",

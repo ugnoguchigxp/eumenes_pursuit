@@ -64,6 +64,20 @@ export const conditionsSchema = z.strictObject({
 	 * rules count is unchanged. spec/fixes-2026-10-22.md §b.
 	 */
 	verdictLabel: z.enum(["refutation", "status"]).default("refutation"),
+	/**
+	 * After a completion claim: off (the verdict appears only among the current
+	 * hypothesis's attempts and proposal prompt), or verdict (the latest claim's
+	 * 合格/不合格 is stated in every later generator and reviewer prompt, and the
+	 * next proposal is told explicitly). spec/ablation-design.md.
+	 */
+	claimFeedback: z.enum(["off", "verdict"]).default("off"),
+	/**
+	 * What counts toward the per-hypothesis attempt budget: all executed attempts,
+	 * or only mutating ones (tools with sideEffect "workspace": writes, runs,
+	 * submissions), so reading sources alone cannot exhaust it. The pursuit-wide
+	 * attempt budget still counts every attempt.
+	 */
+	attemptCount: z.enum(["all", "mutating"]).default("all"),
 });
 export type Conditions = z.infer<typeof conditionsSchema>;
 

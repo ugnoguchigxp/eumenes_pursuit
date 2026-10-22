@@ -43,6 +43,7 @@ import {
 	hypothesisRequest,
 	planRequest,
 	verdictText,
+	budgetCounted,
 	proposalRequest,
 	reviewRequest,
 	type Proposal,
@@ -908,7 +909,9 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		if (!hypothesis) throw new Error("pursuit_without_hypothesis");
 		const own = attemptsOf(view, hypothesis.id);
 		const spent =
-			conditions.rules && own.filter(executed).length >= hypothesis.budget;
+			conditions.rules &&
+			budgetCounted(view, own, runtime.tools.list()).length >=
+				hypothesis.budget;
 		// Under claim, a last attempt that went as predicted gets one chance to claim (spec/verification-design.md §1).
 		const claimChance =
 			spent &&
@@ -1325,6 +1328,11 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						tool ? sameConditions(a, tool, input, digest) : false,
 					policy,
 					falsifiable: conditions.prediction === "falsifiable",
+					budgetUsed: budgetCounted(
+						view,
+						attemptsOf(view, hypothesis.id),
+						tools,
+					).length,
 				}),
 			);
 		const readBack =
@@ -1678,8 +1686,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		}
 		const budgetLeft =
 			hypothesis !== undefined &&
-			attemptsOf(view, hypothesis.id).filter(executed).length <
-				hypothesis.budget;
+			budgetCounted(view, attemptsOf(view, hypothesis.id), runtime.tools.list())
+				.length < hypothesis.budget;
 		const lastStepBack = [...view.decisions]
 			.reverse()
 			.find((d) => d.kind === "step_back");

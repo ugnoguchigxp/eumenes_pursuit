@@ -1,8 +1,21 @@
 import type { Conditions, VersionRef } from "../src/contracts/index.ts";
 import { pursuitGuardsV1 } from "../src/index.ts";
 
-/** E1R is eval-only: E3 without the judge (rules + separate-context review), for runs without LARM. */
-export type ConditionName = "E0" | "E1" | "E1R" | "E2" | "E3" | "E4";
+/**
+ * E1R is eval-only: E3 without the judge (rules + separate-context review), for runs without LARM.
+ * D0 is the direct baseline (eval/direct.ts): no pursuit engine at all, so it has no Conditions.
+ */
+export type ConditionName = "E0" | "E1" | "E1R" | "E2" | "E3" | "E4" | "D0";
+export type PursuitConditionName = Exclude<ConditionName, "D0">;
+export const conditionNames: readonly ConditionName[] = [
+	"E0",
+	"E1",
+	"E1R",
+	"E2",
+	"E3",
+	"E4",
+	"D0",
+];
 
 const questionSet: VersionRef = {
 	id: pursuitGuardsV1.id,
@@ -11,7 +24,7 @@ const questionSet: VersionRef = {
 
 /** Plan §13: each condition adds one layer to the previous. */
 export function conditionsFor(
-	name: ConditionName,
+	name: PursuitConditionName,
 	options: {
 		adapter: VersionRef | null;
 		language: "ja" | "en";
@@ -23,6 +36,8 @@ export function conditionsFor(
 		completionCheck: Conditions["completionCheck"];
 		verdictLabel?: Conditions["verdictLabel"];
 		rollback?: Conditions["rollback"];
+		claimFeedback?: Conditions["claimFeedback"];
+		attemptCount?: Conditions["attemptCount"];
 	},
 ): Conditions {
 	const base = {
@@ -37,6 +52,8 @@ export function conditionsFor(
 		completionCheck: options.completionCheck,
 		verdictLabel: options.verdictLabel ?? "refutation",
 		rollback: options.rollback ?? "notify",
+		claimFeedback: options.claimFeedback ?? "off",
+		attemptCount: options.attemptCount ?? "all",
 	} as const;
 	switch (name) {
 		case "E0":

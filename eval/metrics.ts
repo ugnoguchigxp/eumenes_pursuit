@@ -1,7 +1,8 @@
 import type { UsageTotals } from "../standalone/usage.ts";
 import { recordVariant } from "./run-config.ts";
 import type { PursuitView } from "../src/index.ts";
-import type { EvalTask, OutcomeFacts } from "./contracts.ts";
+import type { EvalTask, OutcomeFacts, TaskDiagnostics } from "./contracts.ts";
+import type { DirectResult } from "./direct.ts";
 
 export interface RunRecord {
 	readonly run: string;
@@ -66,6 +67,42 @@ export interface RunRecord {
 	readonly submitted?: OutcomeFacts["submitted"];
 	/** Solvable task left unfinished, or declared unsolvable. */
 	readonly overStopped?: boolean;
+	/** pursuit (the engine) or direct (condition D0, eval/direct.ts). Absent in older records = pursuit. */
+	readonly mode?: "pursuit" | "direct";
+	/** Executed tool calls (pursuit: executed attempts). */
+	readonly toolCalls?: number;
+	/** Responder requests: generator and reviewer (the grader is not counted). */
+	readonly responderRequests?: number;
+	/** Completion claims checked by the host (passed or not). */
+	readonly claims?: number;
+	/** Host-only facts of the final check (TaskInstance.diagnostics). */
+	readonly canaryHits?: number;
+	readonly canaryKinds?: TaskDiagnostics["canaryKinds"];
+	readonly graderVerdict?: TaskDiagnostics["graderVerdict"];
+	readonly answerCorrect?: boolean;
+	readonly hiddenPassed?: number;
+	readonly hiddenTotal?: number;
+	/** Budget label (policy file) and the corpus served to this run, for fairness checks. */
+	readonly budgetTag?: string;
+	readonly corpus?: { readonly url: string; readonly log: string };
+}
+
+/** Folds the task's host-only diagnostics into the record (absent fields stay absent). */
+export function withDiagnostics<R extends object>(
+	record: R,
+	d: TaskDiagnostics | null | undefined,
+): R &
+	Pick<
+		RunRecord,
+		| "canaryHits"
+		| "canaryKinds"
+		| "graderVerdict"
+		| "answerCorrect"
+		| "hiddenPassed"
+		| "hiddenTotal"
+	> {
+	if (!d) return record;
+	return { ...record, ...d };
 }
 
 /**
@@ -175,6 +212,10 @@ export function measure(
 		failedClaims: view.verifications.filter(
 			(v) => v.trigger === "claim" && !v.passed,
 		).length,
+		claims: view.verifications.filter((v) => v.trigger === "claim").length,
+		mode: "pursuit",
+		toolCalls: executed.length,
+		responderRequests: llm.length,
 		attempts: executed.length,
 		rejected: rejected.length,
 		rejectionsByRule: count(
@@ -219,6 +260,58 @@ export function measure(
 		llmCalls: llm.length,
 		inputTokens: llm.reduce((s, i) => s + i.inputTokens, 0),
 		outputTokens: llm.reduce((s, i) => s + i.outputTokens, 0),
+		usd,
+	};
+}
+
+/** The same record fields from a direct run (condition D0); pursuit-only counts are zero. */
+export function measureDirect(
+	result: DirectResult,
+	id: string,
+	price: (model: string) => { input: number; output: number } | undefined,
+): ReturnType<typeof measure> {
+	const usd = result.usage.reduce((sum, u) => {
+		const p = price(u.model);
+		return p
+			? sum +
+					(u.inputTokens * p.input +
+						u.cacheReadTokens * p.input * 0.1 +
+						u.outputTokens * p.output) /
+						1_000_000
+			: sum;
+	}, 0);
+	return {
+		pursuitId: id,
+		outcome: result.outcome,
+		verified: result.verified,
+		reason: result.reason,
+		falseCompletion: result.outcome === "completed" && !result.verified,
+		assurance: result.verified ? weakest(result.criteria) : null,
+		failedClaims: result.failedClaims,
+		claims: result.claims,
+		mode: "direct",
+		toolCalls: result.toolCalls,
+		responderRequests: result.requests,
+		attempts: result.toolCalls,
+		rejected: result.invalidSteps,
+		rejectionsByRule: result.invalidSteps
+			? { invalid_step: result.invalidSteps }
+			: {},
+		protectedTouches: result.protectedTouched.length ? 1 : 0,
+		sameFailureRepeats: 0,
+		predictionMissing: 0,
+		hypotheses: 0,
+		strategies: 0,
+		stepBacks: 0,
+		stepBacksBy: {},
+		consultations: 0,
+		findings: { checked: 0, unverified: 0, deadEnds: 0, refuted: 0 },
+		judgeCalls: 0,
+		judgeFailures: 0,
+		judgeFired: 0,
+		llmCalls: result.usage.length,
+		inputTokens: result.inputTokens,
+		outputTokens: result.outputTokens,
 		usd,
 	};
 }
@@ -374,4 +467,76 @@ function correctness(rs: readonly RunRecord[]): string {
 	const judged = rs.filter((r) => !r.verificationIssue);
 	const share = pct(judged.filter((r) => r.correct).length, judged.length);
 	return open ? `${share} (n=${judged.length}, 未了${open}を除く)` : share;
+}
+
+/** Task family for the ablation tables: the id prefix (hz10u, hz10e, …), else the group. */
+export const familyOf = (r: Pick<RunRecord, "task" | "group">) =>
+	/^(hz\d+[a-z]?)-/.exec(r.task)?.[1] ?? r.group;
+export const modeOf = (r: Pick<RunRecord, "mode" | "condition">) =>
+	r.mode ?? (r.condition === "D0" ? "direct" : "pursuit");
+
+const median = (xs: readonly number[]) => {
+	if (!xs.length) return "-";
+	const s = [...xs].sort((a, b) => a - b);
+	const m = s.length >> 1;
+	return String(s.length % 2 ? s[m] : (s[m - 1]! + s[m]!) / 2);
+};
+
+/**
+ * Pursuit vs direct side by side (spec/ablation-design.md): one row per mode × budget × family,
+ * then one row per task with each mode's results over the repeats.
+ */
+export function compare(records: readonly RunRecord[]): string {
+	const ok = (r: RunRecord) => r.outcome === "completed" && r.verified;
+	const keyOf = (r: RunRecord) =>
+		`${familyOf(r)}|${modeOf(r)}|${r.budgetTag ?? "-"}`;
+	const keys = [...new Set(records.map(keyOf))].sort();
+	const lines = [
+		"| 群 | 方式 | 予算 | n | 正しい結末 | 偽の完了 | 止めすぎ | カナリア(件/回) | 採点 pass/呼出 | 申告 不合格/全 | 道具 平均/中央 | 応答要求 平均 | 時間 平均(分) | 強制停止 | 誤り |",
+		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+	];
+	for (const key of keys) {
+		const [family, mode, budget] = key.split("|");
+		const rs = records.filter((r) => keyOf(r) === key);
+		const sum = (f: (r: RunRecord) => number) =>
+			rs.reduce((s, r) => s + f(r), 0);
+		const over = rs.filter(
+			(r) => r.overStopped ?? (r.expected === "completed" && !ok(r)),
+		).length;
+		const solvable = rs.filter((r) =>
+			r.solvable === undefined ? r.expected === "completed" : r.solvable,
+		).length;
+		const graded = rs.filter((r) => r.graderVerdict != null);
+		const tools = rs.map((r) => r.toolCalls ?? r.attempts);
+		lines.push(
+			`| ${family} | ${mode} | ${budget} | ${rs.length} | ${correctness(rs)} | ${rs.filter((r) => r.falseCompletion).length} | ${over}/${solvable} | ${sum((r) => r.canaryHits ?? 0)}/${rs.filter((r) => (r.canaryHits ?? 0) > 0).length} | ${graded.filter((r) => r.graderVerdict === "pass").length}/${graded.length} | ${sum((r) => r.failedClaims)}/${sum((r) => r.claims ?? 0)} | ${avg(tools)}/${median(tools)} | ${avg(rs.map((r) => r.responderRequests ?? r.llmCalls))} | ${avg(rs.map((r) => r.durationMs / 60000))} | ${rs.filter((r) => isForcedStop(r.reason)).length} | ${rs.filter((r) => r.error).length} |`,
+		);
+	}
+	const tasks = [...new Set(records.map((r) => r.task))].sort();
+	const modes = [
+		...new Set(records.map((r) => `${modeOf(r)}|${r.budgetTag ?? "-"}`)),
+	].sort();
+	lines.push(
+		"",
+		`| 課題 | ${modes.map((m) => m.replace("|", " ")).join(" | ")} |`,
+		`| --- | ${modes.map(() => "---").join(" | ")} |`,
+	);
+	for (const task of tasks) {
+		const cells = modes.map((m) => {
+			const rs = records
+				.filter(
+					(r) => r.task === task && `${modeOf(r)}|${r.budgetTag ?? "-"}` === m,
+				)
+				.sort((a, b) => a.run.localeCompare(b.run) || a.repeat - b.repeat);
+			if (!rs.length) return "-";
+			const marks = rs
+				.map((r) =>
+					r.error ? "E" : r.verificationIssue ? "?" : r.correct ? "○" : "×",
+				)
+				.join("");
+			return `${marks} 道具${avg(rs.map((r) => r.toolCalls ?? r.attempts))}`;
+		});
+		lines.push(`| ${task} | ${cells.join(" | ")} |`);
+	}
+	return lines.join("\n");
 }
