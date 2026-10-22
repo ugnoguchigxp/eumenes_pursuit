@@ -6,20 +6,21 @@ both solved 42/42, and D0 never needed more than 12 tool calls. The tasks were t
 the two apart. horizon-11 adds tasks where success takes many tool calls and facts that must be
 kept beyond the 40-entry full history, then repeats the comparison with larger budgets.
 
-## Loop fixes (behind flags; the defaults reproduce earlier runs)
-- `--rollback silent|notify|off` (conditions.rollback, default silent). When a step back abandons
-  a hypothesis, policy.restore decides whether the workspace is restored to the hypothesis
-  checkpoint. silent = earlier behaviour (restored without telling the generator). notify = restored, the
-  reverted files (WorkspacePort.changesSince) are stored in the decision basis (`reverted`,
-  `attemptsAtRevert`) and the next generator requests (plan / hypothesize / propose, until the next
-  attempt) show "## 作業領域の巻き戻し" naming them. off = never restored. hz11 uses off.
-- `--verdict-label status|refutation` (conditions.verdictLabel, default status). The label shown for
-  each executed attempt. status = earlier behaviour ("予測どおり" whenever the status matched).
-  refutation = a status mismatch is shown as such; otherwise the stated refutedIf is judged where it
-  is machine-checkable (`status:ok`, `status:error`, `contains:"…"`, `not_contains:"…"`, joined by
-  `||`; any clause true = refuted) and labelled "反証の条件に当たった" / "反証の条件に当たらなかった";
-  free text is labelled "未判定". The propose instructions explain the grammar only in this mode. The
-  attempt outcome the rules count is unchanged.
+## Loop settings
+The two loop fixes first written for horizon-11 now live in the core
+([fixes-2026-10-22.md](fixes-2026-10-22.md) §a, §b, host contract v1.7) and are on by default:
+- `--rollback notify|keep` (conditions.rollback, default notify). notify = when policy.restore
+  rolls the workspace back on a step back, the reverted files are stored in the decision basis
+  (`reverted`, `attemptsAtRevert`) and named in the next generator requests; keep = never roll back.
+  A rollback is never silent. hz11 uses keep (the earlier `--rollback off`).
+- `--verdict-label refutation|status` (conditions.verdictLabel, default refutation). Attempts are
+  labelled from the machine-checkable refutedIf (`status:ok`, `status:error`, `contains:"…"`,
+  `not_contains:"…"`, joined by `||`), otherwise "未判定"; status is the earlier wording. hz11 uses
+  refutation.
+
+Other core changes that apply to hz11 runs: scratch files and read-only attempts do not count as
+scope growth (§d), citations of unrecorded findings are rejected (§e), the latest observation is
+shown up to 8000 characters and read tools page (§f, list_sources 30 sources per page).
 
 ## Budget
 config/policy.v6-long.json: 200 attempts (tool calls), 120 min wall, 1500 transitions, 8 strategies,
