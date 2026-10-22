@@ -1051,7 +1051,14 @@ export function reviewRequest(input: {
 				? `## 記録から数えた兆候\n${input.signals.join(", ")}`
 				: "",
 			`## 戻った事情\n${stepBackKind(view)}`,
-			budgetBlock(view),
+			// fixes g §4: counted as the budget is enforced (--attempt-count mutating counts workspace writers only).
+			view.input.conditions.attemptCount === "mutating" && input.tools
+				? budgetBlock(
+						view,
+						(xs) => budgetCounted(view, xs, input.tools!),
+						"（数えるのは作業領域を変える道具だけ）",
+					)
+				: budgetBlock(view),
 			historyBlock(view, true),
 			findingsBlock(view, false),
 			claimFeedbackBlock(view),

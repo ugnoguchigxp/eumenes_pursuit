@@ -195,3 +195,32 @@ describe("hz11l follow-ups (spec/fixes-2026-10-22-h.md)", () => {
 		);
 	});
 });
+
+describe("hz11k follow-ups needing the ablation conditions (spec/fixes-2026-10-22-g.md §4)", () => {
+	test("§4 with --attempt-count mutating the review counts the budget as it is enforced", async () => {
+		const { prompts } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					...Array.from({ length: 8 }, () => call("read", {}, empty)),
+					proposal("step_back", empty),
+					proposal("give_up", empty),
+				],
+				review: [keep],
+			},
+			reviewer: true,
+			conditions: { findings: "all", review: true, attemptCount: "mutating" },
+			policy: (p: any) => ({
+				...one(p),
+				budget: { ...one(p).budget, attemptsPerHypothesis: 6 },
+			}),
+			runtime: runtime(),
+		});
+		const rev = prompts.find((p) => p.purpose === "review")!.prompt;
+		expect(rev).toContain(
+			"この仮説で 0/6 回（数えるのは作業領域を変える道具だけ）",
+		);
+		expect(rev).not.toMatch(/この仮説で (\d{2,}|[7-9])\/6 回/);
+	});
+});

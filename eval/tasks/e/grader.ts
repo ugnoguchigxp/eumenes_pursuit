@@ -70,7 +70,7 @@ export function createGrader(llm: LlmPort) {
 		if (hit) return hit;
 		const result = await llm.complete(
 			{
-				purpose: "review",
+				purpose: "grade",
 				system,
 				schema: verdictSchema,
 				maxOutputTokens: 4000,

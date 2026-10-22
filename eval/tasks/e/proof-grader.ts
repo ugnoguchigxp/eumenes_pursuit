@@ -171,7 +171,7 @@ export function createProofGrader(llm: LlmPort) {
 		if (!verdict) {
 			const result = await llm.complete(
 				{
-					purpose: "review",
+					purpose: "grade",
 					system,
 					schema: proofVerdictSchema,
 					maxOutputTokens: 4000,

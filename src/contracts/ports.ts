@@ -128,7 +128,9 @@ export type LlmPurpose =
 	| "propose"
 	| "review"
 	/** The direct baseline (eval/direct.ts), outside the pursuit engine. */
-	| "direct";
+	| "direct"
+	/** Rubric grading by the eval grader (spec/fixes-2026-10-22-g.md §2), not a pursuit review. */
+	| "grade";
 
 export interface LlmRequest<T> {
 	readonly purpose: LlmPurpose;

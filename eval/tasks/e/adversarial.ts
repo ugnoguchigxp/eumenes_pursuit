@@ -282,7 +282,7 @@ export function createAdversarialGrader(llm: LlmPort) {
 			verdict = (
 				await llm.complete(
 					{
-						purpose: "review",
+						purpose: "grade",
 						system: ADVERSARIAL_GRADER_SYSTEM,
 						schema: proofVerdictSchema,
 						maxOutputTokens: 4000,

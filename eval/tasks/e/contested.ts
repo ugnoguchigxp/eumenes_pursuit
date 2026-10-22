@@ -247,7 +247,7 @@ export function createAnalysisGrader(llm: LlmPort) {
 			verdict = (
 				await llm.complete(
 					{
-						purpose: "review",
+						purpose: "grade",
 						system: graderSystem,
 						schema: proofVerdictSchema,
 						maxOutputTokens: 4000,
