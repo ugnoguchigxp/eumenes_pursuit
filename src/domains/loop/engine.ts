@@ -377,14 +377,28 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		sourceVerificationId: string | null = null,
 	) {
 		if (view.input.conditions.findings === "off") return;
+		const stored = ledger.loadFindings(db, view.id);
 		const seen = new Set(
-			ledger
-				.loadFindings(db, view.id)
+			stored
 				.filter((f) => f.status === "active")
 				.map(ledger.findingEvidenceKey),
 		);
-		for (const item of items) {
-			if (!item.statement.trim()) continue;
+		// F numbers a statement may cite: the ledger's, and those this batch is about to take
+		// (spec/fixes-2026-10-22-d.md §3.3). Another one is kept but marked, not rejected.
+		const next = Math.max(0, ...stored.map((f) => f.seq)) + 1;
+		const known = new Set([
+			...stored.map((f) => f.seq),
+			...items.map((_, i) => next + i),
+		]);
+		for (const raw of items) {
+			if (!raw.statement.trim()) continue;
+			const dangling = findingRefs(raw.statement).filter((n) => !known.has(n));
+			const item = dangling.length
+				? {
+						...raw,
+						statement: `${raw.statement}［注: ${dangling.map((n) => `F${n}`).join(", ")} は記録の時点で台帳にない番号］`,
+					}
+				: raw;
 			const finding = {
 				...item,
 				sourceAttemptId: source,
@@ -1369,6 +1383,9 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					status: outcome.status,
 					output: outcome.output,
 					errorCode: outcome.errorCode ?? null,
+					...(outcome.unclipped?.length
+						? { unclipped: outcome.unclipped }
+						: {}),
 				},
 				outcome: attemptOutcome(prediction, outcome.status, null, policy),
 				refs: outcome.refs,
@@ -2005,4 +2022,15 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			return store.readSnapshot((db) => ledger.loadPursuit(db, pursuitId));
 		},
 	};
+}
+
+/** F numbers cited in a text, by the same pattern as the citation check (checks.ts). */
+function findingRefs(text: string): number[] {
+	return [
+		...new Set(
+			[...text.matchAll(/(?<![A-Za-z0-9])F(\d{1,4})(?![A-Za-z0-9])/g)].map(
+				(m) => Number(m[1]),
+			),
+		),
+	];
 }

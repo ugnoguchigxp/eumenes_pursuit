@@ -53,11 +53,19 @@ export function refutationCheckable(refutedIf: string | undefined): boolean {
  * Whether the stated refutedIf held for the observation: true / false when every clause is
  * machine-checkable, null otherwise (free text, or nothing observed). A needle is searched in each
  * string value and in the observation's JSON text, which is the form the generator was shown
- * (so `"output":"41"` written with escaped quotes matches).
+ * (so `"output":"41"` written with escaped quotes matches), and in the full text of anything the
+ * host clipped from the display (`unclipped`), so a clipped display never decides the verdict.
  */
 export function refutationHeld(
 	refutedIf: string | undefined,
-	observation: { status: "ok" | "error"; output: JsonValue } | null | undefined,
+	observation:
+		| {
+				status: "ok" | "error";
+				output: JsonValue;
+				unclipped?: readonly string[];
+		  }
+		| null
+		| undefined,
 ): boolean | null {
 	if (!refutedIf?.trim() || !observation) return null;
 	const parsed = parseClauses(refutedIf);
@@ -65,6 +73,8 @@ export function refutationHeld(
 	const texts = [
 		...stringLeaves(observation.output),
 		JSON.stringify(observation.output ?? null),
+		// What the host clipped from the display is still observed (fixes-2026-10-22-d §3.1).
+		...(observation.unclipped ?? []),
 	];
 	return parsed.some((m) => {
 		if (m[2]) return observation.status === m[2];

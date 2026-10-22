@@ -46,6 +46,11 @@ export interface ToolOutcome {
 	/** Bounded, already summarized by the host. */
 	readonly output: JsonValue;
 	readonly errorCode?: string;
+	/**
+	 * Full text of streams the host clipped in `output`. refutedIf is judged on it as well, so a
+	 * needle cut out of the display still counts; it is stored but never shown.
+	 */
+	readonly unclipped?: readonly string[];
 	readonly refs: readonly ArtifactRef[];
 	readonly findings?: readonly FindingInput[];
 }

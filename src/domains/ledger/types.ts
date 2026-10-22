@@ -78,6 +78,11 @@ export interface Observation {
 	readonly status: "ok" | "error";
 	readonly output: JsonValue;
 	readonly errorCode: string | null;
+	/**
+	 * Full text of what the host clipped in `output` (spec/fixes-2026-10-22-d.md §3.1): judged by
+	 * refutedIf, never shown. Absent when nothing was clipped.
+	 */
+	readonly unclipped?: readonly string[];
 }
 
 /** Host-computed facts about one attempt (plan §8.3). */

@@ -175,11 +175,23 @@ export function verdictText(
 ): string {
 	if (mode === "status")
 		return a.outcome === "success" ? "予測どおり" : "予測と違う/失敗";
-	if (a.observation && a.observation.status !== a.prediction.expectedStatus)
-		return "予測と違う（状態が予測と違う）";
+	// Refutation first (spec/fixes-2026-10-22-d.md §3.4): a stated refutedIf decides the label, and a
+	// status other than predicted is said as a separate fact, not as the verdict.
 	const held = refutationHeld(a.prediction.refutedIf, a.observation);
-	if (held === true) return "反証の条件に当たった（仮説は誤りの可能性が高い）";
-	if (held === false) return "反証の条件に当たらなかった（状態も予測どおり）";
+	const statusDiffers =
+		!!a.observation && a.observation.status !== a.prediction.expectedStatus;
+	const statusNote = statusDiffers
+		? `状態は予測の ${a.prediction.expectedStatus} ではなく ${a.observation!.status}`
+		: "状態も予測どおり";
+	// The display may be clipped; the verdict is on the full text (§3.1), and says so.
+	const fullNote = a.observation?.unclipped?.length
+		? "。表示は一部省略だが、判定は省略部分を含む全文で行った"
+		: "";
+	if (held === true)
+		return `反証の条件に当たった（仮説は誤りの可能性が高い${fullNote}）`;
+	if (held === false)
+		return `反証の条件に当たらなかった（${statusNote}${fullNote}）`;
+	if (statusDiffers) return `予測と違う（${statusNote}）`;
 	if (a.outcome === "failure") return "予測と違う（観測の照合）";
 	return a.prediction.refutedIf?.trim()
 		? "未判定（状態は予測どおり。反証の条件は機械では判定できない書き方）"
@@ -318,7 +330,7 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 		"確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。",
 		deadEnds.length
 			? [
-					"## 行き止まり（同じ経路を繰り返さない）",
+					"## 行き止まり（同じ経路を繰り返さない。ホストが記録し、知見と同じ F 番号列を使う）",
 					...deadEnds.slice(-10).map(line),
 				].join("\n")
 			: "",
@@ -331,6 +343,7 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 		forProposal
 			? [
 					"## 知見の記録",
+					`次に記録される知見の番号は F${Math.max(0, ...view.findings.map((f) => f.seq)) + 1} から（記録した順に振られる。ホストが記録する行き止まりも同じ番号列を使うので、まだ記録されていない番号を先回りして引用しない）。`,
 					"findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。",
 					"成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。",
 					"定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。",
@@ -393,9 +406,25 @@ function historyBlock(view: PursuitView, reviewing = false) {
 		const ran = mine.filter(
 			(a) => a.state === "settled" || a.state === "interrupted",
 		).length;
-		return reviewing && h.id === view.currentHypothesisId
-			? `この振り返りの対象（実行した試行 ${ran} 回）`
-			: `試行中（実行した試行 ${ran} 回）`;
+		if (!(reviewing && h.id === view.currentHypothesisId))
+			return `試行中（実行した試行 ${ran} 回）`;
+		// The reviewed hypothesis's tally, by the same verdicts as each line (fixes-2026-10-22-d §3.5).
+		const tally = { held: 0, refuted: 0, differs: 0, open: 0 };
+		for (const a of mine) {
+			if (a.state === "interrupted") tally.open++;
+			if (a.state !== "settled") continue;
+			const held = refutationHeld(a.prediction.refutedIf, a.observation);
+			if (held === true) tally.refuted++;
+			else if (held === false) tally.held++;
+			else if (
+				a.observation &&
+				(a.observation.status !== a.prediction.expectedStatus ||
+					a.outcome === "failure")
+			)
+				tally.differs++;
+			else tally.open++;
+		}
+		return `この振り返りの対象（実行した試行 ${ran} 回: 反証の条件に当たらなかった ${tally.held}・当たった ${tally.refuted}${tally.differs ? `・予測と違う ${tally.differs}` : ""}・未判定 ${tally.open}）`;
 	};
 	return [
 		"## これまでの方針と仮説",
