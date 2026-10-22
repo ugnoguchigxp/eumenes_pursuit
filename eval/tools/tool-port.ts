@@ -48,6 +48,8 @@ export interface ToolSpec {
 	readonly readsWorkspace?: boolean;
 	readonly readsBack?: boolean;
 	readonly textField?: string;
+	/** How to re-read a clipped result (ToolDescriptor.reread, fixes-2026-10-22-e §8). */
+	readonly reread?: string;
 }
 
 export function defineTool(spec: ToolSpec, run: ToolDef["run"]): ToolDef {
@@ -68,6 +70,7 @@ export function defineTool(spec: ToolSpec, run: ToolDef["run"]): ToolDef {
 		...(spec.readsWorkspace ? { readsWorkspace: true } : {}),
 		...(spec.readsBack ? { readsBack: true } : {}),
 		...(spec.textField ? { textField: spec.textField } : {}),
+		...(spec.reread ? { reread: spec.reread } : {}),
 	} as const;
 	const descriptor: ToolDescriptor =
 		spec.fingerprintFields === undefined

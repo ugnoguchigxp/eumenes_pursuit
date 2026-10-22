@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import {
+	appendFile,
 	mkdir,
 	mkdtemp,
 	readFile,
@@ -68,6 +69,8 @@ const WORK_ROOT = join(import.meta.dir, "env-work");
 const MAX_READ = 20_000;
 const MAX_WRITE = 256 * 1024;
 const MAX_STREAM = 6_000;
+/** Where probe keeps every call's full results (spec/fixes-2026-10-22-e.md §8). */
+const PROBE_LOG = "scratch/probe_log.jsonl";
 /** Kept unclipped for judging refutedIf (spec/fixes-2026-10-22-d.md §3.1); never shown. */
 const MAX_UNCLIPPED = 1_000_000;
 const MAX_WORK_BYTES = 200 * 1024 * 1024;
@@ -306,8 +309,9 @@ export function createEnvTools(options: EnvToolOptions): ToolDef[] {
 			defineTool(
 				{
 					name: "probe",
-					description: `装置に問い合わせる。inputs に 1 行 1 つの入力を最大 ${probe.maxInputs} 行書くと、各行への装置の出力を返す。問い合わせは全部で ${probe.maxCalls} 回まで。`,
+					description: `装置に問い合わせる。inputs に 1 行 1 つの入力を最大 ${probe.maxInputs} 行書くと、各行への装置の出力を返す。問い合わせは全部で ${probe.maxCalls} 回まで。各回の結果は work の ${PROBE_LOG} にも 1 行 1 回の JSON で追記される（read_file で読み直せる）。`,
 					permission: "env.probe",
+					reread: `全結果は work の ${PROBE_LOG} にある（read_file で読める。probe を呼び直すと回数を使う）`,
 					properties: {
 						inputs: prop("string", "1 行に 1 つの入力（空行は長さ 0 の入力）"),
 					},
@@ -332,13 +336,17 @@ export function createEnvTools(options: EnvToolOptions): ToolDef[] {
 						);
 					calls += 1;
 					const outputs = await probe.answer(lines, signal);
-					return ok({
-						results: lines.map((l, i) => ({
-							input: l,
-							output: outputs[i] ?? "",
-						})),
-						calls_left: probe.maxCalls - calls,
-					});
+					const results = lines.map((l, i) => ({
+						input: l,
+						output: outputs[i] ?? "",
+					}));
+					// The full results stay readable after the request clips them (fixes-2026-10-22-e §8).
+					await mkdir(join(workDir, "scratch"), { recursive: true });
+					await appendFile(
+						join(workDir, PROBE_LOG),
+						`${JSON.stringify({ call: calls, results })}\n`,
+					);
+					return ok({ results, calls_left: probe.maxCalls - calls });
 				},
 			),
 		);

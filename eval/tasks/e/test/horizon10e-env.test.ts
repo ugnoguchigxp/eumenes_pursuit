@@ -287,6 +287,13 @@ describe("horizon-10e tasks", () => {
 					],
 					calls_left: 39,
 				});
+				// fixes-2026-10-22-e §8: the full results are kept in work for re-reading.
+				const log = await t.invoke("read_file", {
+					path: "scratch/probe_log.jsonl",
+				});
+				expect(JSON.stringify(log.output)).toContain('\\"input\\":\\"abc\\"');
+				const desc = t.inst.tools.list().find((d) => d.name === "probe")!;
+				expect(desc.reread).toContain("scratch/probe_log.jsonl");
 				expect(
 					(await t.invoke("probe", { inputs: Array(26).fill("a").join("\n") }))
 						.status,
