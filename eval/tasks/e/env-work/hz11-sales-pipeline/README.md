@@ -15,6 +15,7 @@ bash build.sh        # → out/report.txt
 ## 入力
 - input/branches.json … 支店ごとの書き出しの形式（docs/branches.md）
 - input/<支店>/sales_*.csv … レジの書き出し（見出し: receipt_no, sold_at, category, amount）
+  amount はどの支店でも正の値で、返品・取消はこの書き出しに含まれない（負の金額の丸めは扱わない）。
 - input/rates.csv … 月ごとの USD/JPY レート
 
 仕様は docs/ にある。
