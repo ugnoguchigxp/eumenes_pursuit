@@ -185,4 +185,13 @@ describe("hz11l follow-ups (spec/fixes-2026-10-22-h.md)", () => {
 		expect(h).toContain("空でも変更は拒否されず");
 		expect(h).toContain("区切りごとに振り返りが入るのは設計どおり");
 	});
+	test("§5 (spec i) targets advice asks only for what this hypothesis will change, not a maximal list", async () => {
+		const r = await parts("仕様書を読む");
+		const h = r.prompts.find((p: any) => p.purpose === "hypothesize")!.prompt;
+		expect(h).toContain("この仮説で実際に変えるファイルかディレクトリだけ");
+		expect(h).toContain("「念のため」の場所は書かないでください");
+		expect(h).not.toContain(
+			"最初から targets に書いておくと区切りが要りません",
+		);
+	});
 });
