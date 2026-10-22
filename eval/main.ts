@@ -89,6 +89,8 @@ const { values, positionals } = parseArgs({
 		prediction: { type: "string", default: "status" },
 		/** Before stepping back: off, or acceptance (re-read and judge each criterion). */
 		"completion-check": { type: "string", default: "off" },
+		/** Forced step-back rollback: notify (revert and name the files) or keep (never revert). */
+		rollback: { type: "string", default: "notify" },
 		/** Procedural lessons file from eval/reflect.ts, given as StartInput.experience. */
 		lessons: { type: "string" },
 		/** Group E: add the in-loop referee tool review_draft. */
@@ -266,6 +268,9 @@ if (!["status", "falsifiable"].includes(prediction))
 const completionCheck = values["completion-check"] as "off" | "acceptance";
 if (!["off", "acceptance"].includes(completionCheck))
 	throw new Error("--completion-check must be off or acceptance");
+const rollback = values["rollback"] as "notify" | "keep";
+if (!["notify", "keep"].includes(rollback))
+	throw new Error("--rollback must be notify or keep");
 /** The kept lessons, as "cue → operation" lines (spec/lessons-design.md). */
 const lessonsFile = values.lessons
 	? (JSON.parse(readFileSync(values.lessons, "utf8")) as {
@@ -299,6 +304,7 @@ const variant = [
 	verifyOn === "attempt" ? "" : `/V-${verifyOn}`,
 	prediction === "status" ? "" : `/R-${prediction}`,
 	completionCheck === "off" ? "" : `/A-${completionCheck}`,
+	rollback === "notify" ? "" : `/RB-${rollback}`,
 	useFile ? "/LLM-file" : "",
 	graderMode === "file" ? "/G-file" : "",
 	values.lessons
@@ -487,6 +493,7 @@ for (const condition of conditionNames) {
 				verifyOn,
 				prediction,
 				completionCheck,
+				rollback,
 			}) as unknown as import("../src/index.ts").JsonValue,
 			toolTier,
 			critic: values.critic!,
@@ -580,6 +587,7 @@ async function runOne(job: (typeof jobs)[number]) {
 					verifyOn,
 					prediction,
 					completionCheck,
+					rollback,
 				}),
 				goalRef: null,
 				label: task.id,

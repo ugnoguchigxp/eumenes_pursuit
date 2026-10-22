@@ -50,6 +50,13 @@ export const conditionsSchema = z.strictObject({
 	 * deliverable and judge each acceptance criterion; all met means claim).
 	 */
 	completionCheck: z.enum(["off", "acceptance"]).default("off"),
+	/**
+	 * When a step back rolls the workspace back to the hypothesis checkpoint (policy.restore
+	 * decides when): notify (revert, record the reverted files in the decision basis and name
+	 * them in the next generator requests), or keep (never revert). A rollback is never silent.
+	 * spec/fixes-2026-10-22.md §a.
+	 */
+	rollback: z.enum(["notify", "keep"]).default("notify"),
 });
 export type Conditions = z.infer<typeof conditionsSchema>;
 

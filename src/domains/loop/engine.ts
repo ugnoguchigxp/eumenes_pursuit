@@ -443,6 +443,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		decidedBy: DecidedBy,
 		signal: AbortSignal,
 		known?: readonly CriterionResult[],
+		basisExtra: JsonObject = {},
 	): Promise<StepResult> {
 		const deferred = outcome !== "completed";
 		if (!deferred) checkTime(view, signal);
@@ -519,7 +520,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				pursuitId: view.id,
 				kind,
 				reason,
-				basis: { verified },
+				basis: { verified, ...basisExtra },
 				decidedBy,
 				now: clock.now(),
 			});
@@ -619,6 +620,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		missing: string,
 		decidedBy: DecidedBy,
 		extra: (db: LedgerDb) => void = () => {},
+		basisExtra: JsonObject = {},
 	): Promise<StepResult> {
 		const revision = await store.write((db) => {
 			extra(db);
@@ -636,7 +638,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				pursuitId: view.id,
 				kind: "consult",
 				reason: question,
-				basis: { missing },
+				basis: { missing, ...basisExtra },
 				decidedBy,
 				now: clock.now(),
 			});
@@ -1600,16 +1602,27 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				? `残りの部品に取り組む: ${unfinishedNote}`
 				: (reviewed?.direction ?? "");
 		const why = reviewed?.reason || reason;
+		// rollback "notify": the reverted files go into the decision basis, and the next
+		// generator requests name them until an attempt runs (prompts.ts revertBlock).
+		let revertNote: JsonObject = {};
 		if (
 			conditions.rules &&
+			conditions.rollback === "notify" &&
 			runtime.workspace &&
 			hypothesis?.checkpoint &&
 			kind !== "continue" &&
 			kind !== "change_tool" &&
 			(policy.restore === "always" || damaging(lastStepBack?.basis))
-		)
+		) {
+			const reverted = [
+				...(await runtime.workspace.changesSince(hypothesis.checkpoint))
+					.filesTouched,
+			].sort();
 			await runtime.workspace.restore(hypothesis.checkpoint);
+			revertNote = { reverted, attemptsAtRevert: view.attempts.length };
+		}
 		const basis: JsonObject = {
+			...revertNote,
 			review: reviewed
 				? {
 						decision: reviewed.decision,
@@ -1633,6 +1646,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				why,
 				decidedBy,
 				signal,
+				undefined,
+				revertNote,
 			);
 		}
 		if (kind === "consult")
@@ -1653,6 +1668,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						recordDeadEnd(db, view, hypothesis.body, why);
 					}
 				},
+				revertNote,
 			);
 		const status: PursuitStatus =
 			kind === "continue" || kind === "change_tool"

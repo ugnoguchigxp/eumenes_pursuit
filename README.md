@@ -100,6 +100,7 @@ bun eval/trace.ts base <task>           # 一つの追求の経緯
 | `--critic` | 群 E に途中の査読の道具 `review_draft` を足す（採点基準を見ない別の文脈が飛躍を指摘する） |
 | `--verify-on` | attempt（作業領域を変える試行のたびに照合する）、claim（完了の申告のときと、終わるときだけ照合する） |
 | `--completion-check` | off、acceptance（一段上へ戻る・断念する前に、成果物を読み直して受入条件ごとに判断させる。すべて満たしていれば申告を促す） |
+| `--rollback` | notify（既定。一段上へ戻るときに作業領域を戻したら、戻したファイルを台帳に残し、次の要求で生成器に伝える）、keep（戻さない） |
 | `--prediction` | status（状態と観測を予測する）、falsifiable（どんな観測が出たら仮説が誤りかも書かせる） |
 | `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる）、`config/policy.v3.json`（v2 に加え、一段上へ戻る予算を 8 回にして、方針 3 × 仮説 3 と釣り合わせる） |
 

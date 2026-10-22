@@ -21,6 +21,7 @@ export function conditionsFor(
 		verifyOn: Conditions["verifyOn"];
 		prediction: Conditions["prediction"];
 		completionCheck: Conditions["completionCheck"];
+		rollback?: Conditions["rollback"];
 	},
 ): Conditions {
 	const base = {
@@ -33,6 +34,7 @@ export function conditionsFor(
 		verifyOn: options.verifyOn,
 		prediction: options.prediction,
 		completionCheck: options.completionCheck,
+		rollback: options.rollback ?? "notify",
 	} as const;
 	switch (name) {
 		case "E0":

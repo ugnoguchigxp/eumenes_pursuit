@@ -309,6 +309,25 @@ function experienceBlock(view: PursuitView) {
 	].join("\n");
 }
 
+/**
+ * rollback "notify": the files the latest step back reverted, shown until the next attempt
+ * runs (spec/fixes-2026-10-22.md §a). Empty when nothing was reverted.
+ */
+function revertBlock(view: PursuitView) {
+	const last = [...view.decisions]
+		.reverse()
+		.find((d) => Array.isArray(d.basis.reverted));
+	if (!last || last.basis.attemptsAtRevert !== view.attempts.length) return "";
+	const files = (last.basis.reverted as JsonValue[]).map(String);
+	return [
+		"## 作業領域の巻き戻し（直前の振り返りで実施）",
+		files.length
+			? `前の仮説を始めた時点の内容に戻したファイル: ${files.join(", ")}`
+			: "巻き戻しを行ったが、内容の変わったファイルはなかった。",
+		"これらのファイルに前の仮説で加えた変更は残っていません。必要なら読み直してください。",
+	].join("\n");
+}
+
 export function planRequest(input: {
 	view: PursuitView;
 	tools: readonly ToolDescriptor[];
@@ -327,6 +346,7 @@ export function planRequest(input: {
 			toolsBlock(input.tools, view.input.grant),
 			historyBlock(view),
 			findingsBlock(view, false),
+			revertBlock(view),
 			consultationsBlock(view),
 			experienceBlock(view),
 			input.direction ? `## 振り返りからの方向づけ\n${input.direction}` : "",
@@ -377,6 +397,7 @@ export function hypothesisRequest(input: {
 			historyBlock(view),
 			findingsBlock(view, false),
 			lastAttemptsBlock(view, 6),
+			revertBlock(view),
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
 			partsBlock(view),
@@ -451,6 +472,7 @@ export function proposalRequest(input: {
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
 			partsBlock(view),
+			revertBlock(view),
 			readBackBlock(view, input.tools),
 			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
 			mine.length
