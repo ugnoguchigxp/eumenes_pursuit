@@ -1,9 +1,10 @@
-/** Daily check: format, lint, types, boundaries, deterministic tests. Live runs are separate (eval/). */
+/** Daily check: format, lint, types, boundaries, run artifacts kept out of the index, deterministic tests. Live runs are separate (eval/). */
 const steps = [
 	["format:check"],
 	["lint"],
 	["typecheck"],
 	["check:boundaries"],
+	["check:results"],
 	["test"],
 ];
 for (const step of steps) {

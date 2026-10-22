@@ -16,9 +16,7 @@ artifacts/
 .claude/settings.local.json
 .serena/cache/
 data/
-# Run results: keep the records, summaries and analyses; the ledgers and logs stay local.
+# Run results stay local by default. Only the runs named in eval/results/PUBLISHED keep their
+# records, summaries and analyses in the repository (scripts/check-results.ts, part of verify).
 eval/results/**
-!eval/results/*/
-!eval/results/*/runs.jsonl
-!eval/results/*/summary.md
-!eval/results/*/analysis.md
+!eval/results/PUBLISHED

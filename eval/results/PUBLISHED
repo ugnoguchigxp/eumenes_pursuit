@@ -1,0 +1,20 @@
+# Published evaluation runs: their runs.jsonl, summary.md and analysis.md are kept in the repository.
+# Every other directory under eval/results/ is local run output (ignored; checked by scripts/check-results.ts).
+# To publish a run: add its name here, then git add -f eval/results/<name>/{runs.jsonl,summary.md,analysis.md}.
+band-1
+base-1
+base-2
+completion-1
+math-1
+math-2
+math-3s
+math-4
+math-5
+math-6
+persist-1
+persist-2
+reflect-1
+reflect-2
+smoke-1
+smoke-2
+smoke-f

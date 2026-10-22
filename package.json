@@ -16,6 +16,7 @@
 		"format": "oxfmt --write",
 		"format:check": "oxfmt --check",
 		"check:boundaries": "bun scripts/check-boundaries.ts",
+		"check:results": "bun scripts/check-results.ts",
 		"test": "bun test ./src ./test ./standalone ./eval",
 		"build": "tsc -p tsconfig.build.json",
 		"pursuit": "bun standalone/cli.ts",

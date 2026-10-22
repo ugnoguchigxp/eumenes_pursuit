@@ -105,7 +105,7 @@ bun eval/trace.ts base <task>           # 一つの追求の経緯
 | `--prediction` | status（状態と観測を予測する）、falsifiable（どんな観測が出たら仮説が誤りかも書かせる） |
 | `--policy` | `config/policy.v1.json`（既定）、`config/policy.v2.json`（答えの付いた相談のあと、何も試さずに再び相談することを禁じる）、`config/policy.v3.json`（v2 に加え、一段上へ戻る予算を 8 回にして、方針 3 × 仮説 3 と釣り合わせる） |
 
-結果は `eval/results/<name>/` に残ります。記録（`runs.jsonl`）・集計（`summary.md`）・分析（`analysis.md`）はレポジトリに入れ、台帳（sqlite）とログは手元に残します。課題の作業領域は OS の一時ディレクトリに作ります。群 D と群 E では、LLM が書いたコードや式を手元で実行します。実行は sandbox（ネットワークなし、ホーム配下の読み取りなし）と時間制限の中で行い、道具の出力からは秘密の値を伏せます。
+結果は `eval/results/<name>/` に残ります。既定では手元だけに残り（`.gitignore`）、公開する回だけを `eval/results/PUBLISHED` に名前で載せて、その記録（`runs.jsonl`）・集計（`summary.md`）・分析（`analysis.md`）を `git add -f` でレポジトリに入れます。台帳（sqlite）とログは常に手元に残します。`bun run verify` の `check:results` が、公開の一覧にない回の結果や台帳がインデックスに入っていれば失敗します（コミット前に自動で走らせるなら `git config core.hooksPath scripts/hooks`）。課題の作業領域は OS の一時ディレクトリに作ります。群 D と群 E では、LLM が書いたコードや式を手元で実行します。実行は sandbox（ネットワークなし、ホーム配下の読み取りなし）と時間制限の中で行い、道具の出力からは秘密の値を伏せます。
 
 ## 照合の確かさ
 
