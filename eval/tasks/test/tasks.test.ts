@@ -164,6 +164,7 @@ describe("task set", () => {
 						filesTouched: [],
 						linesChanged: 0,
 						protectedTouched: [],
+						filesCreated: [],
 					});
 					if (task.group === "D") {
 						const edit = await call("write_file", {

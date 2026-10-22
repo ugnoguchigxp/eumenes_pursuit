@@ -215,6 +215,7 @@ export function insertHypothesis(
 		body: string;
 		rationale: string;
 		tools: readonly string[];
+		targets?: readonly string[];
 		expected: string;
 		budget: number;
 		checkpoint: string | null;
@@ -238,6 +239,13 @@ export function insertHypothesis(
 		input.checkpoint,
 		input.now,
 	);
+	// targets_json (migration 0006) keeps its default '[]' unless targets were declared, so
+	// ledgers migrated only up to 0005 can still record hypotheses without targets.
+	if (input.targets?.length)
+		db.query(`UPDATE pursuit_hypothesis SET targets_json = ? WHERE id = ?`).run(
+			json(input.targets),
+			input.id,
+		);
 }
 
 export function closeHypothesis(
@@ -624,6 +632,8 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		body: text(r.body),
 		rationale: text(r.rationale),
 		tools: parse<string[]>(r.tools_json),
+		targets:
+			r.targets_json === undefined ? [] : parse<string[]>(r.targets_json),
 		expected: text(r.expected),
 		budget: Number(r.budget),
 		checkpoint: textOrNull(r.checkpoint),

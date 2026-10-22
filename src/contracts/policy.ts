@@ -22,12 +22,16 @@ export const policySchema = z.strictObject({
 		consecutiveFailures: count,
 		mismatchNotShrinking: count,
 		/**
-		 * Consecutive workspace-changing attempts that each change task files not changed before in
-		 * the hypothesis (spec/fixes-2026-10-22.md §d). Read-only attempts are skipped; files under
-		 * `scratchDirs` are not task files.
+		 * Consecutive workspace-changing attempts that each reach outside the hypothesis's scope:
+		 * its declared targets plus the directories it already changed task files in
+		 * (spec/fixes-2026-10-22-b.md §1). Read-only attempts are skipped; files under `scratchDirs`
+		 * and generated outputs are not task files.
 		 */
 		scopeGrowth: count,
-		/** Directory names (any path segment) for notes and scratch work, ignored by scopeGrowth. */
+		/**
+		 * Directory names (any path segment) for notes and scratch work: ignored by scopeGrowth and
+		 * never reverted by a step back.
+		 */
 		scratchDirs: z
 			.array(z.string().regex(/^[^/]{1,64}$/))
 			.max(16)
@@ -51,8 +55,9 @@ export const policySchema = z.strictObject({
 	}),
 	/**
 	 * When a step back rolls the workspace back to the hypothesis checkpoint:
-	 * "always", or "protective" (only after damage signals: tests touched, scope
-	 * growing, revisits, a pre-execution guard) so built-up work survives.
+	 * "always", or "protective" (only on evidence of damage: protected files touched, goal
+	 * drift, a pre-execution guard; never on scope growth or revisits alone) so built-up work
+	 * survives (spec/fixes-2026-10-22-b.md §1).
 	 */
 	restore: z.enum(["always", "protective"]),
 	consultation: z

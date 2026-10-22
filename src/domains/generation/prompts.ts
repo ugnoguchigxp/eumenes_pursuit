@@ -8,10 +8,14 @@ import type {
 } from "../../contracts/index.ts";
 import type { AttemptRow, PursuitView } from "../ledger/types.ts";
 
+/**
+ * Display clip for text that is not a tool observation (inputs, statements, evidence): says how
+ * much was shown. Observations use observationText, which also says how to read the rest.
+ */
 const clip = (text: string, limit: number) =>
 	text.length <= limit
 		? text
-		: `${text.slice(0, limit)}…［この一覧での表示はここまで。実物は省略されていない］`;
+		: `${text.slice(0, limit)}…［表示は全 ${text.length} 字のうち先頭 ${limit} 字。台帳には全文がある］`;
 const show = (value: JsonValue, limit: number) =>
 	clip(JSON.stringify(value), limit);
 
@@ -31,6 +35,8 @@ export const hypothesisSchema = z.strictObject({
 	hypothesis: z.string().min(1),
 	rationale: z.string(),
 	tools: z.array(z.string()),
+	/** Files or directories the hypothesis will change (v1.8); [] when it changes none or cannot say. */
+	targets: z.array(z.string()).max(30).default([]),
 	expected: z.string(),
 });
 
@@ -264,6 +270,23 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 		rows.push(f);
 		groups.set(key, rows);
 	}
+	// findings "verified": the generator's own (unverified) findings are recorded but not shown
+	// until a check confirms them; say how many there are instead of "none yet" (§2).
+	const hidden = view.findings.filter(
+		(f) =>
+			f.status === "active" &&
+			f.kind !== "dead_end" &&
+			mode === "verified" &&
+			f.assurance === "unverified",
+	);
+	const hiddenNote = hidden.length
+		? `記録した未確認の知見 ${hidden.length} 件（${hidden
+				.slice(-10)
+				.map((f) => `F${f.seq}`)
+				.join(
+					", ",
+				)}${hidden.length > 10 ? " ほか" : ""}）は台帳にあるが、この条件（findings: verified）では照合で確かめられるまで本文を表示しない。番号での引用はできる。`
+		: "";
 	const deadEnds = view.findings.filter((f) => f.kind === "dead_end");
 	const superseded = view.findings
 		.filter((f) => f.status === "superseded" && f.kind !== "dead_end")
@@ -288,7 +311,10 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 						);
 					})
 					.join("\n")
-			: `（まだありません。実行した試行 ${view.attempts.filter((a) => a.state === "settled" || a.state === "interrupted").length} 回）`,
+			: hidden.length
+				? "（照合済みの知見はまだありません）"
+				: `（まだありません。実行した試行 ${view.attempts.filter((a) => a.state === "settled" || a.state === "interrupted").length} 回）`,
+		hiddenNote,
 		"確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。",
 		deadEnds.length
 			? [
@@ -382,7 +408,8 @@ function experienceBlock(view: PursuitView) {
 
 /**
  * rollback "notify": the files the latest step back reverted, shown until the next attempt
- * runs (spec/fixes-2026-10-22.md §a). Empty when nothing was reverted.
+ * runs (spec/fixes-2026-10-22.md §a). Task files are named (up to 20); generated outputs and
+ * the scratch work that was kept are only counted (spec/fixes-2026-10-22-b.md §1).
  */
 function revertBlock(view: PursuitView) {
 	const last = [...view.decisions]
@@ -390,13 +417,28 @@ function revertBlock(view: PursuitView) {
 		.find((d) => Array.isArray(d.basis.reverted));
 	if (!last || last.basis.attemptsAtRevert !== view.attempts.length) return "";
 	const files = (last.basis.reverted as JsonValue[]).map(String);
+	const generated = Number(last.basis.revertedGenerated ?? 0);
+	const kept = Number(last.basis.keptScratch ?? 0);
+	const listed = files.slice(0, 20);
 	return [
 		"## 作業領域の巻き戻し（直前の振り返りで実施）",
 		files.length
-			? `前の仮説を始めた時点の内容に戻したファイル: ${files.join(", ")}`
-			: "巻き戻しを行ったが、内容の変わったファイルはなかった。",
-		"これらのファイルに前の仮説で加えた変更は残っていません。必要なら読み直してください。",
-	].join("\n");
+			? `前の仮説を始めた時点の内容に戻した課題のファイル（${files.length} 件）: ${listed.join(", ")}${files.length > listed.length ? ` ほか ${files.length - listed.length} 件` : ""}`
+			: generated
+				? "課題のファイルで戻したものはない。"
+				: "巻き戻しを行ったが、内容の変わったファイルはなかった。",
+		generated
+			? `コマンドが作った生成物 ${generated} 件も前の状態に戻した（一覧は省略）。`
+			: "",
+		kept
+			? `作業用ディレクトリ（scratch など）の ${kept} 件は戻さず、そのまま残した。`
+			: "",
+		files.length || generated
+			? "これらのファイルに前の仮説で加えた変更は残っていません。必要なら読み直してください。"
+			: "",
+	]
+		.filter(Boolean)
+		.join("\n");
 }
 
 export function planRequest(input: {
@@ -478,6 +520,9 @@ export function hypothesisRequest(input: {
 			direction ? `## 振り返りからの方向づけ\n${direction}` : "",
 			"## 依頼",
 			"この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。",
+			input.tools.some((t) => t.sideEffect === "workspace")
+				? "targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。読むだけの仮説なら空にします。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+				: "",
 			view.input.conditions.selfCheck === "parts"
 				? "部品のうち、まだ済んでいないものを一つ選び、それを進める仮説にしてください。詰まりに次の一手が書かれていれば、それを優先してください。"
 				: "",
@@ -576,7 +621,7 @@ export function proposalRequest(input: {
 			partsBlock(view),
 			revertBlock(view),
 			readBackBlock(view, input.tools),
-			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
+			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}${hypothesis?.targets.length ? `\n変える対象（宣言）: ${hypothesis.targets.join(", ")}` : ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
 			mine.length
 				? [
 						"## この仮説での試行",

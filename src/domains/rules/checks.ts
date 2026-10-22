@@ -189,7 +189,12 @@ export function signals(
 	);
 	push(
 		"scope_growth",
-		scopeGrowth(done, changingTools, limits.scratchDirs),
+		scopeGrowth(
+			done,
+			changingTools,
+			limits.scratchDirs,
+			view.hypotheses.find((h) => h.id === hypothesisId)?.targets ?? [],
+		),
 		limits.scopeGrowth,
 	);
 	push("revisits", revisits(done, changingTools), limits.revisits);
@@ -212,29 +217,68 @@ export function isScratchPath(path: string, scratchDirs: readonly string[]) {
 	return path.split("/").some((segment) => scratchDirs.includes(segment));
 }
 
+/** The directory of a workspace path ("." for a top-level file). */
+function areaOf(path: string): string {
+	const i = path.lastIndexOf("/");
+	return i < 0 ? "." : path.slice(0, i);
+}
+
+/** Whether a path lies within a declared target: the file itself, or under a directory target. */
+export function withinTargets(path: string, targets: readonly string[]) {
+	return targets.some((raw) => {
+		const t = raw.trim().replace(/^\.\//, "").replace(/\/+$/, "");
+		return t !== "" && (path === t || path.startsWith(`${t}/`));
+	});
+}
+
 /**
- * Trailing run of workspace-changing attempts that each changed task files not changed before
- * in the hypothesis (spec/fixes-2026-10-22.md §d). `filesTouched` is cumulative since the
- * hypothesis checkpoint, so an attempt's new files are those absent from the previous attempt's
- * set. Read-only attempts neither extend nor break the run; a changing attempt that adds no new
- * task file breaks it. Scratch paths are never task files.
+ * Task files an attempt changed, cumulative since the hypothesis checkpoint: filesTouched minus
+ * scratch paths and generated outputs (spec/fixes-2026-10-22-b.md §1).
+ */
+export function taskFiles(attempt: AttemptRow, scratchDirs: readonly string[]) {
+	const generated = new Set(attempt.features?.generated ?? []);
+	return (attempt.features?.filesTouched ?? []).filter(
+		(f) => !isScratchPath(f, scratchDirs) && !generated.has(f),
+	);
+}
+
+/**
+ * Trailing run of workspace-changing attempts that each widened the hypothesis's scope
+ * (spec/fixes-2026-10-22-b.md §1). The scope is the hypothesis's declared targets plus every
+ * directory it has already changed a task file in; with no targets declared, the directories of
+ * the first changing attempt's task files are its scope. An attempt widens the scope when it
+ * changes, for the first time in the hypothesis, a task file outside both. Editing several files
+ * in the areas the hypothesis works on (a multi-file bug fix) is therefore not growth; reaching
+ * into new areas attempt after attempt is. Scratch paths and generated outputs are never task
+ * files. Read-only attempts neither extend nor break the run; a changing attempt that does not
+ * widen the scope breaks it.
  */
 function scopeGrowth(
 	done: readonly AttemptRow[],
 	changingTools: ReadonlySet<string>,
 	scratchDirs: readonly string[],
+	targets: readonly string[],
 ): number {
 	let previous = new Set<string>();
+	const areas = new Set<string>();
+	let scoped = targets.some((t) => t.trim() !== "");
 	const grew: boolean[] = [];
 	for (const attempt of done) {
-		const files = new Set(
-			(attempt.features?.filesTouched ?? []).filter(
-				(f) => !isScratchPath(f, scratchDirs),
-			),
+		const files = taskFiles(attempt, scratchDirs);
+		const added = files.filter((f) => !previous.has(f));
+		previous = new Set(files);
+		if (!changingTools.has(attempt.tool) && !added.length) continue;
+		if (!scoped && added.length) {
+			for (const f of added) areas.add(areaOf(f));
+			scoped = true;
+			grew.push(false);
+			continue;
+		}
+		const outside = added.filter(
+			(f) => !withinTargets(f, targets) && !areas.has(areaOf(f)),
 		);
-		const added = [...files].some((f) => !previous.has(f));
-		if (changingTools.has(attempt.tool) || added) grew.push(added);
-		previous = files;
+		for (const f of added) areas.add(areaOf(f));
+		grew.push(outside.length > 0);
 	}
 	return trailing(grew, (g) => g);
 }

@@ -126,3 +126,15 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - 規則 `finding_not_recorded`（`conditions.findings` が off 以外で、規則層が有効なとき）: 提案が台帳にない F番号を引用したら拒否する。見るのは uses / refute と、message・自己評価・受入条件ごとの判断の中の F番号。知見が 0 件のまま試行が 5 回以上実行されたら、方針と仮説の要求で記録を促す。
 - `policy.observation`（既定 `{ latestChars: 8000, olderChars: 1800 }`）。生成要求の中で、最後に実行した試行の観測は latestChars まで、それ以外は olderChars まで表示する。切ったときは全体の長さと続きの読み方を示し、入力 schema に `offset` / `limit` を持つ道具ならそれで読めると伝える。台帳の観測は切らない。
 - 公開 API に `acceptancePassed(acceptance, criteria)` を追加した。凍結した受入条件をちょうど一度ずつ覆い、すべて通ったときだけ true を返す。エンジンと同じ照合で、エンジンの外で検証するホストも同じ意味の「合格」を使える。
+
+## v1.8（2026-10-22）
+
+[hz11f の実データで見つかった問題の改修](fixes-2026-10-22-b.md) に伴う変更。追加だけで、v1.7 の呼び出し側はそのまま動く。
+
+- migration `pursuit-0006-hypothesis-targets`: `pursuit_hypothesis.targets_json`（既定 `'[]'`）。仮説の生成 schema に `targets`（最大 30、既定 `[]`）を追加した。
+- `WorkspaceChanges.filesCreated?`: checkpoint に無かったファイル。示すと、コアはコマンドの生成物を課題のファイルから外す。
+- `WorkspacePort.restore(checkpoint, keep?)`: `keep.dirs` の名前の段を含むパスは今の状態のまま残す。コアは `policy.signals.scratchDirs` を渡す。
+- `scope_growth` は、宣言した targets と、すでに変えたディレクトリの外へ試行のたびに広がった回数で数える。
+- `policy.restore = "protective"` は、`protected_touch`・`goal_drift`・実行前の判定者の警告のときだけ戻す。
+- 巻き戻しの判断の basis: `reverted` は戻した課題のファイルだけ。`revertedGenerated` と `keptScratch` は件数。
+- 成り立った仮説（生成器が戻り、兆候なし、最後の試行が予測どおりで機械判定の反証が不成立）は行き止まりとして記録しない。

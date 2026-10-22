@@ -25,6 +25,7 @@ import {
 	type ToolOutcome,
 	type ToolPort,
 	type WorkspacePort,
+	type WorkspaceChanges,
 } from "../../contracts/index.ts";
 import {
 	findQuestionSet,
@@ -60,11 +61,13 @@ import type {
 	Rejection,
 } from "../ledger/types.ts";
 import { acceptancePassed } from "../rules/acceptance.ts";
+import { refutationHeld } from "../rules/refutation.ts";
 import {
 	attemptOutcome,
 	attemptsOf,
 	executed,
 	invariantRejections,
+	isScratchPath,
 	pursuitBudgetExceeded,
 	remainingWallMs,
 	rejectionsInRow,
@@ -149,13 +152,40 @@ function trajectoryStreak(view: PursuitView, attemptId: string): number {
 	return streak;
 }
 
-/** Step-back causes that mean the workspace may be damaged, not merely unfinished. */
-const damageSignals = new Set(["protected_touch", "scope_growth", "revisits"]);
+/**
+ * Step-back causes that are evidence the workspace was damaged, not merely unfinished or wide:
+ * an existing check or test was changed, or the judged progress fell attempt after attempt
+ * (spec/fixes-2026-10-22-b.md §1). scope_growth and revisits describe how the work went, not
+ * damage, so policy.restore "protective" never reverts on them.
+ */
+const damageSignals = new Set(["protected_touch", "goal_drift"]);
 function damaging(basis: JsonObject | undefined): boolean {
 	if (!basis) return false;
 	if (basis.stage === "pre") return true;
 	const signals = Array.isArray(basis.signals) ? basis.signals : [];
 	return signals.some((s) => typeof s === "string" && damageSignals.has(s));
+}
+
+/**
+ * Whether a hypothesis is being left because it held, not because it failed: the generator
+ * stepped back on its own (no rule, guard or signal forced it), and its last executed attempt
+ * matched the predicted status with a machine-checkable refutedIf that did not hold. Such a
+ * hypothesis is not recorded as a dead end (spec/fixes-2026-10-22-b.md §3).
+ */
+function hypothesisHeld(
+	view: PursuitView,
+	hypothesisId: string,
+	lastStepBack: { decidedBy: string; basis: JsonObject } | undefined,
+	fired: readonly { code: string }[],
+): boolean {
+	if (!lastStepBack || lastStepBack.decidedBy !== "generator" || fired.length)
+		return false;
+	const last = attemptsOf(view, hypothesisId)
+		.filter((a) => a.state === "settled" && a.observation)
+		.at(-1);
+	if (!last || last.outcome !== "success") return false;
+	if (last.observation!.status !== last.prediction.expectedStatus) return false;
+	return refutationHeld(last.prediction.refutedIf, last.observation) === false;
 }
 
 const budgetReasons = {
@@ -164,7 +194,14 @@ const budgetReasons = {
 	transitions: "追求全体の手順数の上限に達しました",
 } as const;
 
-const noChanges = { filesTouched: [], linesChanged: 0, protectedTouched: [] };
+const noChanges: WorkspaceChanges = {
+	filesTouched: [],
+	linesChanged: 0,
+	protectedTouched: [],
+};
+
+/** A workspace path as the tools name it ("./a" and "a" are the same file). */
+const normalPath = (path: string) => path.replace(/^(\.\/)+/, "");
 
 const reviewKinds: Readonly<Record<Review["decision"], DecisionKind>> = {
 	continue_strategy: "change_hypothesis",
@@ -402,6 +439,59 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			now: clock.now(),
 		});
 		inference(db, view, [judged.usage]);
+	}
+
+	/**
+	 * Attempt features from the workspace changes, with `generated`: files absent when the pursuit
+	 * started (filesCreated against the first hypothesis checkpoint) that no workspace-changing
+	 * attempt named as its `path` input. Without filesCreated from the port, nothing is generated.
+	 */
+	async function featuresOf(
+		view: PursuitView,
+		runtime: PursuitRuntime,
+		checkpoint: string | null,
+		current: { tool: string; input: JsonObject } | null,
+	): Promise<AttemptFeatures> {
+		const changes =
+			runtime.workspace && checkpoint
+				? await runtime.workspace.changesSince(checkpoint)
+				: noChanges;
+		const base = {
+			filesTouched: changes.filesTouched,
+			linesChanged: changes.linesChanged,
+			protectedTouched: changes.protectedTouched,
+			match: null,
+			progress: null,
+		};
+		const root = [...view.hypotheses]
+			.sort((a, b) => a.seq - b.seq)
+			.find((h) => h.checkpoint)?.checkpoint;
+		if (!runtime.workspace || !root || !changes.filesTouched.length)
+			return base;
+		const created =
+			root === checkpoint
+				? changes.filesCreated
+				: (await runtime.workspace.changesSince(root)).filesCreated;
+		if (!created) return base;
+		const writers = changingTools(runtime.tools.list());
+		const authored = new Set(
+			[
+				...view.attempts.map((a) => ({ tool: a.tool, input: a.input })),
+				...(current ? [current] : []),
+			]
+				.filter((a) => writers.has(a.tool) && typeof a.input.path === "string")
+				.map((a) => normalPath(a.input.path as string)),
+		);
+		const fresh = new Set(created);
+		return {
+			...base,
+			generated: changes.filesTouched.filter(
+				(f) =>
+					fresh.has(f) &&
+					!authored.has(f) &&
+					!isScratchPath(f, view.input.policy.signals.scratchDirs),
+			),
+		};
 	}
 
 	function changingTools(tools: readonly ToolDescriptor[]) {
@@ -707,6 +797,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				body: r.value.hypothesis,
 				rationale: r.value.rationale,
 				tools: r.value.tools,
+				targets: r.value.targets.map(normalPath).filter(Boolean),
 				expected: r.value.expected,
 				budget: view.input.conditions.rules
 					? policy.budget.attemptsPerHypothesis
@@ -1247,15 +1338,10 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}
-		const changes =
-			runtime.workspace && hypothesis.checkpoint
-				? await runtime.workspace.changesSince(hypothesis.checkpoint)
-				: noChanges;
-		const features: AttemptFeatures = {
-			...changes,
-			match: null,
-			progress: null,
-		};
+		const features = await featuresOf(view, runtime, hypothesis.checkpoint, {
+			tool: tool.name,
+			input,
+		});
 		const awaitDigest = runtime.workspace
 			? await runtime.workspace.digest()
 			: null;
@@ -1312,16 +1398,18 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		if (pending.digest !== digest) {
 			// A paused workspace may have changed. Recompute facts and do not reuse old acceptance.
 			const hyp = current.hypotheses.find((h) => h.id === settled.hypothesisId);
-			const changes =
-				runtime.workspace && hyp?.checkpoint
-					? await runtime.workspace.changesSince(hyp.checkpoint)
-					: noChanges;
+			const features = await featuresOf(
+				current,
+				runtime,
+				hyp?.checkpoint ?? null,
+				null,
+			);
 			pending = { stage: "need_post_judge", digest, effects: null };
 			await store.write((db) => {
 				ledger.updateSettlement(db, attemptId, pending);
 				ledger.updateAttemptFeatures(db, {
 					id: attemptId,
-					features: { ...changes, match: null, progress: null },
+					features,
 					outcome: attemptOutcome(
 						settled.prediction,
 						settled.observation!.status,
@@ -1599,8 +1687,9 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				? `残りの部品に取り組む: ${unfinishedNote}`
 				: (reviewed?.direction ?? "");
 		const why = reviewed?.reason || reason;
-		// rollback "notify": the reverted files go into the decision basis, and the next
-		// generator requests name them until an attempt runs (prompts.ts revertBlock).
+		// rollback "notify": the reverted task files go into the decision basis, and the next
+		// generator requests name them until an attempt runs (prompts.ts revertBlock). Scratch
+		// work is never reverted; generated outputs are reverted and only counted.
 		let revertNote: JsonObject = {};
 		if (
 			conditions.rules &&
@@ -1611,12 +1700,31 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			kind !== "change_tool" &&
 			(policy.restore === "always" || damaging(lastStepBack?.basis))
 		) {
-			const reverted = [
-				...(await runtime.workspace.changesSince(hypothesis.checkpoint))
-					.filesTouched,
-			].sort();
-			await runtime.workspace.restore(hypothesis.checkpoint);
-			revertNote = { reverted, attemptsAtRevert: view.attempts.length };
+			const changes = await featuresOf(
+				view,
+				runtime,
+				hypothesis.checkpoint,
+				null,
+			);
+			const scratchDirs = policy.signals.scratchDirs;
+			const generated = new Set(changes.generated ?? []);
+			const kept = changes.filesTouched.filter((f) =>
+				isScratchPath(f, scratchDirs),
+			);
+			const reverted = changes.filesTouched
+				.filter((f) => !isScratchPath(f, scratchDirs) && !generated.has(f))
+				.sort();
+			await runtime.workspace.restore(hypothesis.checkpoint, {
+				dirs: scratchDirs,
+			});
+			revertNote = {
+				reverted,
+				revertedGenerated: changes.filesTouched.filter(
+					(f) => !isScratchPath(f, scratchDirs) && generated.has(f),
+				).length,
+				keptScratch: kept.length,
+				attemptsAtRevert: view.attempts.length,
+			};
 		}
 		const basis: JsonObject = {
 			...revertNote,
@@ -1662,7 +1770,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 							result: `相談: ${why}`,
 							now: clock.now(),
 						});
-						recordDeadEnd(db, view, hypothesis.body, why);
+						if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))
+							recordDeadEnd(db, view, hypothesis.body, why);
 					}
 				},
 				revertNote,
@@ -1682,7 +1791,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					result: why,
 					now: clock.now(),
 				});
-				recordDeadEnd(db, view, hypothesis.body, why);
+				if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))
+					recordDeadEnd(db, view, hypothesis.body, why);
 			}
 			if (status === "planning" && strategy?.status === "active") {
 				ledger.closeStrategy(db, {

@@ -19,6 +19,7 @@ describe("ledger", () => {
 			"79653d2dfb89864bdd9ed2f22d05a2f55822f2c9efe3ac77f7b4a291a7a79cb6",
 			"c7af35e2971ff35b21f96a8312c61940561a81ba6ca3aa9813fbecc9ede1336b",
 			"5b8d4499ad9382fe54118585cdf4c6a3c50b5be6de329addd19f96f28ed6f9b0",
+			"3db990ae902fba0c296ebde600a2dfc220cc3b768b7824be36dcf41c0b5c032e",
 		]);
 	});
 

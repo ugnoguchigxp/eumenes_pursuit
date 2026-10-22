@@ -53,7 +53,7 @@ function attempt(seq: number, patch: Partial<AttemptRow> = {}): AttemptRow {
 	};
 }
 
-function view(attempts: AttemptRow[]): PursuitView {
+function view(attempts: AttemptRow[], targets: string[] = []): PursuitView {
 	return {
 		id: "p",
 		goal: "g",
@@ -81,6 +81,7 @@ function view(attempts: AttemptRow[]): PursuitView {
 				body: "",
 				rationale: "",
 				tools: [],
+				targets,
 				expected: "",
 				budget: 6,
 				checkpoint: null,
@@ -232,12 +233,12 @@ describe("signals", () => {
 			"protected_touch",
 		]);
 	});
-	test("growing scope", () => {
+	test("growing scope: a new directory on each of three attempts after the first", () => {
 		const grow = [1, 2, 3, 4].map((n) =>
 			attempt(n, {
 				outcome: "success",
 				features: {
-					filesTouched: Array.from({ length: n }, (_, i) => `f${i}`),
+					filesTouched: Array.from({ length: n }, (_, i) => `d${i}/f.py`),
 					linesChanged: n,
 					protectedTouched: [],
 					match: null,
@@ -294,10 +295,11 @@ describe("signals", () => {
 			expect(fired(run([...reads, ...scratch]))).toBe(false);
 			// The same three runs counted under v1.6 (cumulative size strictly growing).
 		});
-		test("real sprawl still fires, with reads in between skipped", () => {
+		test("real sprawl (a new directory each time) still fires, with reads in between skipped", () => {
 			const a = ["src/a.py"];
-			const ab = [...a, "src/b.py"];
-			const abc = [...ab, "lib/c.py"];
+			const ab = [...a, "lib/b.py"];
+			const abc = [...ab, "tests/c.py"];
+			const abcd = [...abc, "docs/d.md"];
 			expect(
 				fired(
 					run([
@@ -306,9 +308,88 @@ describe("signals", () => {
 						{ tool: "write", files: ab },
 						{ tool: "read", files: ab },
 						{ tool: "write", files: abc },
+						{ tool: "write", files: abcd },
 					]),
 				),
 			).toBe(true);
+		});
+		test("many files in the directories already worked on are not growth (multi-file fix)", () => {
+			const files = (n: number) =>
+				Array.from({ length: n }, (_, i) => `src/m${i}.py`);
+			expect(
+				fired(
+					run([1, 2, 3, 4, 5].map((n) => ({ tool: "write", files: files(n) }))),
+				),
+			).toBe(false);
+		});
+		test("hz11f legacy-billing #6–#8 from the ledger: does not fire (v1.7 fired and reverted six files)", () => {
+			// filesTouched as recorded in hz11f-pursuit-r1 (cumulative since the H2 checkpoint).
+			const p = (f: string) => `kumobill/${f}`;
+			const six = [
+				"cycles/anniversary.py",
+				"pricing/credits.py",
+				"pricing/discounts.py",
+				"pricing/engine.py",
+				"pricing/proration.py",
+				"pricing/tiers.py",
+			].map(p);
+			const pyc = [
+				"kumobill/__pycache__/a.pyc",
+				"kumobill/pricing/__pycache__/e.pyc",
+			];
+			expect(
+				fired(
+					run([
+						{ tool: "write", files: [six[0]!] },
+						{ tool: "write", files: [six[0]!, six[1]!] },
+						{ tool: "run", files: [...six, ...pyc] },
+					]),
+				),
+			).toBe(false);
+		});
+		test("hz11f sales-pipeline #13–#15 from the ledger: build outputs are generated; does not fire", () => {
+			const sql = "sql/3_business_date.sql";
+			const stage = "stage3_dedupe.py";
+			const scratch = Array.from(
+				{ length: 45 },
+				(_, i) => `scratch/alt/f${i}.csv`,
+			);
+			const attempts = run([
+				{ tool: "write", files: [sql] },
+				{ tool: "write", files: [sql, stage] },
+				{
+					tool: "run",
+					files: ["build/sales.db", "out/report.txt", sql, stage, ...scratch],
+				},
+			]);
+			const last = attempts[2]!;
+			attempts[2] = {
+				...last,
+				features: {
+					...last.features!,
+					generated: ["build/sales.db", "out/report.txt"],
+				},
+			};
+			expect(fired(attempts)).toBe(false);
+		});
+		test("declared targets count as scope from the start", () => {
+			const steps = [
+				{ tool: "write", files: ["a/x"] },
+				{ tool: "write", files: ["a/x", "b/x"] },
+				{ tool: "write", files: ["a/x", "b/x", "c/x"] },
+				{ tool: "write", files: ["a/x", "b/x", "c/x", "d/x"] },
+			];
+			const fire = (targets: string[]) =>
+				signals(
+					view(run(steps), targets),
+					"h1",
+					policy,
+					new Set(["write"]),
+				).some((s) => s.code === "scope_growth");
+			expect(fire([])).toBe(true);
+			expect(fire(["a/", "./b", "c/x", "d"])).toBe(false);
+			// Targets do not hide reaching outside them: only c/ and d/ are outside "a".
+			expect(fire(["a"])).toBe(true);
 		});
 		test("a changing attempt that adds no new task file breaks the run", () => {
 			const a = ["src/a.py"];
@@ -327,8 +408,8 @@ describe("signals", () => {
 		});
 		test("scratch directories come from the policy", () => {
 			const files = (n: number) =>
-				Array.from({ length: n }, (_, i) => `work/f${i}`);
-			const steps = [1, 2, 3].map((n) => ({ tool: "run", files: files(n) }));
+				Array.from({ length: n }, (_, i) => `work/d${i}/f`);
+			const steps = [1, 2, 3, 4].map((n) => ({ tool: "run", files: files(n) }));
 			expect(fired(run(steps))).toBe(true);
 			expect(
 				signals(

@@ -56,6 +56,11 @@ export interface HypothesisRow {
 	readonly body: string;
 	readonly rationale: string;
 	readonly tools: readonly string[];
+	/**
+	 * Files or directories (a trailing "/" or a directory path) the hypothesis declares it will
+	 * change; empty when none were declared. scope_growth measures widening beyond these.
+	 */
+	readonly targets: readonly string[];
 	readonly expected: string;
 	readonly budget: number;
 	readonly checkpoint: string | null;
@@ -78,6 +83,13 @@ export interface Observation {
 /** Host-computed facts about one attempt (plan §8.3). */
 export interface AttemptFeatures {
 	readonly filesTouched: readonly string[];
+	/**
+	 * Of filesTouched: outputs the attempt's commands produced, not task files. A path counts as
+	 * generated when it was absent from the workspace when the pursuit started and no
+	 * workspace-changing attempt named it as its `path` input (build outputs, databases, reports,
+	 * caches). Absent on rows written before v1.8 and when the host's port reports no filesCreated.
+	 */
+	readonly generated?: readonly string[];
 	readonly linesChanged: number;
 	readonly protectedTouched: readonly string[];
 	/** D3 normalized to 0..1, null without a usable judgement. */

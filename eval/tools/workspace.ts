@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type {
 	WorkspaceChanges,
 	WorkspacePort,
@@ -47,8 +47,23 @@ export function createDirWorkspace(
 			await replaceTree(workDir, checkpointDir(id));
 			return id;
 		},
-		async restore(checkpoint) {
+		async restore(checkpoint, keep) {
+			// keep.dirs (v1.8): files with such a path segment stay exactly as they are now.
+			const kept = (rel: string) =>
+				!!keep && rel.split("/").some((s) => keep.dirs.includes(s));
+			const saved = new Map<string, Buffer>();
+			if (keep)
+				for (const rel of await listFiles(workDir))
+					if (kept(rel)) saved.set(rel, await readFile(join(workDir, rel)));
 			await replaceTree(checkpointDir(checkpoint), workDir);
+			if (!keep) return;
+			for (const rel of await listFiles(workDir))
+				if (kept(rel) && !saved.has(rel))
+					await rm(join(workDir, rel), { force: true });
+			for (const [rel, bytes] of saved) {
+				await mkdir(dirname(join(workDir, rel)), { recursive: true });
+				await writeFile(join(workDir, rel), bytes);
+			}
 		},
 		digest: () => digestTree(workDir),
 		async changesSince(checkpoint): Promise<WorkspaceChanges> {
@@ -73,6 +88,7 @@ export function createDirWorkspace(
 				protectedTouched: touched.filter(
 					(rel) => before.has(rel) && isProtected(rel),
 				),
+				filesCreated: touched.filter((rel) => !before.has(rel)),
 			};
 		},
 	};

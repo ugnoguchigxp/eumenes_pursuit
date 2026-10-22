@@ -62,6 +62,11 @@ export interface ToolPort {
 /** Host-computed change features of the workspace since a checkpoint. */
 export interface WorkspaceChanges {
 	readonly filesTouched: readonly string[];
+	/**
+	 * Of filesTouched, the paths that did not exist at the checkpoint (optional; v1.8). The engine
+	 * uses it against the pursuit's first checkpoint to tell generated outputs from task files.
+	 */
+	readonly filesCreated?: readonly string[];
 	readonly linesChanged: number;
 	/** Existing acceptance checks or tests that were changed or deleted (adding tests is not a touch). */
 	readonly protectedTouched: readonly string[];
@@ -70,7 +75,15 @@ export interface WorkspaceChanges {
 /** Present only when some tool has `sideEffect: "workspace"`. */
 export interface WorkspacePort {
 	checkpoint(): Promise<string>;
-	restore(checkpoint: string): Promise<void>;
+	/**
+	 * Return the workspace to the checkpoint. Files with a path segment in `keep.dirs` (scratch
+	 * work, v1.8) are left exactly as they are now: neither restored, deleted nor added. A port
+	 * that ignores `keep` restores everything, as before v1.8.
+	 */
+	restore(
+		checkpoint: string,
+		keep?: { readonly dirs: readonly string[] },
+	): Promise<void>;
 	/** Digest of the current contents; part of the fingerprint of side-effect attempts. */
 	digest(): Promise<string>;
 	changesSince(checkpoint: string): Promise<WorkspaceChanges>;
