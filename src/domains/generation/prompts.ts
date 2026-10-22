@@ -419,6 +419,10 @@ function partsBlock(view: PursuitView) {
  * advisory: a 詰まり part at a routine step back, and a 済み part when every attempt executed under
  * the strategy used only read-only tools.
  */
+/** Part text that promises an action beyond reading (fixes h §3); heuristic. */
+const PROMISES_ACTION =
+	/実行|走らせ|動かし|再現|比較|突き合わせ|照合|テスト|検証|計算|集計|書き(込|出|換|直)|修正|直す|変更|置き換|実装|生成|作成|提出|問い合わせ|\b(run|execute|compare|test|verify|fix|write|submit)\b/i;
+
 export function partsCheckBlock(
 	view: PursuitView,
 	tools: readonly ToolDescriptor[],
@@ -441,17 +445,36 @@ export function partsCheckBlock(
 	const ran = view.attempts.filter(
 		(a) => a.state === "settled" && a.hypothesisId && hyps.has(a.hypothesisId),
 	);
+	// fixes h §3: a tool whose observations report calls_left (probe) is an experiment with its own
+	// budget, not reading; and only parts whose text promises running, comparing or changing count.
+	const metered = new Set(
+		view.attempts
+			.filter(
+				(a) =>
+					!!a.observation?.output &&
+					typeof a.observation.output === "object" &&
+					!Array.isArray(a.observation.output) &&
+					typeof (a.observation.output as Record<string, unknown>)
+						.calls_left === "number",
+			)
+			.map((a) => a.tool),
+	);
 	const readOnly = new Set(
-		tools.filter((t) => t.sideEffect === "none").map((t) => t.name),
+		tools
+			.filter((t) => t.sideEffect === "none" && !metered.has(t.name))
+			.map((t) => t.name),
+	);
+	const promising = done.filter((a) =>
+		PROMISES_ACTION.test(strategy.parts[a.part - 1] ?? ""),
 	);
 	if (
-		done.length &&
+		promising.length &&
 		tools.length &&
 		ran.length &&
 		ran.every((a) => readOnly.has(a.tool))
 	)
 		notes.push(
-			`- 部品${done.map((a) => a.part).join("・")}は済みとされたが、この方針で実行した試行 ${ran.length} 回はすべて読むだけの道具（${[...new Set(ran.map((a) => a.tool))].join(", ")}）。実行や変更を約束した部品なら、済みの根拠を確かめること。`,
+			`- 部品${promising.map((a) => a.part).join("・")}は実行・比較・変更を含む部品として済みとされたが、この方針で実行した試行 ${ran.length} 回はすべて読むだけの道具（${[...new Set(ran.map((a) => a.tool))].join(", ")}）。済みの根拠を確かめること。`,
 		);
 	return notes.length
 		? [
@@ -712,7 +735,7 @@ export function hypothesisRequest(input: {
 			`この方針で立てる仮説は ${view.hypotheses.filter((h) => h.strategyId === view.currentStrategyId).length + 1}/${view.input.policy.budget.hypothesesPerStrategy} 件目（上限に達した仮説が閉じると、規則で方針を立て直す。仮説ごとの試行予算は ${view.input.policy.budget.attemptsPerHypothesis} 回）。`,
 			"この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。",
 			input.tools.some((t) => t.sideEffect === "workspace")
-				? "targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+				? "targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。空でも変更は拒否されず、最初に変えたファイルのディレクトリがその仮説の範囲になります。ただし仮説は一つの主張なので、読むだけの仮説から「直す」仮説へ移るときは、step_back で区切って新しい仮説を立てます（区切りごとに振り返りが入るのは設計どおり）。直すつもりがあるなら、最初から targets に書いておくと区切りが要りません。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
 				: "",
 			view.input.conditions.selfCheck === "parts"
 				? "部品のうち、まだ済んでいないものを一つ選び、それを進める仮説にしてください。詰まりに次の一手が書かれていれば、それを優先してください。"

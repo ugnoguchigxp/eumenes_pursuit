@@ -136,7 +136,53 @@ describe("hz11k follow-ups (spec/fixes-2026-10-22-g.md)", () => {
 		const rev = prompts.find((p) => p.purpose === "review")!.prompt;
 		expect(rev).toContain("## 自己評価についてのホストの注記");
 		expect(rev).toContain(
-			"部品1は済みとされたが、この方針で実行した試行 1 回はすべて読むだけの道具（read）",
+			"部品1は実行・比較・変更を含む部品として済みとされたが、この方針で実行した試行 1 回はすべて読むだけの道具（read）",
 		);
+	});
+});
+
+describe("hz11l follow-ups (spec/fixes-2026-10-22-h.md)", () => {
+	const parts = (part: string, invoke?: any, tools?: any) =>
+		run({
+			script: {
+				plan: [{ ...plan, parts: [part] }],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					call("read", {}, { assessment: [] }),
+					proposal("step_back", {
+						assessment: [{ part: 1, status: "done", evidence: "e", next: "" }],
+					}),
+					proposal("give_up", {
+						assessment: [{ part: 1, status: "done", evidence: "e", next: "" }],
+					}),
+				],
+				review: [keep],
+			},
+			reviewer: true,
+			conditions: { selfCheck: "parts", review: true },
+			policy: one,
+			runtime: runtime({ invoke, tools }),
+		});
+	const review = (r: any) =>
+		r.prompts.find((p: any) => p.purpose === "review")!.prompt as string;
+
+	test("§3 a reading part marked 済み after reads gets no note", async () => {
+		expect(review(await parts("仕様書を読んで規則を把握する"))).not.toContain(
+			"## 自己評価についてのホストの注記",
+		);
+	});
+	test("§3 a metered tool (calls_left) is not counted as reading", async () => {
+		const r = await parts("probe で挙動を比較する", () => ({
+			status: "ok",
+			output: { results: [], calls_left: 3 },
+			refs: [],
+		}));
+		expect(review(r)).not.toContain("すべて読むだけの道具");
+	});
+	test("§5 the hypothesize request says empty targets do not block edits and why a step back is needed", async () => {
+		const r = await parts("仕様書を読む");
+		const h = r.prompts.find((p: any) => p.purpose === "hypothesize")!.prompt;
+		expect(h).toContain("空でも変更は拒否されず");
+		expect(h).toContain("区切りごとに振り返りが入るのは設計どおり");
 	});
 });
