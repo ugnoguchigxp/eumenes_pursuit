@@ -140,3 +140,87 @@ describe("clipped history text says how much was shown (spec/fixes-2026-10-22-b.
 		);
 	});
 });
+
+describe("hypothesis history and rejected moves (spec/fixes-2026-10-22-c.md §3-§5)", () => {
+	test("a closed hypothesis names who decided; the reviewed one is not 試行中", async () => {
+		const { view, prompts } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					call("read", {}, empty),
+					call("read", {}, empty),
+					proposal("step_back", empty),
+					proposal("give_up", empty),
+				],
+			},
+			conditions: { findings: "all" },
+			policy: one,
+		});
+		expect(view.hypotheses[0]!.result).toMatch(/^打ち切り（判断: [^）]+）: m$/);
+		const next = prompts.filter((p) => p.purpose === "hypothesize")[1]!.prompt;
+		expect(next).toContain("→ 打ち切り（判断: ");
+		const { reviewRequest } =
+			await import("../../src/domains/generation/prompts.ts");
+		const v = { ...view, currentHypothesisId: view.hypotheses[1]!.id };
+		const h1 = { ...view.hypotheses[1]!, result: null };
+		const review = reviewRequest({
+			view: { ...v, hypotheses: [view.hypotheses[0]!, h1] },
+			reason: "r",
+			signals: [],
+		}).prompt;
+		expect(review).toContain("この振り返りの対象（実行した試行");
+		expect(review).not.toContain("→ 試行中");
+	});
+
+	test("a rejected move says the findings it carried were recorded", async () => {
+		const { view } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis],
+				propose: [
+					proposal("step_back", {
+						...empty,
+						findings: [
+							{ kind: "observation", statement: "列は 5 つ", scope: "pursuit" },
+						],
+						message: "F9 を根拠に戻る",
+					}),
+					proposal("give_up", empty),
+				],
+			},
+			conditions: { findings: "all" },
+			policy: one,
+		});
+		const rej = view.attempts.find((a) => a.state === "rejected")!;
+		const detail = JSON.stringify(rej.rejection);
+		expect(detail).toContain("finding_not_recorded");
+		expect(detail).toContain("この提案の findings は台帳に記録済み: F1");
+	});
+
+	test("a finding is shown up to 800 characters", async () => {
+		const long = "い".repeat(700);
+		const { prompts } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis],
+				propose: [
+					call(
+						"read",
+						{},
+						{
+							...empty,
+							findings: [
+								{ kind: "observation", statement: long, scope: "pursuit" },
+							],
+						},
+					),
+					proposal("give_up", empty),
+				],
+			},
+			conditions: { findings: "all" },
+			policy: one,
+		});
+		expect(prompts.at(-1)!.prompt).toContain(long);
+	});
+});

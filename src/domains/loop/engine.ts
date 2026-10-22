@@ -188,6 +188,14 @@ function hypothesisHeld(
 	return refutationHeld(last.prediction.refutedIf, last.observation) === false;
 }
 
+const decidedByLabel: Record<DecidedBy, string> = {
+	rules: "規則",
+	judge: "判定者",
+	review: "見直し役",
+	human: "人",
+	generator: "生成器",
+};
+
 const budgetReasons = {
 	attempts: "追求全体の試行予算を使い切りました",
 	wall_time: "追求全体の時間予算を使い切りました",
@@ -918,6 +926,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				{ rule: "hypothesis_budget" },
 			);
 		}
+		const findingsBefore = new Set(view.findings.map((f) => f.id));
 		if (
 			conditions.findings !== "off" &&
 			(p.findings?.length || p.refute?.length)
@@ -957,7 +966,14 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		const inStrategy = view.hypotheses.filter(
 			(h) => h.strategyId === strategy?.id,
 		).length;
+		// Findings of a proposal are recorded before its move is checked: they are observations,
+		// valid whatever move is chosen. A rejection says so (spec/fixes-2026-10-22-c.md §5).
+		const kept = view.findings.filter((f) => !findingsBefore.has(f.id));
+		const keptNote = kept.length
+			? `（この提案の findings は台帳に記録済み: ${kept.map((f) => `F${f.seq}`).join(", ")}。退けたのは選んだ手だけなので、記録し直さず番号で引用してください）`
+			: "";
 		const refuse = async (rule: string, detail: string) => {
+			detail = `${detail}${keptNote}`;
 			const revision = await reject(
 				view,
 				{
@@ -1687,6 +1703,14 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				? `残りの部品に取り組む: ${unfinishedNote}`
 				: (reviewed?.direction ?? "");
 		const why = reviewed?.reason || reason;
+		// How the hypothesis ended and who decided, so a later request does not read a reviewer's
+		// reason as the hypothesis's own outcome (spec/fixes-2026-10-22-c.md §3).
+		const closing = (prefix = "") =>
+			`${prefix}${
+				hypothesis && hypothesisHeld(view, hypothesis.id, lastStepBack, fired)
+					? "成り立ったので次へ"
+					: "打ち切り"
+			}（判断: ${decidedByLabel[decidedBy]}）: ${why}`;
 		// rollback "notify": the reverted task files go into the decision basis, and the next
 		// generator requests name them until an attempt runs (prompts.ts revertBlock). Scratch
 		// work is never reverted; generated outputs are reverted and only counted.
@@ -1767,7 +1791,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					if (hypothesis?.status === "active") {
 						ledger.closeHypothesis(db, {
 							id: hypothesis.id,
-							result: `相談: ${why}`,
+							result: closing("相談・"),
 							now: clock.now(),
 						});
 						if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))
@@ -1788,7 +1812,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			if (status !== "proposing" && hypothesis?.status === "active") {
 				ledger.closeHypothesis(db, {
 					id: hypothesis.id,
-					result: why,
+					result: closing(),
 					now: clock.now(),
 				});
 				if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))

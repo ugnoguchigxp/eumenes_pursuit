@@ -292,7 +292,7 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 		.filter((f) => f.status === "superseded" && f.kind !== "dead_end")
 		.slice(-5);
 	const line = (f: PursuitView["findings"][number]) =>
-		`- F${f.seq} [${f.kind}・${assuranceLabel[f.assurance]}・${scopeLabel(view, f)}] ${clip(f.statement, 400)}${f.sourceAttemptId || f.sourceVerificationId ? ` (出典: ${f.sourceAttemptId ?? f.sourceVerificationId})` : ""}`;
+		`- F${f.seq} [${f.kind}・${assuranceLabel[f.assurance]}・${scopeLabel(view, f)}] ${clip(f.statement, 800)}${f.sourceAttemptId || f.sourceVerificationId ? ` (出典: ${f.sourceAttemptId ?? f.sourceVerificationId})` : ""}`;
 	return [
 		"## 知見（仮説を変えても残る）",
 		shown.length
@@ -381,8 +381,22 @@ function untriedBlock(view: PursuitView) {
 	].join("\n");
 }
 
-function historyBlock(view: PursuitView) {
+/**
+ * Earlier strategies and hypotheses. A closed hypothesis shows how it ended (its result names who
+ * decided, spec/fixes-2026-10-22-c.md §3); the open one shows its executed attempts, and in a
+ * review request it is the hypothesis being reviewed, not one still "in progress" (§4).
+ */
+function historyBlock(view: PursuitView, reviewing = false) {
 	if (!view.hypotheses.length) return "";
+	const open = (h: PursuitView["hypotheses"][number]) => {
+		const mine = view.attempts.filter((a) => a.hypothesisId === h.id);
+		const ran = mine.filter(
+			(a) => a.state === "settled" || a.state === "interrupted",
+		).length;
+		return reviewing && h.id === view.currentHypothesisId
+			? `この振り返りの対象（実行した試行 ${ran} 回）`
+			: `試行中（実行した試行 ${ran} 回）`;
+	};
 	return [
 		"## これまでの方針と仮説",
 		...view.strategies.map((s) =>
@@ -390,7 +404,10 @@ function historyBlock(view: PursuitView) {
 				`- 方針${s.seq}: ${s.body}${s.closeReason ? `（終了: ${s.closeReason}）` : ""}`,
 				...view.hypotheses
 					.filter((h) => h.strategyId === s.id)
-					.map((h) => `  - 仮説${h.seq}: ${h.body} → ${h.result ?? "試行中"}`),
+					.map(
+						(h) =>
+							`  - 仮説${h.seq}: ${h.body} → ${h.result === null ? open(h) : clip(h.result, 400)}`,
+					),
 			].join("\n"),
 		),
 	].join("\n");
@@ -521,7 +538,7 @@ export function hypothesisRequest(input: {
 			"## 依頼",
 			"この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。",
 			input.tools.some((t) => t.sideEffect === "workspace")
-				? "targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。読むだけの仮説なら空にします。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+				? "targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
 				: "",
 			view.input.conditions.selfCheck === "parts"
 				? "部品のうち、まだ済んでいないものを一つ選び、それを進める仮説にしてください。詰まりに次の一手が書かれていれば、それを優先してください。"
@@ -706,7 +723,7 @@ export function reviewRequest(input: {
 			input.signals.length
 				? `## 記録から数えた兆候\n${input.signals.join(", ")}`
 				: "",
-			historyBlock(view),
+			historyBlock(view, true),
 			...view.hypotheses
 				.filter((h) => h.strategyId === strategy?.id)
 				.map((h) => {
