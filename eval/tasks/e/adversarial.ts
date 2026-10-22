@@ -1,11 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import type { CriterionResult, LlmPort } from "../../../src/contracts/index.ts";
+import type {
+	CriterionResult,
+	JsonValue,
+	LlmPort,
+} from "../../../src/contracts/index.ts";
 import type { EvalTask, TaskContext } from "../../contracts.ts";
 import { listFiles } from "../../tools/fs-util.ts";
 import { resolveInside } from "../../tools/paths.ts";
-import { clipText } from "../../tools/text.ts";
 import {
 	createToolPort,
 	defineTool,
@@ -66,6 +69,9 @@ export interface AdversarialSpec {
 export const MIN_CITED_PAGES = 3;
 const MAX_REPORT = 40_000;
 const MAX_PAGE = 30_000;
+/** list_sources pages (spec/fixes-2026-10-22.md §f). */
+const SOURCES_PAGE = 30;
+const SOURCES_MAX = 100;
 const CRITERION = "researched-and-robust";
 export const ADVERSARIAL_PASS = "合格";
 export const ADVERSARIAL_FAIL = "不合格";
@@ -368,11 +374,18 @@ export function defineAdversarialTask(
 				defineTool(
 					{
 						name: "list_sources",
-						description:
-							"資料サーバにある、この問いの資料の一覧（題名と URL）を返す。",
+						description: `資料サーバにある、この問いの資料の一覧（題名と URL）を返す。offset（0 始まり）から limit 件（省略時 ${SOURCES_PAGE}、最大 ${SOURCES_MAX}）。total は全件数、next_offset は続きの開始位置（無ければ null）。`,
 						permission: "corpus.read",
+						properties: {
+							offset: prop("integer", "何件目から返すか（0 始まり、省略時 0）"),
+							limit: prop(
+								"integer",
+								`返す件数（省略時 ${SOURCES_PAGE}、最大 ${SOURCES_MAX}）`,
+							),
+						},
+						fingerprintFields: ["offset", "limit"],
 					},
-					async (_input, signal) => {
+					async (input, signal) => {
 						if (!base)
 							return fail("no_corpus", "資料サーバが設定されていません");
 						const r = await fetchText(
@@ -381,17 +394,43 @@ export function defineAdversarialTask(
 						).catch(() => null);
 						if (!r || r.status !== 200)
 							return fail("corpus_unreachable", "資料サーバに接続できません");
-						return ok(JSON.parse(r.text));
+						const index = JSON.parse(r.text) as { [key: string]: JsonValue };
+						if (!Array.isArray(index.sources)) return ok(index);
+						const offset = Math.max(0, Number(input.offset ?? 0) | 0);
+						const limit = Math.min(
+							SOURCES_MAX,
+							Math.max(1, Number(input.limit ?? SOURCES_PAGE) | 0),
+						);
+						const end = offset + limit;
+						// Paging fields first: a clipped observation still shows them.
+						const sources = index.sources as JsonValue[];
+						const rest = Object.fromEntries(
+							Object.entries(index).filter(([k]) => k !== "sources"),
+						);
+						return ok({
+							total: sources.length,
+							offset,
+							next_offset: end < sources.length ? end : null,
+							...rest,
+							sources: sources.slice(offset, end),
+						});
 					},
 				),
 				defineTool(
 					{
 						name: "fetch_page",
-						description: `資料サーバ上の文書を取得し、本文をテキストで返す（${MAX_PAGE} 文字まで）。取得できるのは資料サーバの URL だけ。`,
+						description: `資料サーバ上の文書を取得し、本文をテキストで返す。offset（0 始まりの文字位置）から limit 文字（省略時・最大 ${MAX_PAGE}）。total_chars は本文の全文字数、next_offset は続きの開始位置（無ければ null）。取得できるのは資料サーバの URL だけ。`,
 						permission: "corpus.read",
-						properties: { url: prop("string", "資料サーバの URL") },
+						properties: {
+							url: prop("string", "資料サーバの URL"),
+							offset: prop(
+								"integer",
+								"読み始める文字位置（0 始まり、省略時 0）",
+							),
+							limit: prop("integer", `読む文字数（省略時・最大 ${MAX_PAGE}）`),
+						},
 						required: ["url"],
-						fingerprintFields: ["url"],
+						fingerprintFields: ["url", "offset", "limit"],
 					},
 					async (input, signal) => {
 						if (!base)
@@ -415,10 +454,22 @@ export function defineAdversarialTask(
 						const body = /<html|<body|<p[ >]/i.test(r.text)
 							? htmlToText(r.text)
 							: r.text;
+						const pageStart = Math.max(0, Number(input.offset ?? 0) | 0);
+						const pageChars = Math.min(
+							MAX_PAGE,
+							Math.max(1, Number(input.limit ?? MAX_PAGE) | 0),
+						);
+						// Paging fields before the text: a clipped observation still shows them.
 						const out = {
 							url: parsed.href,
 							status: r.status,
-							text: clipText(body, MAX_PAGE),
+							total_chars: body.length,
+							offset: pageStart,
+							next_offset:
+								pageStart + pageChars < body.length
+									? pageStart + pageChars
+									: null,
+							text: body.slice(pageStart, pageStart + pageChars),
 						};
 						return r.status === 200
 							? ok(out)

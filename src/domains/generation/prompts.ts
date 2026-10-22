@@ -180,10 +180,39 @@ export function verdictText(
 		: "未判定（状態は予測どおり。反証の条件なし）";
 }
 
+/** Whether a tool reads in pages: its input schema has offset and limit. */
+function pages(tool: ToolDescriptor | undefined): boolean {
+	const props = (tool?.inputSchema as { properties?: Record<string, unknown> })
+		?.properties;
+	return !!props && "offset" in props && "limit" in props;
+}
+
+/**
+ * An observation clipped to `limit` characters of its JSON text, saying how long it was and how
+ * to read the rest (spec/fixes-2026-10-22.md §f). Clipping is only in this prompt; the ledger
+ * keeps the whole observation.
+ */
+function observationText(
+	output: JsonValue,
+	limit: number,
+	tool: ToolDescriptor | undefined,
+) {
+	const text = JSON.stringify(output);
+	if (text.length <= limit) return text;
+	const how = pages(tool)
+		? `この道具は offset / limit で続きを読めます（単位は道具の説明のとおり）`
+		: `範囲や件数を絞って呼び直すか、結果をファイルに書いて分けて読んでください`;
+	return `${text.slice(0, limit)}…［観測は全 ${text.length} 字のうち先頭 ${limit} 字だけ表示。${how}］`;
+}
+
 function attemptLine(
 	a: AttemptRow,
 	limit: number,
 	mode: "refutation" | "status" = "refutation",
+	shown: { chars: number; tools: readonly ToolDescriptor[] } = {
+		chars: limit * 3,
+		tools: [],
+	},
 ) {
 	const head = `#${a.seq} ${a.tool} ${show(a.input, limit)}`;
 	const prediction = `予測: ${a.prediction.expectedStatus} / ${clip(a.prediction.expectedObservation || "（なし）", limit)}${a.prediction.refutedIf ? `\n  反証の条件: ${clip(a.prediction.refutedIf, limit)}` : ""}`;
@@ -192,7 +221,11 @@ function attemptLine(
 	if (a.state === "interrupted")
 		return `${head}\n  ${prediction}\n  中断（実行結果・副作用の有無は不明）`;
 	const observed = a.observation
-		? `${a.observation.status}${a.observation.errorCode ? `(${a.observation.errorCode})` : ""} ${show(a.observation.output, limit * 3)}`
+		? `${a.observation.status}${a.observation.errorCode ? `(${a.observation.errorCode})` : ""} ${observationText(
+				a.observation.output,
+				shown.chars,
+				shown.tools.find((t) => t.name === a.tool),
+			)}`
 		: "（未観測）";
 	return `${head}\n  ${prediction}\n  観測: ${observed}\n  判定: ${verdictText(a, mode)}`;
 }
@@ -436,7 +469,7 @@ export function hypothesisRequest(input: {
 			historyBlock(view),
 			findingsBlock(view, false),
 			findingsReminder(view),
-			lastAttemptsBlock(view, 6),
+			lastAttemptsBlock(view, 6, input.tools),
 			revertBlock(view),
 			consultationsBlock(view),
 			`## 現在の方針\n${strategy?.body ?? ""}`,
@@ -454,13 +487,37 @@ export function hypothesisRequest(input: {
 	};
 }
 
-function lastAttemptsBlock(view: PursuitView, n: number) {
+/** The latest executed attempt gets policy.observation.latestChars; older ones get olderChars × share. */
+function observedFor(
+	view: PursuitView,
+	tools: readonly ToolDescriptor[],
+	share = 1,
+) {
+	const latest = [...view.attempts]
+		.reverse()
+		.find((a) => a.state === "settled" || a.state === "interrupted");
+	const limits = view.input.policy.observation;
+	return (a: AttemptRow) => ({
+		chars:
+			a.id === latest?.id
+				? limits.latestChars
+				: Math.max(1, Math.round(limits.olderChars * share)),
+		tools,
+	});
+}
+
+function lastAttemptsBlock(
+	view: PursuitView,
+	n: number,
+	tools: readonly ToolDescriptor[],
+) {
 	const shown = view.attempts.slice(-n);
 	if (!shown.length) return "";
+	const observed = observedFor(view, tools, 0.5);
 	return [
 		"## 直近の試行",
 		...shown.map((a) =>
-			attemptLine(a, 300, view.input.conditions.verdictLabel),
+			attemptLine(a, 300, view.input.conditions.verdictLabel, observed(a)),
 		),
 	].join("\n");
 }
@@ -524,7 +581,12 @@ export function proposalRequest(input: {
 				? [
 						"## この仮説での試行",
 						...mine.map((a) =>
-							attemptLine(a, 600, view.input.conditions.verdictLabel),
+							attemptLine(
+								a,
+								600,
+								view.input.conditions.verdictLabel,
+								observedFor(view, input.tools)(a),
+							),
 						),
 					].join("\n")
 				: "## この仮説での試行\nまだありません。",

@@ -124,3 +124,4 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `conditions.verdictLabel`: `"refutation" | "status"`（既定 `"refutation"`）。試行の判定の表示は、機械で判定できる `refutedIf`（`status:ok|error`、`contains:"…"`、`not_contains:"…"` を `||` で並べたもの）に基づかせる。それ以外は「未判定」とし、道具の状態だけで「予測どおり」とは表示しない。`status` は v1.6 の表示。`outcome` は変わらない。
 - `policy.signals.scratchDirs`（既定 `["scratch", "notes", "tmp", "__pycache__"]`）。`scope_growth` は、作業領域を変える試行が、その仮説でまだ変えていなかった課題のファイルを続けて新たに変えた回数で数える。読むだけの試行と scratch のディレクトリの下のファイルは数えない。
 - 規則 `finding_not_recorded`（`conditions.findings` が off 以外で、規則層が有効なとき）: 提案が台帳にない F番号を引用したら拒否する。見るのは uses / refute と、message・自己評価・受入条件ごとの判断の中の F番号。知見が 0 件のまま試行が 5 回以上実行されたら、方針と仮説の要求で記録を促す。
+- `policy.observation`（既定 `{ latestChars: 8000, olderChars: 1800 }`）。生成要求の中で、最後に実行した試行の観測は latestChars まで、それ以外は olderChars まで表示する。切ったときは全体の長さと続きの読み方を示し、入力 schema に `offset` / `limit` を持つ道具ならそれで読めると伝える。台帳の観測は切らない。

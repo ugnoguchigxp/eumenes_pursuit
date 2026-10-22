@@ -211,12 +211,16 @@ export function createCodeTools(options: CodeToolsOptions): ToolDef[] {
 	const readFileTool = defineTool(
 		{
 			name: "read_file",
-			description: `work 内のテキストファイルを読む。${MAX_READ_CHARS} 文字を超える分は切り詰める。`,
+			description: `work 内のテキストファイルを読む。offset（0 始まりの行番号）と limit（行数）で一部だけ読める。${MAX_READ_CHARS} 文字を超える分は切り詰める。`,
 			permission: "code.read",
 			readsWorkspace: true,
-			properties: { path: prop("string", "work からの相対パス") },
+			properties: {
+				path: prop("string", "work からの相対パス"),
+				offset: prop("integer", "読み始める行（0 始まり、省略時 0）"),
+				limit: prop("integer", "読む行数（省略時は最後まで）"),
+			},
 			required: ["path"],
-			fingerprintFields: ["path"],
+			fingerprintFields: ["path", "offset", "limit"],
 		},
 		async (input) => {
 			const safe = await resolveInside(workDir, String(input.path));
@@ -229,10 +233,18 @@ export function createCodeTools(options: CodeToolsOptions): ToolDef[] {
 			}
 			if (!info.isFile())
 				return fail("not_a_file", `${safe.rel} is not a file`);
-			const text = (await readFile(safe.abs)).toString("utf8");
+			const lines = (await readFile(safe.abs)).toString("utf8").split("\n");
+			const offset = Math.max(0, Number(input.offset ?? 0) | 0);
+			const limit =
+				input.limit === undefined
+					? lines.length
+					: Math.max(0, Number(input.limit) | 0);
+			const text = lines.slice(offset, offset + limit).join("\n");
 			return ok(
 				{
 					path: safe.rel,
+					lines: lines.length,
+					offset,
 					truncated: text.length > MAX_READ_CHARS,
 					content: clipText(text, MAX_READ_CHARS),
 				},

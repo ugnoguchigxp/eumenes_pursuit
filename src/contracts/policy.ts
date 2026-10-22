@@ -61,6 +61,14 @@ export const policySchema = z.strictObject({
 			requireProgress: z.boolean(),
 		})
 		.default({ requireProgress: false }),
+	/**
+	 * Characters of an observation shown to the generator: the latest executed attempt, and every
+	 * older one. A clipped observation says how long it was and how to read the rest
+	 * (spec/fixes-2026-10-22.md §f).
+	 */
+	observation: z
+		.strictObject({ latestChars: count, olderChars: count })
+		.default({ latestChars: 8000, olderChars: 1800 }),
 	/** Limits of the text placed in the judge state. */
 	judgeState: z.strictObject({
 		maxChars: count,

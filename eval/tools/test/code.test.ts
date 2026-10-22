@@ -121,3 +121,36 @@ catch (error) { console.log(error.message); }
 		);
 	});
 });
+
+describe("read_file pages (spec/fixes-2026-10-22.md §f)", () => {
+	test("offset and limit select lines; the total line count is reported", async () => {
+		const task = await mkdtemp(join(tmpdir(), "code-read-"));
+		try {
+			const work = join(task, "work");
+			await mkdir(join(work, "src"), { recursive: true });
+			await writeFile(join(work, "src/a.ts"), "l0\nl1\nl2\nl3");
+			const port = createToolPort(
+				createCodeTools({ directory: task, workDir: work }),
+			);
+			const read = async (input: Record<string, unknown>) =>
+				(
+					await port.invoke(
+						{ tool: "read_file", input: { path: "src/a.ts", ...input } },
+						new AbortController().signal,
+					)
+				).output;
+			expect(await read({})).toMatchObject({
+				lines: 4,
+				offset: 0,
+				content: "l0\nl1\nl2\nl3",
+			});
+			expect(await read({ offset: 1, limit: 2 })).toMatchObject({
+				lines: 4,
+				offset: 1,
+				content: "l1\nl2",
+			});
+		} finally {
+			await rm(task, { recursive: true, force: true });
+		}
+	});
+});

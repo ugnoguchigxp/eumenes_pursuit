@@ -265,6 +265,46 @@ describe("horizon-10a decision", () => {
 		expect(r.log).toContain('"path":"/tx/docs/a.html"');
 	});
 
+	test("list_sources and fetch_page read in pages (spec/fixes-2026-10-22.md §f)", async () => {
+		const r = await run([
+			{ tool: "list_sources", input: {} },
+			{ tool: "list_sources", input: { offset: 0, limit: 1 } },
+			{
+				tool: "fetch_page",
+				input: { url: "{{BASE}}/tx/docs/a.html", offset: 0, limit: 5 },
+			},
+			{
+				tool: "fetch_page",
+				input: { url: "{{BASE}}/tx/docs/a.html", offset: 5, limit: 100000 },
+			},
+		]);
+		const [all, one, head, rest] = r.outputs.map(
+			(o) => (o as { output: Record<string, unknown> }).output,
+		);
+		const total = all!.total as number;
+		expect((all!.sources as unknown[]).length).toBe(total);
+		expect(all!.next_offset).toBeNull();
+		expect(total).toBeGreaterThan(0);
+		expect(one).toMatchObject({ total, offset: 0 });
+		expect(one!.sources).toEqual((all!.sources as unknown[]).slice(0, 1));
+		expect(one!.next_offset).toBe(total > 1 ? 1 : null);
+		expect(head).toMatchObject({ offset: 0, next_offset: 5 });
+		expect((head!.text as string).length).toBe(5);
+		expect(String(head!.text) + String(rest!.text)).toHaveLength(
+			head!.total_chars as number,
+		);
+		expect(rest!.next_offset).toBeNull();
+		// Paging fields come first, so a clipped observation still shows them.
+		expect(Object.keys(one!).slice(0, 3)).toEqual([
+			"total",
+			"offset",
+			"next_offset",
+		]);
+		expect(Object.keys(head!).indexOf("next_offset")).toBeLessThan(
+			Object.keys(head!).indexOf("text"),
+		);
+	});
+
 	test("a correct, cited, graded report passes; nothing submitted is reported as missing", async () => {
 		expect(await run(good)).toMatchObject({
 			passed: true,
