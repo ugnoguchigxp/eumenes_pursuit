@@ -297,4 +297,32 @@ describe("direct baseline (D0)", () => {
 		});
 		expect(r.claimCriteria.map((c) => c[0]!.passed)).toEqual([false, true]);
 	});
+
+	test("a claim passes only when the frozen criteria come back exactly, like a pursuit claim (spec/fixes-2026-10-22.md §g)", async () => {
+		// Two frozen criteria; the host returns only "a" (passed) and an unknown extra.
+		const env = setup(0);
+		const tools = env.tools;
+		const acceptancePort = {
+			verify: async () => [
+				{ id: "a", passed: true, evidence: "合格" },
+				{ id: "x", passed: true, evidence: "余分" },
+			],
+		};
+		const { llm } = scripted([step("done"), step("give_up")]);
+		const r = await runDirect({
+			...base,
+			acceptance: [
+				{ id: "a", text: "条件の文" },
+				{ id: "b", text: "もう一つ" },
+			],
+			tools,
+			acceptancePort,
+			llm,
+			budget,
+		});
+		expect(r.claims).toBe(1);
+		expect(r.failedClaims).toBe(1);
+		expect(r.outcome).toBe("incomplete");
+		expect(r.verified).toBe(false);
+	});
 });

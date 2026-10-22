@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import {
+	acceptancePassed,
 	claimVerdictText,
 	LlmOutputError,
 	type AcceptancePort,
@@ -230,7 +231,8 @@ export async function runDirect(options: {
 		reason: string,
 		known?: readonly CriterionResult[],
 	): Promise<DirectResult> => {
-		// The final verify, as in the pursuit's finish().
+		// The final verify and the same strict check as the pursuit's finish() (exactly the frozen
+		// criteria, once each, all passed).
 		const criteria =
 			known ?? (await options.acceptancePort.verify(options.signal));
 		const changes =
@@ -239,7 +241,7 @@ export async function runDirect(options: {
 				: null;
 		return {
 			outcome,
-			verified: criteria.length > 0 && criteria.every((c) => c.passed),
+			verified: acceptancePassed(options.acceptance, criteria),
 			reason,
 			criteria,
 			entries,
@@ -305,7 +307,7 @@ export async function runDirect(options: {
 			invalidInRow = 0;
 			claims++;
 			const criteria = await options.acceptancePort.verify(options.signal);
-			const passed = criteria.length > 0 && criteria.every((c) => c.passed);
+			const passed = acceptancePassed(options.acceptance, criteria);
 			claimCriteria.push([...criteria]);
 			push({
 				kind: "claim",
