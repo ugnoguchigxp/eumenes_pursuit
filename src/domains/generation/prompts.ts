@@ -1,4 +1,5 @@
 import { findingClaimKey } from "../ledger/findings.ts";
+import { refutationHeld } from "../rules/refutation.ts";
 import { z } from "zod";
 import type {
 	JsonValue,
@@ -161,7 +162,29 @@ function consultationsBlock(view: PursuitView) {
 	].join("\n");
 }
 
-function attemptLine(a: AttemptRow, limit: number) {
+/** The verdict shown for an executed attempt (conditions.verdictLabel, spec/fixes-2026-10-22.md §b). */
+export function verdictText(
+	a: AttemptRow,
+	mode: "refutation" | "status" = "refutation",
+): string {
+	if (mode === "status")
+		return a.outcome === "success" ? "予測どおり" : "予測と違う/失敗";
+	if (a.observation && a.observation.status !== a.prediction.expectedStatus)
+		return "予測と違う（状態が予測と違う）";
+	const held = refutationHeld(a.prediction.refutedIf, a.observation);
+	if (held === true) return "反証の条件に当たった（仮説は誤りの可能性が高い）";
+	if (held === false) return "反証の条件に当たらなかった（状態も予測どおり）";
+	if (a.outcome === "failure") return "予測と違う（観測の照合）";
+	return a.prediction.refutedIf?.trim()
+		? "未判定（状態は予測どおり。反証の条件は機械では判定できない書き方）"
+		: "未判定（状態は予測どおり。反証の条件なし）";
+}
+
+function attemptLine(
+	a: AttemptRow,
+	limit: number,
+	mode: "refutation" | "status" = "refutation",
+) {
 	const head = `#${a.seq} ${a.tool} ${show(a.input, limit)}`;
 	const prediction = `予測: ${a.prediction.expectedStatus} / ${clip(a.prediction.expectedObservation || "（なし）", limit)}${a.prediction.refutedIf ? `\n  反証の条件: ${clip(a.prediction.refutedIf, limit)}` : ""}`;
 	if (a.state === "rejected")
@@ -171,7 +194,7 @@ function attemptLine(a: AttemptRow, limit: number) {
 	const observed = a.observation
 		? `${a.observation.status}${a.observation.errorCode ? `(${a.observation.errorCode})` : ""} ${show(a.observation.output, limit * 3)}`
 		: "（未観測）";
-	return `${head}\n  ${prediction}\n  観測: ${observed}\n  判定: ${a.outcome === "success" ? "予測どおり" : "予測と違う/失敗"}`;
+	return `${head}\n  ${prediction}\n  観測: ${observed}\n  判定: ${verdictText(a, mode)}`;
 }
 
 const assuranceLabel = {
@@ -417,7 +440,12 @@ export function hypothesisRequest(input: {
 function lastAttemptsBlock(view: PursuitView, n: number) {
 	const shown = view.attempts.slice(-n);
 	if (!shown.length) return "";
-	return ["## 直近の試行", ...shown.map((a) => attemptLine(a, 300))].join("\n");
+	return [
+		"## 直近の試行",
+		...shown.map((a) =>
+			attemptLine(a, 300, view.input.conditions.verdictLabel),
+		),
+	].join("\n");
 }
 
 /** The latest re-read of the deliverable, in full, for judging completion (spec/completion-design.md). */
@@ -476,9 +504,12 @@ export function proposalRequest(input: {
 			readBackBlock(view, input.tools),
 			`## 現在の仮説\n${hypothesis?.body ?? ""}\n期待する結果: ${hypothesis?.expected ?? ""}\n試行予算: ${mine.filter((a) => a.state !== "rejected").length}/${hypothesis?.budget ?? 0}`,
 			mine.length
-				? ["## この仮説での試行", ...mine.map((a) => attemptLine(a, 600))].join(
-						"\n",
-					)
+				? [
+						"## この仮説での試行",
+						...mine.map((a) =>
+							attemptLine(a, 600, view.input.conditions.verdictLabel),
+						),
+					].join("\n")
 				: "## この仮説での試行\nまだありません。",
 			claims.length
 				? [
@@ -496,6 +527,10 @@ export function proposalRequest(input: {
 				'- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。',
 				view.input.conditions.prediction === "falsifiable"
 					? "  kind が tool のときは refutedIf も書く。どんな観測が出たらこの仮説が誤りと分かるかを、予測とは別の具体的な観測で書く（予測の言い換えや空欄は受け付けません）。"
+					: "",
+				view.input.conditions.prediction === "falsifiable" &&
+				view.input.conditions.verdictLabel === "refutation"
+					? '  refutedIf を status:ok / status:error / contains:"文字列" / not_contains:"文字列" の形（|| で複数並べると、どれか一つで反証）で書くと、ホストが観測と突き合わせて判定を示す。文字列は観測に表示されたとおりに書く（JSON の形でも、値の文字列でもよい）。それ以外の書き方は「未判定」と表示される。'
 					: "",
 				view.input.conditions.verifyOn === "claim"
 					? '- kind "done": 受入条件を満たしたと考える。message に根拠を書く。照合は done を申告したときだけ行われ、試行のたびには行われません。受入条件を満たしたと考えたら、自分で done を選んでください。'

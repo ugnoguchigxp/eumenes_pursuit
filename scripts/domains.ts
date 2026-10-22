@@ -3,7 +3,7 @@ export const domains = {
 	ledger: { depends: [] },
 	rules: { depends: ["ledger"] },
 	judge: { depends: ["ledger", "rules"] },
-	generation: { depends: ["ledger"] },
+	generation: { depends: ["ledger", "rules"] },
 	loop: { depends: ["ledger", "rules", "judge", "generation"] },
 } as const;
 export type Domain = keyof typeof domains;

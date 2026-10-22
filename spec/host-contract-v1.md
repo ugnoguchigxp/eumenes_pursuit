@@ -121,4 +121,4 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 [評価で見つかった問題の改修](fixes-2026-10-22.md) に伴う変更。既定値の付いた項目の追加だけで、v1.6 の呼び出し側はそのまま動く。migration は無い。
 
 - `conditions.rollback`: `"notify" | "keep"`（既定 `"notify"`）。一段上へ戻るときの巻き戻しは黙って行わない。`notify` は戻したファイルを判断の `basis.reverted`（と `basis.attemptsAtRevert`）に残し、次の試行までの生成要求で名指しする。`keep` は戻さない。
-
+- `conditions.verdictLabel`: `"refutation" | "status"`（既定 `"refutation"`）。試行の判定の表示は、機械で判定できる `refutedIf`（`status:ok|error`、`contains:"…"`、`not_contains:"…"` を `||` で並べたもの）に基づかせる。それ以外は「未判定」とし、道具の状態だけで「予測どおり」とは表示しない。`status` は v1.6 の表示。`outcome` は変わらない。

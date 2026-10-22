@@ -21,6 +21,7 @@ export function conditionsFor(
 		verifyOn: Conditions["verifyOn"];
 		prediction: Conditions["prediction"];
 		completionCheck: Conditions["completionCheck"];
+		verdictLabel?: Conditions["verdictLabel"];
 		rollback?: Conditions["rollback"];
 	},
 ): Conditions {
@@ -34,6 +35,7 @@ export function conditionsFor(
 		verifyOn: options.verifyOn,
 		prediction: options.prediction,
 		completionCheck: options.completionCheck,
+		verdictLabel: options.verdictLabel ?? "refutation",
 		rollback: options.rollback ?? "notify",
 	} as const;
 	switch (name) {

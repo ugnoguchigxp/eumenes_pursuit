@@ -57,6 +57,13 @@ export const conditionsSchema = z.strictObject({
 	 * spec/fixes-2026-10-22.md §a.
 	 */
 	rollback: z.enum(["notify", "keep"]).default("notify"),
+	/**
+	 * The verdict label shown for each executed attempt: refutation (judge the stated refutedIf
+	 * where it is machine-checkable, otherwise "未判定"; never "予測どおり" from the tool status
+	 * alone), or status (v1.6 wording, kept to reproduce earlier runs). The attempt outcome the
+	 * rules count is unchanged. spec/fixes-2026-10-22.md §b.
+	 */
+	verdictLabel: z.enum(["refutation", "status"]).default("refutation"),
 });
 export type Conditions = z.infer<typeof conditionsSchema>;
 

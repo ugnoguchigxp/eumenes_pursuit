@@ -30,6 +30,7 @@ export function startInput(overrides: Partial<StartInput> = {}): StartInput {
 			prediction: "status",
 			completionCheck: "off",
 			rollback: "notify",
+			verdictLabel: "refutation",
 		},
 		goalRef: null,
 		label: "unit",

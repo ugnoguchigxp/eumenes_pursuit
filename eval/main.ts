@@ -89,6 +89,8 @@ const { values, positionals } = parseArgs({
 		prediction: { type: "string", default: "status" },
 		/** Before stepping back: off, or acceptance (re-read and judge each criterion). */
 		"completion-check": { type: "string", default: "off" },
+		/** Attempt verdict label: refutation (judge refutedIf; else 未判定) or status (v1.6 wording). */
+		"verdict-label": { type: "string", default: "refutation" },
 		/** Forced step-back rollback: notify (revert and name the files) or keep (never revert). */
 		rollback: { type: "string", default: "notify" },
 		/** Procedural lessons file from eval/reflect.ts, given as StartInput.experience. */
@@ -268,6 +270,9 @@ if (!["status", "falsifiable"].includes(prediction))
 const completionCheck = values["completion-check"] as "off" | "acceptance";
 if (!["off", "acceptance"].includes(completionCheck))
 	throw new Error("--completion-check must be off or acceptance");
+const verdictLabel = values["verdict-label"] as "refutation" | "status";
+if (!["refutation", "status"].includes(verdictLabel))
+	throw new Error("--verdict-label must be refutation or status");
 const rollback = values["rollback"] as "notify" | "keep";
 if (!["notify", "keep"].includes(rollback))
 	throw new Error("--rollback must be notify or keep");
@@ -304,6 +309,7 @@ const variant = [
 	verifyOn === "attempt" ? "" : `/V-${verifyOn}`,
 	prediction === "status" ? "" : `/R-${prediction}`,
 	completionCheck === "off" ? "" : `/A-${completionCheck}`,
+	verdictLabel === "refutation" ? "" : `/VL-${verdictLabel}`,
 	rollback === "notify" ? "" : `/RB-${rollback}`,
 	useFile ? "/LLM-file" : "",
 	graderMode === "file" ? "/G-file" : "",
@@ -494,6 +500,7 @@ for (const condition of conditionNames) {
 				prediction,
 				completionCheck,
 				rollback,
+				verdictLabel,
 			}) as unknown as import("../src/index.ts").JsonValue,
 			toolTier,
 			critic: values.critic!,
@@ -588,6 +595,7 @@ async function runOne(job: (typeof jobs)[number]) {
 					prediction,
 					completionCheck,
 					rollback,
+					verdictLabel,
 				}),
 				goalRef: null,
 				label: task.id,
