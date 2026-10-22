@@ -302,6 +302,8 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 				)}${hidden.length > 10 ? " ほか" : ""}）は台帳にあるが、この条件（findings: verified）では照合で確かめられるまで本文を表示しない。番号での引用はできる。`
 		: "";
 	const deadEnds = view.findings.filter((f) => f.kind === "dead_end");
+	// Refuted findings stay citable as one line each (spec/fixes-2026-10-22-f.md §C).
+	const refuted = view.findings.filter((f) => f.status === "refuted");
 	const superseded = view.findings
 		.filter((f) => f.status === "superseded" && f.kind !== "dead_end")
 		.slice(-5);
@@ -336,6 +338,17 @@ function findingsBlock(view: PursuitView, forProposal: boolean) {
 			? [
 					"## 行き止まり（同じ経路を繰り返さない。ホストが記録し、知見と同じ F 番号列を使う）",
 					...deadEnds.slice(-10).map(line),
+				].join("\n")
+			: "",
+		refuted.length
+			? [
+					"## 反証済み（使わない。番号は引用できる）",
+					...refuted
+						.slice(-10)
+						.map(
+							(f) =>
+								`- F${f.seq} 反証済み: ${clip(f.statement, 120)} ／ 理由: ${clip(f.reason ?? "（なし）", 300)}`,
+						),
 				].join("\n")
 			: "",
 		superseded.length
@@ -440,52 +453,57 @@ function premiseFixes(view: PursuitView, strategyId: string): string {
  * decided, spec/fixes-2026-10-22-c.md §3); the open one shows its executed attempts, and in a
  * review request it is the hypothesis being reviewed, not one still "in progress" (§4).
  */
+/**
+ * The one tally of a hypothesis's attempts (spec/fixes-2026-10-22-f.md §D): the same verdicts as each
+ * attempt line, used by every request that counts a hypothesis's attempts and by host dead ends.
+ */
+export function attemptTally(view: PursuitView, hypothesisId: string): string {
+	const mine = view.attempts.filter((a) => a.hypothesisId === hypothesisId);
+	const ran = mine.filter(
+		(a) => a.state === "settled" || a.state === "interrupted",
+	).length;
+	const tally = { held: 0, refuted: 0, differs: 0, open: 0 };
+	for (const a of mine) {
+		if (a.state === "interrupted") tally.open++;
+		if (a.state !== "settled") continue;
+		const held = refutationHeld(a.prediction.refutedIf, a.observation);
+		if (held === true) tally.refuted++;
+		else if (held === false) tally.held++;
+		else if (
+			a.observation &&
+			(a.observation.status !== a.prediction.expectedStatus ||
+				a.outcome === "failure")
+		)
+			tally.differs++;
+		else tally.open++;
+	}
+	const rejected = mine.filter((a) => a.state === "rejected").length;
+	return `実行した試行 ${ran} 回: 反証の条件に当たらなかった ${tally.held}・当たった ${tally.refuted}${tally.differs ? `・予測と違う ${tally.differs}` : ""}・未判定 ${tally.open}。拒否 ${rejected} 回`;
+}
+
 function historyBlock(view: PursuitView, reviewing = false) {
 	if (!view.hypotheses.length) return "";
 	const open = (h: PursuitView["hypotheses"][number]) => {
-		const mine = view.attempts.filter((a) => a.hypothesisId === h.id);
-		const ran = mine.filter(
-			(a) => a.state === "settled" || a.state === "interrupted",
-		).length;
-		if (!(reviewing && h.id === view.currentHypothesisId))
+		if (!(reviewing && h.id === view.currentHypothesisId)) {
+			const ran = view.attempts.filter(
+				(a) =>
+					a.hypothesisId === h.id &&
+					(a.state === "settled" || a.state === "interrupted"),
+			).length;
 			return `試行中（実行した試行 ${ran} 回）`;
-		// The reviewed hypothesis's tally, by the same verdicts as each line (fixes-2026-10-22-d §3.5).
-		const tally = { held: 0, refuted: 0, differs: 0, open: 0 };
-		for (const a of mine) {
-			if (a.state === "interrupted") tally.open++;
-			if (a.state !== "settled") continue;
-			const held = refutationHeld(a.prediction.refutedIf, a.observation);
-			if (held === true) tally.refuted++;
-			else if (held === false) tally.held++;
-			else if (
-				a.observation &&
-				(a.observation.status !== a.prediction.expectedStatus ||
-					a.outcome === "failure")
-			)
-				tally.differs++;
-			else tally.open++;
 		}
-		const rejected = mine.filter((a) => a.state === "rejected").length;
-		// The one tally of this hypothesis in a review request (fixes-2026-10-22-e §3).
-		return `この振り返りの対象（実行した試行 ${ran} 回: 反証の条件に当たらなかった ${tally.held}・当たった ${tally.refuted}${tally.differs ? `・予測と違う ${tally.differs}` : ""}・未判定 ${tally.open}。拒否 ${rejected} 回）`;
-	};
-	const closedTally = (id: string) => {
-		const mine = view.attempts.filter((a) => a.hypothesisId === id);
-		const ran = mine.filter(
-			(a) => a.state === "settled" || a.state === "interrupted",
-		).length;
-		return `（実行した試行 ${ran} 回・予測と違う/失敗 ${mine.filter((a) => a.outcome === "failure").length} 回・拒否 ${mine.filter((a) => a.state === "rejected").length} 回）`;
+		return `この振り返りの対象（${attemptTally(view, h.id)}）`;
 	};
 	return [
 		"## これまでの方針と仮説",
 		...view.strategies.map((s) =>
 			[
-				`- 方針${s.seq}: ${s.body}${premiseFixes(view, s.id)}${s.closeReason ? `（終了: ${s.closeReason}）` : ""}`,
+				`- 方針${s.seq}: ${s.body}${premiseFixes(view, s.id)}${s.closeReason ? `（終了: ${clip(s.closeReason, 800)}）` : ""}`,
 				...view.hypotheses
 					.filter((h) => h.strategyId === s.id)
 					.map(
 						(h) =>
-							`  - 仮説${h.seq}: ${h.body} → ${h.result === null ? open(h) : `${clip(h.result, 400)}${reviewing && h.strategyId === view.currentStrategyId ? closedTally(h.id) : ""}`}`,
+							`  - 仮説${h.seq}: ${h.body} → ${h.result === null ? open(h) : `${clip(h.result, 800)}${reviewing && h.strategyId === view.currentStrategyId ? `（${attemptTally(view, h.id)}）` : ""}`}`,
 					),
 			].join("\n"),
 		),
@@ -537,6 +555,17 @@ function revertBlock(view: PursuitView) {
 		.join("\n");
 }
 
+/**
+ * The hypothesis budget, when the last decision re-plans a strategy the review chose to continue
+ * (spec/fixes-2026-10-22-f.md §A); 0 otherwise.
+ */
+function continuing(view: PursuitView): number {
+	const last = view.decisions.at(-1);
+	return last?.kind === "revise_strategy" && last.basis?.continuation === true
+		? Number(last.basis.hypothesesPerStrategy ?? 0) || 0
+		: 0;
+}
+
 export function planRequest(input: {
 	view: PursuitView;
 	tools: readonly ToolDescriptor[];
@@ -561,19 +590,24 @@ export function planRequest(input: {
 			experienceBlock(view),
 			input.direction ? `## 振り返りからの方向づけ\n${input.direction}` : "",
 			"## 依頼",
-			...(view.input.conditions.strategyChange === "distinct"
+			...(continuing(view)
 				? [
-						untriedBlock(view),
-						view.strategies.length
-							? "これまでの方針はうまくいきませんでした。前提を見直し、これまでのどの方針とも核となる考え方（使う対象・道具立て・論法）が違う方針を一つ立ててください。同じ手法の言い換えや細部の修正は別の方針ではありません。試していない別案から選ぶか、新しく考えてください。rationale には、前の方針との違いと、前の方針が行き詰まった点をこの方針がどう避けるかを書いてください。"
-							: "目標に向かう方針を一つ立ててください。選んだ理由も書いてください。",
-						"alternatives には、選んだ方針と核となる考え方が違う別案を 2〜4 件、それぞれ一文で書いてください（同じ手法の変形は不可）。",
+						`方針${view.strategies.at(-1)?.seq ?? "?"}は誤りで終わったのではなく、方針あたりの仮説の上限（${continuing(view)} 件）に達したため、規則で新しい方針として立て直す。振り返りはこの方針を続けるよう勧めている。前の方針の考え方と、その下で得た知見を引き継ぎ、残りの部分に絞った方針を一つ書いてください（核となる考え方を変える必要はない）。`,
+						"alternatives には、うまくいかなかったときの別案を 1〜4 件、それぞれ一文で書いてください。",
 					]
-				: [
-						view.strategies.length
-							? "これまでの方針はうまくいきませんでした。前提を見直し、別の方針を一つ立ててください。試していない別案も挙げてください。"
-							: "目標に向かう方針を一つ立ててください。選んだ理由と、試していない別案も挙げてください。",
-					]),
+				: view.input.conditions.strategyChange === "distinct"
+					? [
+							untriedBlock(view),
+							view.strategies.length
+								? "これまでの方針はうまくいきませんでした。前提を見直し、これまでのどの方針とも核となる考え方（使う対象・道具立て・論法）が違う方針を一つ立ててください。同じ手法の言い換えや細部の修正は別の方針ではありません。試していない別案から選ぶか、新しく考えてください。rationale には、前の方針との違いと、前の方針が行き詰まった点をこの方針がどう避けるかを書いてください。"
+								: "目標に向かう方針を一つ立ててください。選んだ理由も書いてください。",
+							"alternatives には、選んだ方針と核となる考え方が違う別案を 2〜4 件、それぞれ一文で書いてください（同じ手法の変形は不可）。",
+						]
+					: [
+							view.strategies.length
+								? "これまでの方針はうまくいきませんでした。前提を見直し、別の方針を一つ立ててください。試していない別案も挙げてください。"
+								: "目標に向かう方針を一つ立ててください。選んだ理由と、試していない別案も挙げてください。",
+						]),
 			parts
 				? "parts には、この方針が成り立つのに要る部品（示すべき主張・作るべきもの）を 1〜6 件、順に一文ずつ書いてください。部品がすべて済めば目標に届く、という分け方にしてください。"
 				: "",
@@ -809,6 +843,53 @@ function stepBackKind(view: PursuitView): string {
 		: `行き詰まりの可能性: ${last?.decidedBy === "generator" ? "生成側が" : "規則・判定が"}一段上へ戻した${attempt ? (held ? "" : "（直前の試行は予測と違うか、反証の条件に当たった）") : "（この仮説で実行した試行なし）"}。どの前提が崩れたかを問う。`;
 }
 
+/**
+ * What is left, counted by the host (spec/fixes-2026-10-22-f.md §E): the pursuit's budgets, and for
+ * each tool whose latest observation reports `calls_left`, that number (e.g. probe).
+ */
+function budgetBlock(view: PursuitView): string {
+	const b = view.input.policy.budget;
+	const executed = view.attempts.filter(
+		(a) => a.state === "settled" || a.state === "interrupted",
+	).length;
+	const hypothesis = view.hypotheses.find(
+		(h) => h.id === view.currentHypothesisId,
+	);
+	const inHypothesis = hypothesis
+		? view.attempts.filter(
+				(a) =>
+					a.hypothesisId === hypothesis.id &&
+					(a.state === "settled" || a.state === "interrupted"),
+			).length
+		: 0;
+	const inStrategy = view.hypotheses.filter(
+		(h) => h.strategyId === view.currentStrategyId,
+	).length;
+	const stepBacks = view.decisions.filter((d) => d.kind === "step_back").length;
+	const tools = new Map<string, number>();
+	for (const a of view.attempts) {
+		const out = a.observation?.output;
+		if (
+			a.state !== "settled" ||
+			!out ||
+			typeof out !== "object" ||
+			Array.isArray(out)
+		)
+			continue;
+		const left = (out as Record<string, unknown>).calls_left;
+		if (typeof left === "number") tools.set(a.tool, left);
+	}
+	return [
+		"## 残りの予算（ホストが数えた値）",
+		`- 試行: 全体で ${executed}/${b.attempts} 回使用${hypothesis ? `、この仮説で ${inHypothesis}/${hypothesis.budget} 回` : ""}`,
+		`- 仮説: この方針で ${inStrategy}/${b.hypothesesPerStrategy} 件（上限に達すると規則で方針を立て直す）`,
+		`- 方針: ${view.strategies.length}/${b.strategies} 件、一段上へ戻る: ${stepBacks}/${b.stepBacks} 回`,
+		...[...tools].map(
+			([tool, left]) => `- ${tool}: 残り ${left} 回（直近の観測の calls_left）`,
+		),
+	].join("\n");
+}
+
 export function reviewRequest(input: {
 	view: PursuitView;
 	reason: string;
@@ -828,6 +909,7 @@ export function reviewRequest(input: {
 				? `## 記録から数えた兆候\n${input.signals.join(", ")}`
 				: "",
 			`## 戻った事情\n${stepBackKind(view)}`,
+			budgetBlock(view),
 			historyBlock(view, true),
 			findingsBlock(view, false),
 			partsBlock(view),

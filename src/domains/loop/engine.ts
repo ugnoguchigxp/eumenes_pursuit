@@ -39,8 +39,10 @@ import {
 } from "../judge/interpret.ts";
 import { postState, preState, reviewState } from "../judge/state.ts";
 import {
+	attemptTally,
 	hypothesisRequest,
 	planRequest,
+	verdictText,
 	proposalRequest,
 	reviewRequest,
 	type Proposal,
@@ -419,20 +421,42 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		}
 	}
 
-	/** The host's own record of a closed path: a fact, so exact (spec/findings-design.md). */
+	/**
+	 * The host's own record of a closed path (spec/findings-design.md). Built from the record only, so
+	 * 確定 is warranted: the hypothesis, its tally, the last executed attempt's verdict, and the step
+	 * back's reason quoted as the stepper's words (spec/fixes-2026-10-22-f.md §B). A reviewer's
+	 * reason is not pasted in: it judges the strategy, not what failed.
+	 */
 	function recordDeadEnd(
 		db: LedgerDb,
 		view: PursuitView,
-		hypothesis: string,
-		why: string,
+		hypothesisId: string,
 	) {
+		const h = view.hypotheses.find((x) => x.id === hypothesisId);
+		if (!h) return;
+		const last = view.attempts
+			.filter((a) => a.hypothesisId === h.id && a.state === "settled")
+			.at(-1);
+		const stepBack = [...view.decisions]
+			.reverse()
+			.find((d) => d.kind === "step_back");
+		const who = stepBack?.decidedBy === "generator" ? "生成側" : "規則・判定";
+		const statement = [
+			`仮説${h.seq}「${sentenceClip(h.body, 200)}」は成り立たないまま閉じた（${attemptTally(view, h.id)}）。`,
+			last
+				? `最後に実行した試行: #${last.seq} ${last.tool} → ${verdictText(last, view.input.conditions.verdictLabel)}。`
+				: "実行した試行はない。",
+			stepBack?.reason
+				? `一段上へ戻した理由（${who}の説明。ホストは確かめていない）: ${sentenceClip(stepBack.reason, 200)}`
+				: "",
+		].join("");
 		recordFindings(
 			db,
 			view,
 			[
 				{
 					kind: "dead_end",
-					statement: `仮説「${hypothesis.slice(0, 200)}」は進まなかった: ${why.slice(0, 300)}`,
+					statement,
 					assurance: "exact",
 					scope: "strategy",
 				},
@@ -958,6 +982,11 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					})),
 					lastSettled?.id ?? null,
 				);
+				// What replaced a refuted finding: the findings recorded in the same move (fixes f §C).
+				const added = ledger
+					.loadFindings(db, view.id)
+					.filter((f) => !findingsBefore.has(f.id) && f.kind !== "dead_end")
+					.map((f) => `F${f.seq}`);
 				for (const refute of p.refute ?? []) {
 					const seq = Number(/^F?(\d+)$/i.exec(refute.id.trim())?.[1]);
 					const target = view.findings.find((f) => f.seq === seq);
@@ -967,7 +996,9 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 							id: target.id,
 							pursuitId: view.id,
 							status: "refuted",
-							reason: refute.reason,
+							reason: added.length
+								? `${refute.reason}［同じ一手で記録: ${added.join(", ")}］`
+								: refute.reason,
 							now: clock.now(),
 						});
 				}
@@ -1720,6 +1751,12 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				? `残りの部品に取り組む: ${unfinishedNote}`
 				: (reviewed?.direction ?? "");
 		const why = reviewed?.reason || reason;
+		// A review that kept the strategy, turned into a new plan only because the strategy's
+		// hypothesis budget is spent (spec/fixes-2026-10-22-f.md §A): the strategy did not fail.
+		const continuation =
+			kind === "revise_strategy" &&
+			reviewed?.decision === "continue_strategy" &&
+			escalation.includes("hypotheses_per_strategy");
 		// How the hypothesis ended and who decided, so a later request does not read a reviewer's
 		// reason as the hypothesis's own outcome (spec/fixes-2026-10-22-c.md §3).
 		const closing = (prefix = "") =>
@@ -1781,6 +1818,12 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			signals: fired.map((s) => s.code),
 			escalation,
 			direction,
+			...(continuation
+				? {
+						continuation: true,
+						hypothesesPerStrategy: policy.budget.hypothesesPerStrategy,
+					}
+				: {}),
 		};
 		if (kind === "stop") {
 			await store.write((db) => {
@@ -1814,7 +1857,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 							now: clock.now(),
 						});
 						if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))
-							recordDeadEnd(db, view, hypothesis.body, why);
+							recordDeadEnd(db, view, hypothesis.id);
 					}
 				},
 				revertNote,
@@ -1835,15 +1878,18 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					now: clock.now(),
 				});
 				if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))
-					recordDeadEnd(db, view, hypothesis.body, why);
+					recordDeadEnd(db, view, hypothesis.id);
 			}
 			if (status === "planning" && strategy?.status === "active") {
 				ledger.closeStrategy(db, {
 					id: strategy.id,
-					reason: why,
+					reason: continuation
+						? `仮説の上限（方針あたり ${policy.budget.hypothesesPerStrategy} 件）に達したので、規則で方針を立て直す。振り返りは方針${strategy.seq}の継続を勧めた（方針の誤りによる終了ではない）`
+						: why,
 					now: clock.now(),
 				});
-				if (conditions.findings !== "off")
+				// Continued in a new plan: what was found under it still stands (§A).
+				if (conditions.findings !== "off" && !continuation)
 					ledger.supersedeStrategyFindings(db, {
 						pursuitId: view.id,
 						strategyId: strategy.id,
@@ -2035,4 +2081,13 @@ function findingRefs(text: string): number[] {
 			),
 		),
 	];
+}
+
+/** Up to `max` characters, cut after the last full sentence when there is one (fixes-2026-10-22-f §B). */
+function sentenceClip(text: string, max: number): string {
+	const t = text.replace(/\s+/g, " ").trim();
+	if (t.length <= max) return t;
+	const head = t.slice(0, max);
+	const end = head.lastIndexOf("。");
+	return end >= max / 3 ? head.slice(0, end + 1) : `${head}…`;
 }

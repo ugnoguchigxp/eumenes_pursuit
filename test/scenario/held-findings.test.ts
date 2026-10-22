@@ -45,7 +45,7 @@ describe("a hypothesis that held is not a dead end (spec/fixes-2026-10-22-b.md �
 	test("refutation held: a dead end is recorded", async () => {
 		const { view } = await go('contains:"MAIN_MATCH"');
 		expect(deadEnds(view).map((f) => f.statement)).toEqual([
-			expect.stringContaining("進まなかった"),
+			expect.stringContaining("成り立たないまま閉じた"),
 		]);
 	});
 	test("no checkable refutation, or a missed status prediction: still a dead end", async () => {

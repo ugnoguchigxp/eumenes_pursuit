@@ -213,3 +213,145 @@ describe("hz11i follow-ups (spec/fixes-2026-10-22-e.md)", () => {
 		expect(last).toContain("全文は scratch/probe_log.jsonl にある");
 	});
 });
+
+describe("hz11j follow-ups (spec/fixes-2026-10-22-f.md)", () => {
+	const keep = {
+		decision: "continue_strategy",
+		reason: "方針は健全で目標に向かっている。崩れたのは規則の一般化だけで、",
+		brokenAssumption: "なし",
+		direction: "方針1を続ける",
+	};
+	const two = (p: any) => ({
+		...one(p),
+		budget: { ...one(p).budget, strategies: 3, hypothesesPerStrategy: 1 },
+	});
+
+	test("§A continue_strategy at the hypothesis limit: a truthful re-plan, findings kept; §B the dead end is built from the record", async () => {
+		const { prompts, view } = await run({
+			script: {
+				plan: [plan, plan],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					call(
+						"read",
+						{},
+						{
+							...empty,
+							findings: [
+								{
+									kind: "observation",
+									statement: "方針の下の観測",
+									scope: "strategy",
+								},
+							],
+							refutedIf: 'contains:"FAILED"',
+						},
+					),
+					proposal("step_back", { ...empty, refutedIf: null }),
+					proposal("give_up", { ...empty, refutedIf: null }),
+				],
+				review: [keep],
+			},
+			reviewer: true,
+			conditions: { prediction: "falsifiable", findings: "all", review: true },
+			policy: two,
+			runtime: runtime({
+				invoke: () => ({ status: "ok", output: "2 FAILED", refs: [] }),
+			}),
+		});
+		const plans = prompts.filter((p) => p.purpose === "plan");
+		expect(plans).toHaveLength(2);
+		const second = plans[1]!.prompt;
+		expect(second).toContain(
+			"仮説の上限（1 件）に達したため、規則で新しい方針として立て直す",
+		);
+		expect(second).not.toContain("これまでの方針はうまくいきませんでした");
+		expect(view.strategies[0]!.closeReason).toContain(
+			"方針の誤りによる終了ではない",
+		);
+		expect(
+			view.findings.find((f) => f.statement === "方針の下の観測")!.status,
+		).toBe("active");
+		const dead = view.findings.filter((f) => f.kind === "dead_end");
+		expect(dead).toHaveLength(1);
+		expect(dead[0]!.statement).toContain(
+			"成り立たないまま閉じた（実行した試行 1 回: 反証の条件に当たらなかった 0・当たった 1",
+		);
+		expect(dead[0]!.statement).toContain(
+			"最後に実行した試行: #1 read → 反証の条件に当たった",
+		);
+		expect(dead[0]!.statement).not.toContain("方針は健全");
+	});
+
+	test("§C a refuted finding stays as one line with what replaced it; §D one tally format; §E budgets in the review", async () => {
+		const { view, prompts } = await run({
+			script: {
+				plan: [plan],
+				hypothesize: [hypothesis, hypothesis],
+				propose: [
+					call(
+						"probe",
+						{},
+						{
+							...empty,
+							findings: [
+								{ kind: "lemma", statement: "規則は加算", scope: "pursuit" },
+							],
+						},
+					),
+					call(
+						"probe",
+						{},
+						{
+							...empty,
+							findings: [
+								{
+									kind: "lemma",
+									statement: "規則は加算と倍",
+									scope: "pursuit",
+								},
+							],
+							refute: [{ id: "F1", reason: "c で倍になる" }],
+						},
+					),
+					proposal("step_back", empty),
+					proposal("give_up", empty),
+				],
+				review: [keep],
+			},
+			reviewer: true,
+			conditions: { findings: "all", review: true },
+			policy: one,
+			runtime: runtime({
+				tools: [
+					{
+						name: "probe",
+						description: "p",
+						inputSchema: { type: "object", properties: {} },
+						sideEffect: "none",
+						permission: "data.read",
+					},
+				],
+				invoke: () => ({
+					status: "ok",
+					output: { results: [], calls_left: 4 },
+					refs: [],
+				}),
+			}),
+		});
+		const rev = prompts.find((p) => p.purpose === "review")!.prompt;
+		expect(rev).toContain(
+			"- F1 反証済み: 規則は加算 ／ 理由: c で倍になる［同じ一手で記録: F2］",
+		);
+		expect(rev).toContain("## 残りの予算（ホストが数えた値）");
+		expect(rev).toContain("- probe: 残り 4 回（直近の観測の calls_left）");
+		expect(rev).toMatch(/この仮説で 2\/\d+ 回/);
+		const tally = /実行した試行 2 回: [^）]+/.exec(rev)![0];
+		const later = prompts
+			.filter((p) => p.purpose === "review")
+			.map((p) => p.prompt);
+		for (const p of later) expect(p).not.toContain("予測と違う/失敗");
+		expect(view.findings.find((f) => f.seq === 1)!.status).toBe("refuted");
+		expect(tally).toContain("拒否 0 回");
+	});
+});
