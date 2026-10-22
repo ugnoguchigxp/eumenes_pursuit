@@ -187,10 +187,9 @@ export function signals(
 		mismatch >= 2 ? tailRun(matches.slice(-mismatch), (a, b) => b <= a) + 1 : 0,
 		limits.mismatchNotShrinking,
 	);
-	const scope = done.map((a) => a.features?.filesTouched.length ?? 0);
 	push(
 		"scope_growth",
-		tailRun(scope, (a, b) => b > a),
+		scopeGrowth(done, changingTools, limits.scratchDirs),
 		limits.scopeGrowth,
 	);
 	push("revisits", revisits(done, changingTools), limits.revisits);
@@ -206,6 +205,38 @@ export function signals(
 		limits.goalDrift,
 	);
 	return out;
+}
+
+/** Whether a workspace path is scratch work (any path segment is a scratch directory). */
+export function isScratchPath(path: string, scratchDirs: readonly string[]) {
+	return path.split("/").some((segment) => scratchDirs.includes(segment));
+}
+
+/**
+ * Trailing run of workspace-changing attempts that each changed task files not changed before
+ * in the hypothesis (spec/fixes-2026-10-22.md §d). `filesTouched` is cumulative since the
+ * hypothesis checkpoint, so an attempt's new files are those absent from the previous attempt's
+ * set. Read-only attempts neither extend nor break the run; a changing attempt that adds no new
+ * task file breaks it. Scratch paths are never task files.
+ */
+function scopeGrowth(
+	done: readonly AttemptRow[],
+	changingTools: ReadonlySet<string>,
+	scratchDirs: readonly string[],
+): number {
+	let previous = new Set<string>();
+	const grew: boolean[] = [];
+	for (const attempt of done) {
+		const files = new Set(
+			(attempt.features?.filesTouched ?? []).filter(
+				(f) => !isScratchPath(f, scratchDirs),
+			),
+		);
+		const added = [...files].some((f) => !previous.has(f));
+		if (changingTools.has(attempt.tool) || added) grew.push(added);
+		previous = files;
+	}
+	return trailing(grew, (g) => g);
 }
 
 /**

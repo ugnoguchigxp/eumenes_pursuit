@@ -539,6 +539,10 @@ export function proposalRequest(input: {
 				'- kind "give_up": 達成できないと判断した。message に理由を書く。',
 				'- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。',
 				"使わない項目は null または空文字にしてください。",
+				input.tools.some((t) => t.sideEffect === "workspace") &&
+				view.input.policy.signals.scratchDirs.length
+					? `作業用のメモや一時的なスクリプトは ${view.input.policy.signals.scratchDirs.map((d) => `${d}/`).join("・")} のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。`
+					: "",
 				view.input.conditions.completionCheck === "acceptance"
 					? "step_back と give_up を選ぶ前に、成果物を全文読み返す道具で今の成果物を読み直し、その全文に照らして受入条件を一つずつ判断してください。acceptanceCheck に、すべての受入条件について id・met（満たしているか）・where（満たしているなら成果物のどの箇所か、満たしていないなら何が欠けているか）を書きます。step_back と give_up では必須で、それ以外は空配列でよいです。すべて満たしているなら、step_back ではなく done を申告してください。"
 					: "",

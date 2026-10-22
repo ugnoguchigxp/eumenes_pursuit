@@ -21,7 +21,17 @@ export const policySchema = z.strictObject({
 	signals: z.strictObject({
 		consecutiveFailures: count,
 		mismatchNotShrinking: count,
+		/**
+		 * Consecutive workspace-changing attempts that each change task files not changed before in
+		 * the hypothesis (spec/fixes-2026-10-22.md §d). Read-only attempts are skipped; files under
+		 * `scratchDirs` are not task files.
+		 */
 		scopeGrowth: count,
+		/** Directory names (any path segment) for notes and scratch work, ignored by scopeGrowth. */
+		scratchDirs: z
+			.array(z.string().regex(/^[^/]{1,64}$/))
+			.max(16)
+			.default(["scratch", "notes", "tmp", "__pycache__"]),
 		revisits: count,
 		protectedTouches: count,
 		goalDrift: count,

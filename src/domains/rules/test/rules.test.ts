@@ -247,6 +247,97 @@ describe("signals", () => {
 			["scope_growth"],
 		);
 	});
+	describe("scope growth counts task files only (spec/fixes-2026-10-22.md §d)", () => {
+		const run = (steps: { tool: string; files: string[] }[]): AttemptRow[] =>
+			steps.map((step, i) =>
+				attempt(i + 1, {
+					outcome: "success",
+					tool: step.tool,
+					features: {
+						filesTouched: step.files,
+						linesChanged: step.files.length,
+						protectedTouched: [],
+						match: null,
+						progress: null,
+					},
+				}),
+			);
+		const fired = (attempts: AttemptRow[]) =>
+			signals(view(attempts), "h1", policy, new Set(["write", "run"])).some(
+				(s) => s.code === "scope_growth",
+			);
+		const reads = Array.from({ length: 11 }, () => ({
+			tool: "read",
+			files: [] as string[],
+		}));
+		test("eleven read-only attempts and a few scratch files do not fire (hz11u)", () => {
+			// filesTouched is cumulative since the hypothesis checkpoint.
+			const scratch = [
+				["scratch/explore.py", "scratch/explore.txt"],
+				[
+					"scratch/explore.py",
+					"scratch/explore.txt",
+					"scratch/explore2.py",
+					"scratch/explore2.txt",
+				],
+				[
+					"scratch/explore.py",
+					"scratch/explore.txt",
+					"scratch/explore2.py",
+					"scratch/explore2.txt",
+					"notes/solve.md",
+					"src/__pycache__/x.pyc",
+				],
+			].map((files) => ({ tool: "run", files }));
+			expect(fired(run([...reads, ...scratch]))).toBe(false);
+			// The same three runs counted under v1.6 (cumulative size strictly growing).
+		});
+		test("real sprawl still fires, with reads in between skipped", () => {
+			const a = ["src/a.py"];
+			const ab = [...a, "src/b.py"];
+			const abc = [...ab, "lib/c.py"];
+			expect(
+				fired(
+					run([
+						{ tool: "write", files: a },
+						{ tool: "read", files: a },
+						{ tool: "write", files: ab },
+						{ tool: "read", files: ab },
+						{ tool: "write", files: abc },
+					]),
+				),
+			).toBe(true);
+		});
+		test("a changing attempt that adds no new task file breaks the run", () => {
+			const a = ["src/a.py"];
+			const ab = [...a, "src/b.py"];
+			const abc = [...ab, "lib/c.py"];
+			expect(
+				fired(
+					run([
+						{ tool: "write", files: a },
+						{ tool: "write", files: ab },
+						{ tool: "write", files: ab },
+						{ tool: "write", files: abc },
+					]),
+				),
+			).toBe(false);
+		});
+		test("scratch directories come from the policy", () => {
+			const files = (n: number) =>
+				Array.from({ length: n }, (_, i) => `work/f${i}`);
+			const steps = [1, 2, 3].map((n) => ({ tool: "run", files: files(n) }));
+			expect(fired(run(steps))).toBe(true);
+			expect(
+				signals(
+					view(run(steps)),
+					"h1",
+					{ ...policy, signals: { ...policy.signals, scratchDirs: ["work"] } },
+					new Set(["run"]),
+				).some((s) => s.code === "scope_growth"),
+			).toBe(false);
+		});
+	});
 	test("no signal on a healthy run", () => {
 		const ok = [1, 2].map((n) => attempt(n, { outcome: "success" }));
 		expect(signals(view(ok), "h1", policy, tools)).toEqual([]);
