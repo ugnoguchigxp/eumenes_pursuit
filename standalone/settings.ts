@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
+import { shareDatabase } from "./sqlite-shared.ts";
 import type { UsageMeter } from "./claude.ts";
 
 const root = resolve(import.meta.dir, "..");
@@ -50,10 +51,8 @@ export interface Settings {
 export function openSettings(path = settingsPath): Settings {
 	mkdirSync(dirname(path), { recursive: true });
 	const db = new Database(path, { create: true, strict: true });
-	// Several runner processes may share this file (spend limit and usage): wait for a lock
-	// instead of failing with SQLITE_BUSY, and let readers run beside a writer.
-	db.exec("PRAGMA busy_timeout = 10000;");
-	if (path !== ":memory:") db.exec("PRAGMA journal_mode = WAL;");
+	// Several runner processes share this file (spend limit and usage).
+	shareDatabase(db, path);
 	db.run(`CREATE TABLE IF NOT EXISTS pursuit_setting (
 		key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at INTEGER NOT NULL) STRICT`);
 	db.run(`CREATE TABLE IF NOT EXISTS spend (
@@ -113,6 +112,9 @@ export function openSettings(path = settingsPath): Settings {
 				).usd;
 			};
 			function save(event: UsageEvent) {
+				// IMMEDIATE: take the write lock before the duplicate check, so a runner that finds the
+				// file busy waits (busy_timeout) instead of failing to upgrade a read snapshot that
+				// another runner's commit made stale (SQLITE_BUSY_SNAPSHOT is not retried by SQLite).
 				db.transaction(() => {
 					if (
 						db
@@ -145,7 +147,7 @@ export function openSettings(path = settingsPath): Settings {
 						JSON.stringify(event),
 						spendId,
 					);
-				})();
+				}).immediate();
 			}
 			function metadata(call?: UsageCall): UsageCall {
 				return (

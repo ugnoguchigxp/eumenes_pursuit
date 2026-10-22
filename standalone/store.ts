@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { isAsyncFunction } from "node:util/types";
+import { shareDatabase } from "./sqlite-shared.ts";
 import type {
 	LedgerDb,
 	MigrationDescriptor,
@@ -36,8 +37,9 @@ export function openStore(
 ): StandaloneStore {
 	if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
 	const db = new Database(path, { create: true, strict: true });
-	db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 2000;");
-	if (path !== ":memory:") db.exec("PRAGMA journal_mode = WAL;");
+	db.exec("PRAGMA foreign_keys = ON;");
+	// Other processes may open the same ledger (analyze / trace beside a run, or a second runner).
+	shareDatabase(db, path);
 	db.exec(
 		"CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at INTEGER NOT NULL)",
 	);
@@ -59,12 +61,19 @@ export function openStore(
 		if (done === migration.sha256) continue;
 		if (done !== undefined)
 			throw new Error(`migration_changed:${migration.id}`);
+		// Under the write lock, re-check: another process opening the same file may have applied
+		// it since the read above.
 		db.transaction(() => {
+			const now = db
+				.query("SELECT sha256 FROM schema_migrations WHERE id = ?")
+				.get(migration.id) as { sha256: string } | null;
+			if (now?.sha256 === migration.sha256) return;
+			if (now) throw new Error(`migration_changed:${migration.id}`);
 			db.exec(migration.sql);
 			db.query(
 				"INSERT INTO schema_migrations (id, sha256, applied_at) VALUES (?, ?, ?)",
 			).run(migration.id, migration.sha256, Date.now());
-		})();
+		}).immediate();
 	}
 	const ledgerDb: Database & LedgerDb = db;
 	let queue: Promise<unknown> = Promise.resolve();
