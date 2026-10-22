@@ -9,6 +9,7 @@
  * wall time (budget.wallMs) and responder requests (budget.transitions).
  */
 import { z } from "zod";
+import { claimLimitReason } from "./claim-oracle.ts";
 import {
 	acceptancePassed,
 	claimVerdictText,
@@ -43,6 +44,7 @@ export const directStopReasons = {
 	requests: "追求全体の手順数の上限に達しました",
 	invalid: "LLM の出力を受け取れませんでした（直接解法で3回続けて無効な応答）",
 	evalCap: "評価の手順数の上限",
+	claimLimit: claimLimitReason,
 } as const;
 
 export interface DirectBudget {
@@ -95,7 +97,7 @@ export interface DirectResult {
 const clip = (text: string, limit: number) =>
 	text.length <= limit
 		? text
-		: `${text.slice(0, limit)}…［この一覧での表示はここまで。実物は省略されていない］`;
+		: `${text.slice(0, limit)}…［表示は全 ${text.length} 字のうち先頭 ${limit} 字。台帳には全文がある］`;
 const show = (value: JsonValue | undefined, limit: number) =>
 	clip(JSON.stringify(value ?? null), limit);
 
@@ -234,6 +236,8 @@ export async function runDirect(options: {
 	readonly now?: () => number;
 	/** Called after every entry (transcript persistence). */
 	readonly onEntry?: (entry: DirectEntry) => void;
+	/** --claim-limit: failed claims after which the run stops (eval/claim-oracle.ts); null = none. */
+	readonly claimLimit?: number | null;
 }): Promise<DirectResult> {
 	const now = options.now ?? (() => Date.now());
 	const started = now();
@@ -348,6 +352,8 @@ export async function runDirect(options: {
 			if (passed)
 				return end("completed", step.message || "照合を通過", criteria);
 			failedClaims++;
+			if (options.claimLimit != null && failedClaims >= options.claimLimit)
+				return end("stopped", directStopReasons.claimLimit, criteria);
 			continue;
 		}
 		const name = step.tool ?? "";

@@ -28,6 +28,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	renameSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -65,6 +66,16 @@ import {
 	type RunRecord,
 } from "./metrics.ts";
 import { redactAcceptance, redactTools, secretValues } from "./redact.ts";
+import {
+	claimLimitReached,
+	claimLimitReason,
+	failedClaims,
+	isDefaultOracle,
+	oracleAcceptance,
+	oracleGoal,
+	oracleTag,
+	parseClaimOracle,
+} from "./claim-oracle.ts";
 import { loadSecret } from "./tasks/e/discovery.ts";
 import { loadRubric } from "./tasks/e/proof-grader.ts";
 import { tasks } from "./tasks/index.ts";
@@ -130,6 +141,10 @@ const { values, positionals } = parseArgs({
 		"claim-feedback": { type: "string", default: "off" },
 		/** Per-hypothesis attempt budget counts all attempts, or only mutating ones. Ablation fix (b). */
 		"attempt-count": { type: "string", default: "all" },
+		/** Claim oracle, both conditions alike (eval/claim-oracle.ts): failed claims allowed per task (default unlimited). */
+		"claim-limit": { type: "string", default: "" },
+		/** Claim oracle: full (criteria evidence as written, default) or binary (合格/不合格 only). */
+		"claim-evidence": { type: "string", default: "full" },
 		/** D0: history entries shown in full (older ones are one-line summaries). */
 		"direct-full-entries": { type: "string", default: "40" },
 	},
@@ -307,6 +322,7 @@ if (!["notify", "keep"].includes(rollback))
 const claimFeedback = values["claim-feedback"] as "off" | "verdict";
 if (!["off", "verdict"].includes(claimFeedback))
 	throw new Error("--claim-feedback must be off or verdict");
+const claimOracle = parseClaimOracle(values);
 const attemptCount = values["attempt-count"] as "all" | "mutating";
 if (!["all", "mutating"].includes(attemptCount))
 	throw new Error("--attempt-count must be all or mutating");
@@ -361,6 +377,7 @@ const pursuitVariant = [
 	verdictLabel === "refutation" ? "" : `/VL-${verdictLabel}`,
 	rollback === "notify" ? "" : `/RB-${rollback}`,
 	claimFeedback === "off" ? "" : `/CF-${claimFeedback}`,
+	oracleTag(claimOracle),
 	attemptCount === "all" ? "" : `/AC-${attemptCount}`,
 	useFile ? "/LLM-file" : "",
 	graderMode === "file" ? "/G-file" : "",
@@ -377,6 +394,7 @@ const directVariant = [
 	policyPart,
 	"/DIRECT",
 	claimFeedback === "off" ? "" : `/CF-${claimFeedback}`,
+	oracleTag(claimOracle),
 	useFile ? "/LLM-file" : "",
 	graderMode === "file" ? "/G-file" : "",
 ].join("");
@@ -580,6 +598,15 @@ for (const condition of conditionNames) {
 						condition,
 						conditionFlags,
 					)) as unknown as import("../src/index.ts").JsonValue,
+			// Named only when not the default, so earlier configIds are unchanged.
+			...((isDefaultOracle(claimOracle)
+				? {}
+				: {
+						claimOracle: {
+							evidence: claimOracle.evidence,
+							limit: claimOracle.limit,
+						},
+					}) as Record<string, import("../src/index.ts").JsonValue>),
 			toolTier,
 			critic: values.critic!,
 			maxSteps: Number(values["max-steps"]),
@@ -637,10 +664,13 @@ function notifyEnd(
 	if (claimFeedback !== "verdict" || !useFile) return;
 	const dir = resolve(values["llm-dir"]!, "notices");
 	mkdirSync(dir, { recursive: true });
+	// Written whole, then renamed, so show.sh never prints a half-written notice (§5).
+	const name = `${process.pid}-${String(++noticeSeq).padStart(4, "0")}.txt`;
 	writeFileSync(
-		resolve(dir, `${process.pid}-${String(++noticeSeq).padStart(4, "0")}.txt`),
+		resolve(dir, `.${name}.tmp`),
 		`${endNoticeText(goal, lastClaim)}\n`,
 	);
+	renameSync(resolve(dir, `.${name}.tmp`), resolve(dir, name));
 }
 
 /** D0 transcripts (the direct baseline has no ledger): results/<run>/direct/<label>.jsonl. */
@@ -658,6 +688,7 @@ async function runOne(job: (typeof jobs)[number]) {
 	};
 	const label = `${task.id}/${condition}/${variant}/#${repeat}`;
 	const started = Date.now();
+	const goal = oracleGoal(task.goalFor?.(toolTier) ?? task.goal, claimOracle);
 	// Outside the project, so task code cannot reach .env by a relative path.
 	const directory = mkdtempSync(
 		join(tmpdir(), `eumenes-pursuit-${task.id}-${condition}-${repeat}-`),
@@ -724,12 +755,16 @@ async function runOne(job: (typeof jobs)[number]) {
 		let result: Awaited<ReturnType<typeof runDirect>> | null = null;
 		try {
 			result = await runDirect({
-				goal: task.goalFor?.(toolTier) ?? task.goal,
+				goal,
 				acceptance: task.acceptance,
 				grant: task.grant,
 				tools: redactTools(instance.tools, secrets),
 				workspace: instance.workspace,
-				acceptancePort: redactAcceptance(instance.acceptance, secrets),
+				acceptancePort: oracleAcceptance(
+					redactAcceptance(instance.acceptance, secrets),
+					claimOracle,
+				),
+				claimLimit: claimOracle.limit,
 				llm: generatorFor(scope),
 				budget: {
 					toolCalls: policy.budget.attempts,
@@ -755,7 +790,7 @@ async function runOne(job: (typeof jobs)[number]) {
 		}
 		const last = [...result.entries].reverse().find((e) => e.kind === "claim");
 		notifyEnd(
-			task.goalFor?.(toolTier) ?? task.goal,
+			goal,
 			last
 				? {
 						passed: last.passed === true,
@@ -775,7 +810,7 @@ async function runOne(job: (typeof jobs)[number]) {
 	try {
 		const startedPursuit = await engine.start(
 			{
-				goal: task.goalFor?.(toolTier) ?? task.goal,
+				goal,
 				acceptance: task.acceptance,
 				grant: task.grant,
 				policy,
@@ -793,7 +828,10 @@ async function runOne(job: (typeof jobs)[number]) {
 		const runtime = {
 			tools: redactTools(instance.tools, secrets),
 			workspace: instance.workspace,
-			acceptance: redactAcceptance(instance.acceptance, secrets),
+			acceptance: oracleAcceptance(
+				redactAcceptance(instance.acceptance, secrets),
+				claimOracle,
+			),
 		};
 		for (let i = 0; i < Number(values["max-steps"]); i++) {
 			const step = await stepWithDeadline(
@@ -803,6 +841,19 @@ async function runOne(job: (typeof jobs)[number]) {
 				controller.signal,
 			);
 			if (step.done) break;
+			if (claimOracle.limit !== null) {
+				const failed = failedClaims((await engine.view(pursuitId))!);
+				if (claimLimitReached(failed, claimOracle)) {
+					await cancelWithDeadline(
+						engine,
+						pursuitId,
+						claimLimitReason,
+						runtime,
+						controller.signal,
+					);
+					break;
+				}
+			}
 			if (step.status === "awaiting_consultation") {
 				const view = (await engine.view(pursuitId))!;
 				const open = view.consultations.find((c) => c.answer === null)!;
@@ -838,7 +889,7 @@ async function runOne(job: (typeof jobs)[number]) {
 		.filter((v) => v.trigger === "claim")
 		.at(-1);
 	notifyEnd(
-		task.goalFor?.(toolTier) ?? task.goal,
+		goal,
 		lastClaim
 			? { passed: lastClaim.passed, criteria: lastClaim.criteria }
 			: null,

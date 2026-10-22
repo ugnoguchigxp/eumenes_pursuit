@@ -10,6 +10,12 @@ import {
 import { migrations } from "../../src/sqlite.ts";
 import { openStore } from "../../standalone/store.ts";
 import { policy, startInput } from "../support.ts";
+import { reviewRequest } from "../../src/domains/generation/prompts.ts";
+import {
+	failedClaims,
+	oracleAcceptance,
+	parseClaimOracle,
+} from "../../eval/claim-oracle.ts";
 
 /** Scripted answers per purpose; records every prompt by purpose. */
 function scripted(script: Partial<Record<LlmPurpose, unknown[]>>) {
@@ -73,24 +79,28 @@ const write: ToolDescriptor = {
 	sideEffect: "workspace",
 	permission: "answer.write",
 };
-function runtime(passes = false): PursuitRuntime {
+function runtime(
+	passes = false,
+	evidence = passes ? "合格" : "不合格",
+	oracle = parseClaimOracle({}),
+): PursuitRuntime {
 	return {
 		tools: {
 			list: () => [read, write],
 			invoke: async () => ({ status: "ok", output: { v: 1 }, refs: [] }),
 		},
 		workspace: null,
-		acceptance: {
-			verify: async () => [
-				{ id: "total", passed: passes, evidence: passes ? "合格" : "不合格" },
-			],
-		},
+		acceptance: oracleAcceptance(
+			{ verify: async () => [{ id: "total", passed: passes, evidence }] },
+			oracle,
+		),
 	};
 }
 async function run(
 	script: Partial<Record<LlmPurpose, unknown[]>>,
 	extra: Record<string, unknown>,
 	perHypothesis = 2,
+	rt: PursuitRuntime = runtime(),
 ) {
 	const { llm, prompts } = scripted(script);
 	const store = openStore(":memory:", migrations);
@@ -116,11 +126,7 @@ async function run(
 		`k${++k}`,
 	);
 	for (let i = 0; i < 40; i++) {
-		const r = await engine.step(
-			pursuitId,
-			runtime(),
-			AbortSignal.timeout(5000),
-		);
+		const r = await engine.step(pursuitId, rt, AbortSignal.timeout(5000));
 		if (r.done) break;
 	}
 	return { view: (await engine.view(pursuitId))!, prompts };
@@ -235,5 +241,39 @@ describe("ablation flags (default off keeps earlier runs reproducible)", () => {
 		expect(proposals[1]!.prompt).not.toContain("完了の申告の結果");
 		const second = prompts.filter((p) => p.purpose === "hypothesize")[1]!;
 		expect(second.prompt).not.toContain("完了の申告の結果");
+	});
+
+	test("the reviewer sees every claim's verdict; binary evidence hides k/n from generator and reviewer (§6)", async () => {
+		const script = () => ({
+			plan: [plan],
+			hypothesize: [hypothesis, hypothesis],
+			propose: [proposal("done"), proposal("done"), proposal("give_up")],
+		});
+		const go = (evidence: "full" | "binary") =>
+			run(
+				script(),
+				{ claimFeedback: "verdict", verifyOn: "claim" },
+				6,
+				runtime(
+					false,
+					"隠された検査 7/9 通過",
+					parseClaimOracle({ "claim-evidence": evidence }),
+				),
+			);
+		const full = await go("full");
+		const binary = await go("binary");
+		expect(failedClaims(full.view)).toBe(2);
+		const review = (view: typeof full.view) =>
+			reviewRequest({ view, reason: "r", signals: [] }).prompt;
+		expect(review(full.view)).toContain("## 完了の申告の結果（ホストの照合）");
+		expect(review(full.view)).toContain(
+			"申告2: 不合格: [total] ng 隠された検査 7/9 通過",
+		);
+		expect(review(binary.view)).toContain("申告2: 不合格: [total] ng 不合格");
+		const all = [
+			...binary.prompts.map((p) => p.prompt),
+			review(binary.view),
+		].join("\n");
+		expect(all).not.toContain("7/9");
 	});
 });

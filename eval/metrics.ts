@@ -323,6 +323,8 @@ const forcedStops = new Set([
 	"追求全体の手順数の上限に達しました",
 	"評価の手順数の上限",
 	"相談が3回を超えました",
+	// --claim-limit (eval/claim-oracle.ts): the harness ended the task, both conditions alike.
+	"完了の申告の上限に達しました",
 ]);
 export const isForcedStop = (reason: string) =>
 	forcedStops.has(reason) ||

@@ -85,10 +85,11 @@ export async function loadWork(id: string): Promise<Record<string, Buffer>> {
 }
 
 /** Head and tail of a long stream, so both the start and the final error are visible. */
-function headTail(text: string, max: number): string {
+export function headTail(text: string, max: number): string {
 	if (text.length <= max) return text;
 	const half = Math.floor(max / 2);
-	return `${text.slice(0, half)}\n...[${text.length - max} chars omitted]...\n${text.slice(-half)}`;
+	// Says how to read the rest (spec/fixes-2026-10-22-b.md §4): the same words in D0 and E*.
+	return `${text.slice(0, half)}\n...[全 ${text.length} 字のうち中ほどの ${text.length - max} 字を省略。全部を見るには、出力をファイルへ書き出し（例: コマンド > scratch/out.txt）、read_file の offset / limit で読む]...\n${text.slice(-half)}`;
 }
 
 async function treeBytes(root: string): Promise<number> {
