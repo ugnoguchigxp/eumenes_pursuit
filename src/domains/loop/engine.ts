@@ -93,6 +93,8 @@ import {
 	trajectoryStreak,
 	WallTimeExpired,
 } from "./helpers.ts";
+import type { EngineCtx } from "./context.ts";
+import { makeTransitions } from "./transitions.ts";
 import { makeSupport } from "./support.ts";
 import { makeBase } from "./context.ts";
 import {
@@ -148,19 +150,21 @@ export { citationNote } from "./helpers.ts";
 
 export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 	const base = makeBase(deps);
+	const { store, clock, ids } = deps;
+	const { read, result } = base;
+	const ctx = { ...base, ...makeSupport(base) } as EngineCtx;
+	Object.assign(ctx, makeTransitions(ctx), {
+		propose,
+		attempt,
+		resumeSettlement,
+		review,
+	});
 	const {
-		store,
-		clock,
-		ids,
 		warn,
-		read,
-		result,
 		inference,
 		llmRow,
 		call,
 		checkTime,
-	} = base;
-	const {
 		askJudge,
 		recordFindings,
 		recordDeadEnd,
@@ -170,311 +174,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		changingTools,
 		firedSignals,
 		reject,
-	} = makeSupport(base);
-	async function finish(
-		view: PursuitView,
-		runtime: PursuitRuntime,
-		outcome: Report["outcome"],
-		reason: string,
-		decidedBy: DecidedBy,
-		signal: AbortSignal,
-		known?: readonly CriterionResult[],
-		basisExtra: JsonObject = {},
-	): Promise<StepResult> {
-		const deferred = outcome !== "completed";
-		if (!deferred) checkTime(view, signal);
-		const criteria = deferred
-			? []
-			: (known ?? (await runtime.acceptance.verify(signal)));
-		if (!deferred) checkTime(view, signal);
-		const verified = acceptancePassed(view.acceptance, criteria);
-		const refs = new Map<string, ArtifactRef>();
-		for (const a of view.attempts) for (const r of a.refs) refs.set(r.uri, r);
-		const report: Report = {
-			pursuitId: view.id,
-			outcome,
-			verified,
-			reason,
-			criteria,
-			needs:
-				outcome === "completed"
-					? []
-					: view.consultations.map((c) => c.missing).filter(Boolean),
-			refs: [...refs.values()],
-			stats: {
-				attempts: view.attempts.filter(
-					(a) => executed(a) || a.state === "started",
-				).length,
-				rejected: view.attempts.filter((a) => a.state === "rejected").length,
-				hypotheses: view.hypotheses.length,
-				strategies: view.strategies.length,
-				stepBacks: view.decisions.filter((d) => d.kind === "step_back").length,
-				consultations: view.consultations.length,
-			},
-			findings: {
-				total: view.findings.filter((f) => f.status === "active").length,
-				checked: view.findings
-					.filter(
-						(f) =>
-							f.status === "active" &&
-							f.kind !== "dead_end" &&
-							f.assurance !== "unverified",
-					)
-					.map((f) => ({
-						kind: f.kind,
-						statement: f.statement,
-						assurance: f.assurance,
-					})),
-			},
-		};
-		const status: PursuitStatus = outcome;
-		const kind: DecisionKind =
-			outcome === "completed"
-				? "complete"
-				: outcome === "incomplete"
-					? "give_up"
-					: "stop";
-		const revision = await store.write((db) => {
-			for (const a of view.attempts)
-				if (a.state === "started")
-					ledger.interruptAttempt(db, { id: a.id, now: clock.now() });
-			ledger.closeSettlements(db, view.id, reason);
-			if (!deferred)
-				ledger.insertVerification(db, {
-					id: ids.next("ver"),
-					pursuitId: view.id,
-					row: {
-						attemptId: null,
-						trigger: "final",
-						passed: verified,
-						criteria,
-					},
-					now: clock.now(),
-				});
-			ledger.insertDecision(db, {
-				id: ids.next("dec"),
-				pursuitId: view.id,
-				kind,
-				reason,
-				basis: { verified, ...basisExtra },
-				decidedBy,
-				now: clock.now(),
-			});
-			ledger.insertReport(db, {
-				pursuitId: view.id,
-				report: deferred ? { ...report, verificationIssue: "pending" } : report,
-				now: clock.now(),
-			});
-			return ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: view.revision,
-				now: clock.now(),
-				status,
-				finished: true,
-			});
-		});
-		if (!deferred) return result(view, revision, status, "finished");
-
-		// Save terminal state before calling a fallible external verifier. Abort also
-		// ends our wait when a host verifier fails to honor its signal.
-		let finalReport: Report;
-		let onAbort = () => {};
-		try {
-			signal.throwIfAborted();
-			const aborted = new Promise<never>((_, reject) => {
-				onAbort = () => reject(signal.reason);
-				signal.addEventListener("abort", onAbort, { once: true });
-			});
-			const finalCriteria =
-				known ??
-				(await Promise.race([runtime.acceptance.verify(signal), aborted]));
-			signal.throwIfAborted();
-			finalReport = {
-				...report,
-				criteria: finalCriteria,
-				verified: acceptancePassed(view.acceptance, finalCriteria),
-			};
-		} catch {
-			const issue = signal.aborted ? "aborted" : "failed";
-			finalReport = { ...report, verificationIssue: issue };
-			warn("final_verification_unavailable", { pursuitId: view.id, issue });
-		} finally {
-			signal.removeEventListener("abort", onAbort);
-		}
-		const finalRevision = await store.write((db) => {
-			ledger.insertVerification(db, {
-				id: ids.next("ver"),
-				pursuitId: view.id,
-				row: {
-					attemptId: null,
-					trigger: "final",
-					passed: finalReport.verified,
-					criteria: finalReport.criteria,
-				},
-				now: clock.now(),
-			});
-			ledger.updateReport(db, { pursuitId: view.id, report: finalReport });
-			return ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: revision,
-				now: clock.now(),
-			});
-		});
-		return result(view, finalRevision, status, "finished");
-	}
-
-	async function stepBack(
-		view: PursuitView,
-		reason: string,
-		decidedBy: DecidedBy,
-		basis: JsonObject,
-	): Promise<StepResult> {
-		const revision = await store.write((db) => {
-			ledger.closeSettlements(db, view.id, reason);
-			ledger.insertDecision(db, {
-				id: ids.next("dec"),
-				pursuitId: view.id,
-				kind: "step_back",
-				reason,
-				basis,
-				decidedBy,
-				now: clock.now(),
-			});
-			return ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: view.revision,
-				now: clock.now(),
-				status: "reviewing",
-			});
-		});
-		return result(view, revision, "reviewing", "stepped_back");
-	}
-
-	async function consult(
-		view: PursuitView,
-		question: string,
-		missing: string,
-		decidedBy: DecidedBy,
-		extra: (db: LedgerDb) => void = () => {},
-		basisExtra: JsonObject = {},
-	): Promise<StepResult> {
-		const revision = await store.write((db) => {
-			extra(db);
-			ledger.closeSettlements(db, view.id, question);
-			ledger.insertConsultation(db, {
-				id: ids.next("con"),
-				pursuitId: view.id,
-				question,
-				missing,
-				options: [],
-				now: clock.now(),
-			});
-			ledger.insertDecision(db, {
-				id: ids.next("dec"),
-				pursuitId: view.id,
-				kind: "consult",
-				reason: question,
-				basis: { missing, ...basisExtra },
-				decidedBy,
-				now: clock.now(),
-			});
-			return ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: view.revision,
-				now: clock.now(),
-				status: "awaiting_consultation",
-			});
-		});
-		return result(view, revision, "awaiting_consultation", "consult_requested");
-	}
-
-	async function plan(
-		view: PursuitView,
-		runtime: PursuitRuntime,
-		signal: AbortSignal,
-	): Promise<StepResult> {
-		const last = view.decisions.at(-1);
-		const direction =
-			last?.kind === "revise_strategy" &&
-			typeof last.basis.direction === "string"
-				? last.basis.direction
-				: null;
-		const r = await call(
-			deps.generator,
-			planRequest({ view, tools: runtime.tools.list(), direction }),
-			signal,
-			view,
-		);
-		const strategyId = ids.next("str");
-		const revision = await store.write((db) => {
-			ledger.insertStrategy(db, {
-				id: strategyId,
-				pursuitId: view.id,
-				body: r.value.strategy,
-				rationale: r.value.rationale,
-				alternatives: r.value.alternatives,
-				parts: r.value.parts ?? [],
-				previousId: view.currentStrategyId,
-				now: clock.now(),
-			});
-			inference(db, view, [llmRow("plan", r)]);
-			return ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: view.revision,
-				now: clock.now(),
-				status: "hypothesizing",
-				currentStrategyId: strategyId,
-				currentHypothesisId: null,
-			});
-		});
-		return result(view, revision, "hypothesizing", "planned");
-	}
-
-	async function hypothesize(
-		view: PursuitView,
-		runtime: PursuitRuntime,
-		signal: AbortSignal,
-	): Promise<StepResult> {
-		const r = await call(
-			deps.generator,
-			hypothesisRequest({ view, tools: runtime.tools.list() }),
-			signal,
-			view,
-		);
-		checkTime(view, signal);
-		const checkpoint = runtime.workspace
-			? await runtime.workspace.checkpoint()
-			: null;
-		const policy = view.input.policy;
-		const hypothesisId = ids.next("hyp");
-		const revision = await store.write((db) => {
-			ledger.insertHypothesis(db, {
-				id: hypothesisId,
-				pursuitId: view.id,
-				strategyId: view.currentStrategyId!,
-				body: r.value.hypothesis,
-				rationale: r.value.rationale,
-				tools: r.value.tools,
-				targets: r.value.targets.map(normalPath).filter(Boolean),
-				expected: r.value.expected,
-				budget: view.input.conditions.rules
-					? policy.budget.attemptsPerHypothesis
-					: policy.budget.attempts,
-				checkpoint,
-				now: clock.now(),
-			});
-			inference(db, view, [llmRow("hypothesize", r)]);
-			return ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: view.revision,
-				now: clock.now(),
-				status: "proposing",
-				currentHypothesisId: hypothesisId,
-			});
-		});
-		return result(view, revision, "proposing", "hypothesized");
-	}
-
+	} = ctx;
 	async function propose(
 		view: PursuitView,
 		runtime: PursuitRuntime,
@@ -498,11 +198,11 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			own.at(-1)?.state === "settled" &&
 			own.at(-1)?.outcome === "success";
 		if (spent && !claimChance)
-			return stepBack(view, "仮説の試行予算を使い切りました", "rules", {
+			return ctx.stepBack(view, "仮説の試行予算を使い切りました", "rules", {
 				rule: "hypothesis_budget",
 			});
 		if (rejectionsInRow(view, hypothesis.id) >= policy.budget.rejectionsInRow)
-			return stepBack(view, "提案の拒否が続いています", "rules", {
+			return ctx.stepBack(view, "提案の拒否が続いています", "rules", {
 				rule: "rejections_in_row",
 			});
 		const tools = runtime.tools.list();
@@ -539,7 +239,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		// A gated step back goes through the completion check below instead.
 		if (claimChance && p.kind !== "done" && !gated) {
 			await store.write((db) => inference(db, view, [usage]));
-			return stepBack(
+			return ctx.stepBack(
 				await read(view.id),
 				"仮説の試行予算を使い切りました",
 				"rules",
@@ -706,7 +406,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			case "done": {
 				if (!conditions.rules) {
 					await store.write((db) => inference(db, view, [usage]));
-					return finish(
+					return ctx.finish(
 						await read(view.id),
 						runtime,
 						"completed",
@@ -737,7 +437,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					);
 				});
 				if (passed)
-					return finish(
+					return ctx.finish(
 						await read(view.id),
 						runtime,
 						"completed",
@@ -789,7 +489,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						);
 					if (view.strategies.length < policy.budget.strategies) {
 						await store.write((db) => inference(db, view, [usage]));
-						return stepBack(
+						return ctx.stepBack(
 							await read(view.id),
 							`断念の前に別の方針を検討する: ${p.message}`,
 							"rules",
@@ -798,7 +498,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					}
 				}
 				await store.write((db) => inference(db, view, [usage]));
-				return finish(
+				return ctx.finish(
 					await read(view.id),
 					runtime,
 					"incomplete",
@@ -817,7 +517,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 						"consult_without_progress",
 						"前の相談への答えのあと、まだ何も試していません。答えを踏まえて試してください",
 					);
-				return consult(
+				return ctx.consult(
 					view,
 					p.message || "判断に必要な情報を教えてください",
 					p.missing,
@@ -826,7 +526,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				);
 			case "step_back":
 				await store.write((db) => inference(db, view, [usage]));
-				return stepBack(
+				return ctx.stepBack(
 					await read(view.id),
 					p.message || "生成層が振り返りを求めた",
 					"generator",
@@ -946,9 +646,14 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					});
 			});
 			if (pre?.effects.stepBack)
-				return stepBack(await read(view.id), pre.effects.stepBack, "judge", {
-					stage: "pre",
-				});
+				return ctx.stepBack(
+					await read(view.id),
+					pre.effects.stepBack,
+					"judge",
+					{
+						stage: "pre",
+					},
+				);
 			return result(view, revision, view.status, "rejected");
 		}
 		checkTime(view, signal);
@@ -1173,7 +878,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			conditions.verifyOn === "attempt" &&
 			verified?.passed
 		)
-			return finish(
+			return ctx.finish(
 				current,
 				runtime,
 				"completed",
@@ -1184,7 +889,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			);
 		const fired = firedSignals(current, tools);
 		if (fired.length)
-			return stepBack(
+			return ctx.stepBack(
 				current,
 				`兆候を検出: ${fired.map((s) => `${s.code}=${s.value}`).join(", ")}`,
 				"rules",
@@ -1193,14 +898,14 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		const persistent =
 			trajectoryStreak(current, attemptId) >= policy.judge.trajectoryPersist;
 		if (pending.effects?.consult && persistent)
-			return consult(
+			return ctx.consult(
 				current,
 				"目標の達成に必要な情報・権限・前提が欠けているようです。補える情報はありますか？",
 				pending.effects.consult,
 				"judge",
 			);
 		if (pending.effects?.stepBack && persistent)
-			return stepBack(current, pending.effects.stepBack, "judge", {
+			return ctx.stepBack(current, pending.effects.stepBack, "judge", {
 				stage: "post",
 			});
 		await store.write((db) =>
@@ -1428,7 +1133,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				inference(db, view, usage);
 				writeJudgements(db, view, judged);
 			});
-			return finish(
+			return ctx.finish(
 				await read(view.id),
 				runtime,
 				"stopped",
@@ -1440,7 +1145,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			);
 		}
 		if (kind === "consult")
-			return consult(
+			return ctx.consult(
 				view,
 				direction || why || "どう進めるか判断してください",
 				reviewed?.brokenAssumption ?? reason,
@@ -1575,7 +1280,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					return await resumeSettlement(view, runtime, pending.id, signal);
 				const over = pursuitBudgetExceeded(view, clock.now());
 				if (over)
-					return finish(
+					return ctx.finish(
 						view,
 						runtime,
 						"stopped",
@@ -1585,9 +1290,9 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					);
 				switch (view.status) {
 					case "planning":
-						return await plan(view, runtime, signal);
+						return await ctx.plan(view, runtime, signal);
 					case "hypothesizing":
-						return await hypothesize(view, runtime, signal);
+						return await ctx.hypothesize(view, runtime, signal);
 					case "proposing":
 						return await propose(view, runtime, signal);
 					case "reviewing":
@@ -1603,7 +1308,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					// Already-expired verifier must not extend shutdown; finish persists first.
 					const expired = new AbortController();
 					expired.abort();
-					return finish(
+					return ctx.finish(
 						await read(pursuitId),
 						runtime,
 						"stopped",
@@ -1613,7 +1318,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					);
 				}
 				if (!(error instanceof LlmOutputError)) throw error;
-				return finish(
+				return ctx.finish(
 					await read(pursuitId),
 					runtime,
 					"stopped",
@@ -1661,7 +1366,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			const view = await read(pursuitId);
 			if (terminalStatuses.includes(view.status))
 				return result(view, view.revision, view.status, "finished");
-			return finish(view, runtime, "stopped", reason, "human", signal);
+			return ctx.finish(view, runtime, "stopped", reason, "human", signal);
 		},
 
 		async view(pursuitId) {
