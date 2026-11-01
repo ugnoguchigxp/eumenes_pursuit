@@ -93,6 +93,7 @@ import {
 	trajectoryStreak,
 	WallTimeExpired,
 } from "./helpers.ts";
+import { makeBase } from "./context.ts";
 import {
 	digestJson,
 	fingerprint,
@@ -145,70 +146,19 @@ export interface PursuitEngine {
 export { citationNote } from "./helpers.ts";
 
 export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
-	const { store, clock, ids } = deps;
-	const warn = (code: string, detail: JsonObject) =>
-		deps.onWarning?.(code, detail);
-
-	async function read(id: string): Promise<PursuitView> {
-		const view = await store.readSnapshot((db) => ledger.loadPursuit(db, id));
-		if (!view) throw new Error(`pursuit_not_found:${id}`);
-		return view;
-	}
-
-	function result(
-		view: PursuitView,
-		revision: number,
-		status: PursuitStatus,
-		event: StepEvent,
-	): StepResult {
-		return {
-			pursuitId: view.id,
-			status,
-			revision,
-			event,
-			done: terminalStatuses.includes(status),
-		};
-	}
-
-	function inference(
-		db: LedgerDb,
-		view: PursuitView,
-		rows: readonly InferenceRow[],
-	) {
-		for (const row of rows)
-			ledger.insertInference(db, {
-				id: ids.next("inf"),
-				pursuitId: view.id,
-				row,
-				now: clock.now(),
-			});
-	}
-
-	const llmRow = <T>(purpose: string, r: LlmResult<T>): InferenceRow => ({
-		purpose,
-		model: r.model,
-		inputTokens: r.inputTokens,
-		outputTokens: r.outputTokens,
-		cacheReadTokens: r.cacheReadTokens,
-		latencyMs: r.latencyMs,
-	});
-
-	async function call<T>(
-		port: LlmPort,
-		request: LlmRequest<T>,
-		signal: AbortSignal,
-		view: PursuitView,
-	): Promise<LlmResult<T>> {
-		checkTime(view, signal);
-		const r = await port.complete(request, signal);
-		checkTime(view, signal);
-		return r;
-	}
-	function checkTime(view: PursuitView, signal: AbortSignal) {
-		if (remainingWallMs(view, clock.now()) <= 0) throw new WallTimeExpired();
-		signal.throwIfAborted();
-	}
-
+	const base = makeBase(deps);
+	const {
+		store,
+		clock,
+		ids,
+		warn,
+		read,
+		result,
+		inference,
+		llmRow,
+		call,
+		checkTime,
+	} = base;
 	async function askJudge(
 		view: PursuitView,
 		stage: Stage,
