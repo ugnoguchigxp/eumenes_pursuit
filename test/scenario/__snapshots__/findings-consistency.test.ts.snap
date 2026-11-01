@@ -1,0 +1,2173 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`findings consistency (spec/fixes-2026-10-22.md §e) a step back citing a finding the ledger lacks is a rule issue; recorded findings may be cited 1`] = `
+{
+  "prompts": [
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 0 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+
+## 依頼
+
+目標に向かう方針を一つ立ててください。選んだ理由と、試していない別案も挙げてください。"
+,
+      "purpose": "plan",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 0 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+
+## 現在の方針
+方針
+
+## 依頼
+
+この方針で立てる仮説は 1/3 件目（上限に達した仮説が閉じると、規則で方針を立て直す。仮説ごとの試行予算は 6 回）。
+
+この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。
+
+targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。空でも変更は拒否されず、最初に変えたファイルのディレクトリがその仮説の範囲になります。ただし仮説は一つの主張なので、読むだけの仮説から「直す」仮説へ移るときは、step_back で区切って新しい仮説を立てます（区切りごとに振り返りが入るのは設計どおり）。直すつもりがあるなら、この仮説で実際に変えるファイルかディレクトリだけを最初から targets に書けば区切りは要りません。確かめていない場所や「念のため」の場所は書かないでください（広く書くほど、範囲の拡大という兆候が見えなくなります）。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+,
+      "purpose": "hypothesize",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 0 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 0 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 知見の記録
+次に記録される知見の番号は F1 から。この一手の findings は書いた順に F1, F2, F3 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 0/6
+
+## この仮説での試行
+まだありません。
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 0 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 0 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 知見の記録
+次に記録される知見の番号は F1 から。この一手の findings は書いた順に F1, F2, F3 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 0/6
+
+## この仮説での試行
+（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）
+#1 step_back {}
+  予測: ok / F1 の結果から別の仮説へ
+  拒否: finding_not_recorded: 台帳にない知見を引用しています: F1（台帳の知見は 0 件）。確かめた事実は findings に記録してから、その F番号で引用してください
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+  ],
+  "view": {
+    "acceptance": [
+      {
+        "id": "total",
+        "method": "machine",
+        "text": "answer.json に合計値がある",
+      },
+    ],
+    "attempts": [
+      {
+        "features": null,
+        "fingerprint": "step_back",
+        "hypothesisId": "hyp3",
+        "id": "att5",
+        "input": {},
+        "observation": null,
+        "outcome": null,
+        "prediction": {
+          "expectedObservation": "F1 の結果から別の仮説へ",
+          "expectedStatus": "ok",
+        },
+        "refs": [],
+        "rejection": [
+          {
+            "detail": "台帳にない知見を引用しています: F1（台帳の知見は 0 件）。確かめた事実は findings に記録してから、その F番号で引用してください",
+            "rule": "finding_not_recorded",
+          },
+        ],
+        "seq": 1,
+        "settlement": {
+          "digest": null,
+          "effects": null,
+          "stage": "done",
+        },
+        "startedAt": 1006,
+        "state": "rejected",
+        "tool": "step_back",
+        "whatChanged": "",
+      },
+    ],
+    "consultations": [],
+    "currentHypothesisId": "hyp3",
+    "currentStrategyId": "str1",
+    "decisions": [
+      {
+        "basis": {
+          "verified": false,
+        },
+        "decidedBy": "generator",
+        "kind": "give_up",
+        "reason": "F1 を根拠に断念",
+        "seq": 1,
+      },
+    ],
+    "findings": [
+      {
+        "assurance": "unverified",
+        "hypothesisId": null,
+        "id": "fnd7",
+        "kind": "observation",
+        "reason": null,
+        "scope": "pursuit",
+        "seq": 1,
+        "sourceAttemptId": null,
+        "sourceVerificationId": null,
+        "statement": "表の列は 5 つ",
+        "status": "active",
+        "strategyId": null,
+      },
+    ],
+    "goal": "売上表の合計を出す",
+    "hypotheses": [
+      {
+        "body": "仮説",
+        "budget": 6,
+        "checkpoint": null,
+        "expected": "e",
+        "id": "hyp3",
+        "rationale": "r",
+        "result": null,
+        "seq": 1,
+        "status": "active",
+        "strategyId": "str1",
+        "targets": [],
+        "tools": [
+          "read",
+        ],
+      },
+    ],
+    "id": "pur0",
+    "inference": [
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "plan",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "hypothesize",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+    ],
+    "input": {
+      "acceptance": [
+        {
+          "id": "total",
+          "method": "machine",
+          "text": "answer.json に合計値がある",
+        },
+      ],
+      "conditions": {
+        "adapter": null,
+        "attemptCount": "all",
+        "claimFeedback": "off",
+        "completionCheck": "off",
+        "findings": "verified",
+        "judge": false,
+        "language": "ja",
+        "prediction": "status",
+        "questionSet": {
+          "id": "pursuit-guards",
+          "version": 1,
+        },
+        "review": false,
+        "rollback": "notify",
+        "rules": true,
+        "selfCheck": "off",
+        "strategyChange": "free",
+        "verdictLabel": "refutation",
+        "verifyOn": "attempt",
+      },
+      "goal": "売上表の合計を出す",
+      "goalRef": null,
+      "grant": [
+        "data.read",
+        "answer.write",
+      ],
+      "label": "unit",
+      "policy": {
+        "budget": {
+          "attempts": 40,
+          "attemptsPerHypothesis": 6,
+          "hypothesesPerStrategy": 3,
+          "rejectionsInRow": 3,
+          "stepBacks": 4,
+          "strategies": 1,
+          "transitions": 300,
+          "wallMs": 1800000,
+        },
+        "consultation": {
+          "requireProgress": false,
+        },
+        "judge": {
+          "confidence": 0.7,
+          "guardYes": 0.8,
+          "mismatchBelow": 0.5,
+          "trajectoryPersist": 2,
+        },
+        "judgeState": {
+          "maxChars": 2500,
+          "textChars": 240,
+        },
+        "observation": {
+          "latestChars": 8000,
+          "olderChars": 1800,
+        },
+        "restore": "protective",
+        "retry": {
+          "sameFingerprintWithReason": 1,
+        },
+        "signals": {
+          "consecutiveFailures": 3,
+          "goalDrift": 3,
+          "mismatchNotShrinking": 3,
+          "protectedTouches": 1,
+          "revisits": 3,
+          "scopeGrowth": 3,
+          "scratchDirs": [
+            "scratch",
+            "notes",
+            "tmp",
+            "__pycache__",
+          ],
+        },
+        "version": 1,
+      },
+    },
+    "judgements": [],
+    "report": {
+      "criteria": [
+        {
+          "evidence": "不合格",
+          "id": "total",
+          "passed": false,
+        },
+      ],
+      "findings": {
+        "checked": [],
+        "total": 1,
+      },
+      "needs": [],
+      "outcome": "incomplete",
+      "pursuitId": "pur0",
+      "reason": "F1 を根拠に断念",
+      "refs": [],
+      "stats": {
+        "attempts": 0,
+        "consultations": 0,
+        "hypotheses": 1,
+        "rejected": 1,
+        "stepBacks": 0,
+        "strategies": 1,
+      },
+      "verified": false,
+    },
+    "revision": 6,
+    "startedAt": 1001,
+    "status": "incomplete",
+    "strategies": [
+      {
+        "alternatives": [
+          "別案",
+        ],
+        "assessment": null,
+        "body": "方針",
+        "closeReason": null,
+        "id": "str1",
+        "parts": [],
+        "previousId": null,
+        "rationale": "r",
+        "seq": 1,
+        "status": "active",
+      },
+    ],
+    "updatedAt": 1011,
+    "verifications": [
+      {
+        "attemptId": null,
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "final",
+      },
+    ],
+  },
+}
+`;
+
+exports[`findings consistency (spec/fixes-2026-10-22.md §e) findings off: no check, no reminder 1`] = `
+{
+  "prompts": [
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## 依頼
+
+目標に向かう方針を一つ立ててください。選んだ理由と、試していない別案も挙げてください。"
+,
+      "purpose": "plan",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## 現在の方針
+方針
+
+## 依頼
+
+この方針で立てる仮説は 1/3 件目（上限に達した仮説が閉じると、規則で方針を立て直す。仮説ごとの試行予算は 6 回）。
+
+この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。
+
+targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。空でも変更は拒否されず、最初に変えたファイルのディレクトリがその仮説の範囲になります。ただし仮説は一つの主張なので、読むだけの仮説から「直す」仮説へ移るときは、step_back で区切って新しい仮説を立てます（区切りごとに振り返りが入るのは設計どおり）。直すつもりがあるなら、この仮説で実際に変えるファイルかディレクトリだけを最初から targets に書けば区切りは要りません。確かめていない場所や「念のため」の場所は書かないでください（広く書くほど、範囲の拡大という兆候が見えなくなります）。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+,
+      "purpose": "hypothesize",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 0 回）
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 0/6
+
+## この仮説での試行
+まだありません。
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+  ],
+  "view": {
+    "acceptance": [
+      {
+        "id": "total",
+        "method": "machine",
+        "text": "answer.json に合計値がある",
+      },
+    ],
+    "attempts": [],
+    "consultations": [],
+    "currentHypothesisId": "hyp3",
+    "currentStrategyId": "str1",
+    "decisions": [
+      {
+        "basis": {
+          "verified": false,
+        },
+        "decidedBy": "generator",
+        "kind": "give_up",
+        "reason": "F9 を根拠に断念",
+        "seq": 1,
+      },
+    ],
+    "findings": [],
+    "goal": "売上表の合計を出す",
+    "hypotheses": [
+      {
+        "body": "仮説",
+        "budget": 6,
+        "checkpoint": null,
+        "expected": "e",
+        "id": "hyp3",
+        "rationale": "r",
+        "result": null,
+        "seq": 1,
+        "status": "active",
+        "strategyId": "str1",
+        "targets": [],
+        "tools": [
+          "read",
+        ],
+      },
+    ],
+    "id": "pur0",
+    "inference": [
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "plan",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "hypothesize",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+    ],
+    "input": {
+      "acceptance": [
+        {
+          "id": "total",
+          "method": "machine",
+          "text": "answer.json に合計値がある",
+        },
+      ],
+      "conditions": {
+        "adapter": null,
+        "attemptCount": "all",
+        "claimFeedback": "off",
+        "completionCheck": "off",
+        "findings": "off",
+        "judge": false,
+        "language": "ja",
+        "prediction": "status",
+        "questionSet": {
+          "id": "pursuit-guards",
+          "version": 1,
+        },
+        "review": false,
+        "rollback": "notify",
+        "rules": true,
+        "selfCheck": "off",
+        "strategyChange": "free",
+        "verdictLabel": "refutation",
+        "verifyOn": "attempt",
+      },
+      "goal": "売上表の合計を出す",
+      "goalRef": null,
+      "grant": [
+        "data.read",
+        "answer.write",
+      ],
+      "label": "unit",
+      "policy": {
+        "budget": {
+          "attempts": 40,
+          "attemptsPerHypothesis": 6,
+          "hypothesesPerStrategy": 3,
+          "rejectionsInRow": 3,
+          "stepBacks": 4,
+          "strategies": 1,
+          "transitions": 300,
+          "wallMs": 1800000,
+        },
+        "consultation": {
+          "requireProgress": false,
+        },
+        "judge": {
+          "confidence": 0.7,
+          "guardYes": 0.8,
+          "mismatchBelow": 0.5,
+          "trajectoryPersist": 2,
+        },
+        "judgeState": {
+          "maxChars": 2500,
+          "textChars": 240,
+        },
+        "observation": {
+          "latestChars": 8000,
+          "olderChars": 1800,
+        },
+        "restore": "protective",
+        "retry": {
+          "sameFingerprintWithReason": 1,
+        },
+        "signals": {
+          "consecutiveFailures": 3,
+          "goalDrift": 3,
+          "mismatchNotShrinking": 3,
+          "protectedTouches": 1,
+          "revisits": 3,
+          "scopeGrowth": 3,
+          "scratchDirs": [
+            "scratch",
+            "notes",
+            "tmp",
+            "__pycache__",
+          ],
+        },
+        "version": 1,
+      },
+    },
+    "judgements": [],
+    "report": {
+      "criteria": [
+        {
+          "evidence": "不合格",
+          "id": "total",
+          "passed": false,
+        },
+      ],
+      "findings": {
+        "checked": [],
+        "total": 0,
+      },
+      "needs": [],
+      "outcome": "incomplete",
+      "pursuitId": "pur0",
+      "reason": "F9 を根拠に断念",
+      "refs": [],
+      "stats": {
+        "attempts": 0,
+        "consultations": 0,
+        "hypotheses": 1,
+        "rejected": 0,
+        "stepBacks": 0,
+        "strategies": 1,
+      },
+      "verified": false,
+    },
+    "revision": 5,
+    "startedAt": 1001,
+    "status": "incomplete",
+    "strategies": [
+      {
+        "alternatives": [
+          "別案",
+        ],
+        "assessment": null,
+        "body": "方針",
+        "closeReason": null,
+        "id": "str1",
+        "parts": [],
+        "previousId": null,
+        "rationale": "r",
+        "seq": 1,
+        "status": "active",
+      },
+    ],
+    "updatedAt": 1008,
+    "verifications": [
+      {
+        "attemptId": null,
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "final",
+      },
+    ],
+  },
+}
+`;
+
+exports[`findings consistency (spec/fixes-2026-10-22.md §e) after five executed attempts with no finding, plan/hypothesis requests remind once per request 1`] = `
+{
+  "prompts": [
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 0 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+
+## 依頼
+
+目標に向かう方針を一つ立ててください。選んだ理由と、試していない別案も挙げてください。"
+,
+      "purpose": "plan",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 0 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+
+## 現在の方針
+方針
+
+## 依頼
+
+この方針で立てる仮説は 1/3 件目（上限に達した仮説が閉じると、規則で方針を立て直す。仮説ごとの試行予算は 5 回）。
+
+この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。
+
+targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。空でも変更は拒否されず、最初に変えたファイルのディレクトリがその仮説の範囲になります。ただし仮説は一つの主張なので、読むだけの仮説から「直す」仮説へ移るときは、step_back で区切って新しい仮説を立てます（区切りごとに振り返りが入るのは設計どおり）。直すつもりがあるなら、この仮説で実際に変えるファイルかディレクトリだけを最初から targets に書けば区切りは要りません。確かめていない場所や「念のため」の場所は書かないでください（広く書くほど、範囲の拡大という兆候が見えなくなります）。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+,
+      "purpose": "hypothesize",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 0 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 0 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 知見の記録
+次に記録される知見の番号は F1 から。この一手の findings は書いた順に F1, F2, F3 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 0/5
+
+## この仮説での試行
+まだありません。
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 1 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 1 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 知見の記録
+次に記録される知見の番号は F1 から。この一手の findings は書いた順に F1, F2, F3 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 1/5
+
+## この仮説での試行
+（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）
+#1 read {"n":84}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 2 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 2 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 知見の記録
+次に記録される知見の番号は F1 から。この一手の findings は書いた順に F1, F2, F3 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 2/5
+
+## この仮説での試行
+（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）
+#1 read {"n":84}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#2 read {"n":85}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 3 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 3 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 知見の記録
+次に記録される知見の番号は F1 から。この一手の findings は書いた順に F1, F2, F3 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 3/5
+
+## この仮説での試行
+（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）
+#1 read {"n":84}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#2 read {"n":85}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#3 read {"n":86}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 試行中（実行した試行 4 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 4 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 知見の記録
+次に記録される知見の番号は F1 から。この一手の findings は書いた順に F1, F2, F3 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 4/5
+
+## この仮説での試行
+（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）
+#1 read {"n":84}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#2 read {"n":85}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#3 read {"n":86}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#4 read {"n":87}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 打ち切り（判断: 規則）: 仮説の試行予算を使い切りました
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 5 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 行き止まり（同じ経路を繰り返さない。ホストが記録し、知見と同じ F 番号列を使う）
+- F1 [dead_end・確定・方針1] 仮説1「仮説」は成り立たないまま閉じた（実行した試行 5 回: 反証の条件に当たらなかった 0・当たった 0・未判定 5。拒否 0 回）。最後に実行した試行: #5 read → 未判定（状態は予測どおり。反証の条件なし）。一段上へ戻した理由（規則・判定の説明。ホストは確かめていない）: 仮説の試行予算を使い切りました
+
+知見: 0 件（実行した試行 5 回のあと）。これまでの観測で確かめた事実があれば、次の提案の findings に記録してください。
+
+## 直近の試行
+（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）
+#1 read {"n":84}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#2 read {"n":85}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#3 read {"n":86}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#4 read {"n":87}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#5 read {"n":88}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+
+## 現在の方針
+方針
+
+## 依頼
+
+この方針で立てる仮説は 2/3 件目（上限に達した仮説が閉じると、規則で方針を立て直す。仮説ごとの試行予算は 5 回）。
+
+この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。
+
+targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。空でも変更は拒否されず、最初に変えたファイルのディレクトリがその仮説の範囲になります。ただし仮説は一つの主張なので、読むだけの仮説から「直す」仮説へ移るときは、step_back で区切って新しい仮説を立てます（区切りごとに振り返りが入るのは設計どおり）。直すつもりがあるなら、この仮説で実際に変えるファイルかディレクトリだけを最初から targets に書けば区切りは要りません。確かめていない場所や「念のため」の場所は書かないでください（広く書くほど、範囲の拡大という兆候が見えなくなります）。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+,
+      "purpose": "hypothesize",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 打ち切り（判断: 規則）: 仮説の試行予算を使い切りました
+  - 仮説2: 仮説 → 試行中（実行した試行 0 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 5 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 行き止まり（同じ経路を繰り返さない。ホストが記録し、知見と同じ F 番号列を使う）
+- F1 [dead_end・確定・方針1] 仮説1「仮説」は成り立たないまま閉じた（実行した試行 5 回: 反証の条件に当たらなかった 0・当たった 0・未判定 5。拒否 0 回）。最後に実行した試行: #5 read → 未判定（状態は予測どおり。反証の条件なし）。一段上へ戻した理由（規則・判定の説明。ホストは確かめていない）: 仮説の試行予算を使い切りました
+## 知見の記録
+次に記録される知見の番号は F2 から。この一手の findings は書いた順に F2, F3, F4 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 0/5
+
+## この仮説での試行
+まだありません。
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 打ち切り（判断: 規則）: 仮説の試行予算を使い切りました
+  - 仮説2: 仮説 → 打ち切り（判断: 規則）: m
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 5 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 行き止まり（同じ経路を繰り返さない。ホストが記録し、知見と同じ F 番号列を使う）
+- F1 [dead_end・確定・方針1] 仮説1「仮説」は成り立たないまま閉じた（実行した試行 5 回: 反証の条件に当たらなかった 0・当たった 0・未判定 5。拒否 0 回）。最後に実行した試行: #5 read → 未判定（状態は予測どおり。反証の条件なし）。一段上へ戻した理由（規則・判定の説明。ホストは確かめていない）: 仮説の試行予算を使い切りました
+- F2 [dead_end・確定・方針1] 仮説2「仮説」は成り立たないまま閉じた（実行した試行 0 回: 反証の条件に当たらなかった 0・当たった 0・未判定 0。拒否 0 回）。実行した試行はない。一段上へ戻した理由（生成側の説明。ホストは確かめていない）: m
+
+知見: 0 件（実行した試行 5 回のあと）。これまでの観測で確かめた事実があれば、次の提案の findings に記録してください。
+
+## 直近の試行
+（#番号はこの課題の試行の通し番号。前の仮説・方針の試行と拒否された提案も数える）
+#1 read {"n":84}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#2 read {"n":85}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#3 read {"n":86}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#4 read {"n":87}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+#5 read {"n":88}
+  予測: ok / 値が返る
+  観測: ok {"v":1}
+  判定: 未判定（状態は予測どおり。反証の条件なし）
+
+## 現在の方針
+方針
+
+## 依頼
+
+この方針で立てる仮説は 3/3 件目（上限に達した仮説が閉じると、規則で方針を立て直す。仮説ごとの試行予算は 5 回）。
+
+この方針の下で、次に確かめる仮説を一つ立ててください（「Xをすれば、Yになるはず」）。使う道具と、成り立つときに観測される結果も書いてください。前の仮説と同じものは立てないでください。
+
+targets には、この仮説で変えるつもりのファイルかディレクトリ（例: src/pricing/）を書いてください。課題のファイルを変えない仮説（読む、調べる、scratch/ で計算するだけ）なら空にします。空でも変更は拒否されず、最初に変えたファイルのディレクトリがその仮説の範囲になります。ただし仮説は一つの主張なので、読むだけの仮説から「直す」仮説へ移るときは、step_back で区切って新しい仮説を立てます（区切りごとに振り返りが入るのは設計どおり）。直すつもりがあるなら、この仮説で実際に変えるファイルかディレクトリだけを最初から targets に書けば区切りは要りません。確かめていない場所や「念のため」の場所は書かないでください（広く書くほど、範囲の拡大という兆候が見えなくなります）。scratch/ などの作業用ディレクトリは書かなくてかまいません。宣言した範囲と、すでに変えたディレクトリの中なら、いくつのファイルを直しても範囲の拡大とは数えません。範囲の外へ試行のたびに広がると、兆候として一段上へ戻されます。"
+,
+      "purpose": "hypothesize",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+    {
+      "prompt": 
+"## 目標
+売上表の合計を出す
+## 受入条件（変更不可）
+- [total] answer.json に合計値がある
+
+## 使える道具
+
+{"name":"read","description":"","input_schema":{},"changes_workspace":false,"permitted":true}
+{"name":"write","description":"","input_schema":{},"changes_workspace":true,"permitted":true}
+
+## これまでの方針と仮説
+- 方針1: 方針
+  - 仮説1: 仮説 → 打ち切り（判断: 規則）: 仮説の試行予算を使い切りました
+  - 仮説2: 仮説 → 打ち切り（判断: 規則）: m
+  - 仮説3: 仮説 → 試行中（実行した試行 0 回）
+
+## 知見（仮説を変えても残る）
+（まだありません。実行した試行 5 回）
+確認済みの知見は、仮説を変えても証明し直さずに使ってよい。未確認の知見は、使う前に確かめること。
+確認済み（確定・数値で確認・採点で確認）になるのは、ホストが自ら記録した知見と、検査が個別に確かめた知見だけ。生成側が記録した知見は、引用した試行が予測どおりでも、申告が合格しても未確認のまま（検査はどの知見が正しかったかまでは示さないため）。
+## 行き止まり（同じ経路を繰り返さない。ホストが記録し、知見と同じ F 番号列を使う）
+- F1 [dead_end・確定・方針1] 仮説1「仮説」は成り立たないまま閉じた（実行した試行 5 回: 反証の条件に当たらなかった 0・当たった 0・未判定 5。拒否 0 回）。最後に実行した試行: #5 read → 未判定（状態は予測どおり。反証の条件なし）。一段上へ戻した理由（規則・判定の説明。ホストは確かめていない）: 仮説の試行予算を使い切りました
+- F2 [dead_end・確定・方針1] 仮説2「仮説」は成り立たないまま閉じた（実行した試行 0 回: 反証の条件に当たらなかった 0・当たった 0・未判定 0。拒否 0 回）。実行した試行はない。一段上へ戻した理由（生成側の説明。ホストは確かめていない）: m
+## 知見の記録
+次に記録される知見の番号は F3 から。この一手の findings は書いた順に F3, F4, F5 になる。ホストが記録する行き止まり（一段上へ戻るとき）も同じ番号列を使うので、次の一手より先の番号を先回りして引用しない。
+findings に、この一手までに得た、仮説から切り離して残す価値のあるもの（成り立つ部分的な主張・反例・観測）を最大 3 件書く。scope は、その知見が依って立つ前提（pursuit=前提なし、strategy=今の方針、hypothesis=今の仮説）。誤りと分かった知見は refute に F番号（例: F3）と理由を書く。この一手で使う知見は uses に F番号を書く。
+成果物の中で独立に成り立つ部分（補題など）は、見出しで分けておくと、完了の申告のときの照合で個別に確かめられ、確認済みの知見として残ることがある。
+定義・数値・原因の特定・反例のように、あとで使う事実が分かる観測を得たら、その次の一手の findings に残す（毎手でなくてよい）。自己評価・申告・message で知見に触れるときは F番号で引用する。台帳にない F番号の引用は受け付けられない。
+
+## 現在の方針
+方針
+
+## 現在の仮説
+仮説
+期待する結果: e
+試行予算: 0/5
+
+## この仮説での試行
+まだありません。
+
+## 依頼
+次の一手を一つ選んでください。
+- kind "tool": 道具を1回使う。tool に道具名、inputJson に入力の JSON オブジェクト（文字列）、expectedStatus と expectedObservation に予測を書く。同じ条件の再試行なら whatChanged に前回からの違いを書く。道具に text_field があるときは、その欄の長い本文（TeX・コードなど）を inputJson に入れず、text に生のまま書く（エスケープ不要）。
+- kind "done": 受入条件を満たしたと考える。message に根拠を書く（照合されます）。
+- kind "consult": 利用者に相談する。message に問い、missing に足りないものを書く。
+- kind "give_up": 達成できないと判断した。message に理由を書く。
+- kind "step_back": この仮説では進まないので振り返る。message に理由を書く。
+使わない項目は null または空文字にしてください。
+作業用のメモや一時的なスクリプトは scratch/・notes/・tmp/・__pycache__/ のいずれかの下に置いてください（課題のファイルを広げたとは数えません）。"
+,
+      "purpose": "propose",
+      "system": 
+"You pursue a goal for a user by trial and error, using only the tools listed.
+You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+Rules you must respect:
+- Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
+- The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
+- Do not repeat a failed or interrupted (outcome unknown) attempt under the same conditions without stating what changed.
+- Change only what the current hypothesis needs. Do not tidy, refactor or touch unrelated places.
+- Never claim completion you cannot show. If information, permission or a decision is missing, consult the user or give up with the reason. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
+- Tools marked permitted:false must not be used; consult if you need them.
+Write all free text (strategy, reasons, predictions, questions) in Japanese."
+,
+    },
+  ],
+  "view": {
+    "acceptance": [
+      {
+        "id": "total",
+        "method": "machine",
+        "text": "answer.json に合計値がある",
+      },
+    ],
+    "attempts": [
+      {
+        "features": {
+          "filesTouched": [],
+          "linesChanged": 0,
+          "match": null,
+          "progress": null,
+          "protectedTouched": [],
+        },
+        "fingerprint": "v2:cbb7d1f655446d4647e60326022b8acd:91590577828377597b5db45bc3c0b2d6",
+        "hypothesisId": "hyp3",
+        "id": "att5",
+        "input": {
+          "n": 84,
+        },
+        "observation": {
+          "errorCode": null,
+          "output": {
+            "v": 1,
+          },
+          "status": "ok",
+        },
+        "outcome": "success",
+        "prediction": {
+          "expectedObservation": "値が返る",
+          "expectedStatus": "ok",
+        },
+        "refs": [],
+        "rejection": null,
+        "seq": 1,
+        "settlement": {
+          "digest": null,
+          "effects": null,
+          "stage": "done",
+        },
+        "startedAt": 1006,
+        "state": "settled",
+        "tool": "read",
+        "whatChanged": "",
+      },
+      {
+        "features": {
+          "filesTouched": [],
+          "linesChanged": 0,
+          "match": null,
+          "progress": null,
+          "protectedTouched": [],
+        },
+        "fingerprint": "v2:cbb7d1f655446d4647e60326022b8acd:40fc059ff0cac32cc5f16ed53308336b",
+        "hypothesisId": "hyp3",
+        "id": "att8",
+        "input": {
+          "n": 85,
+        },
+        "observation": {
+          "errorCode": null,
+          "output": {
+            "v": 1,
+          },
+          "status": "ok",
+        },
+        "outcome": "success",
+        "prediction": {
+          "expectedObservation": "値が返る",
+          "expectedStatus": "ok",
+        },
+        "refs": [],
+        "rejection": null,
+        "seq": 2,
+        "settlement": {
+          "digest": null,
+          "effects": null,
+          "stage": "done",
+        },
+        "startedAt": 1009,
+        "state": "settled",
+        "tool": "read",
+        "whatChanged": "",
+      },
+      {
+        "features": {
+          "filesTouched": [],
+          "linesChanged": 0,
+          "match": null,
+          "progress": null,
+          "protectedTouched": [],
+        },
+        "fingerprint": "v2:cbb7d1f655446d4647e60326022b8acd:22aa723aa270198b4d7ec0b8c97ff88c",
+        "hypothesisId": "hyp3",
+        "id": "att11",
+        "input": {
+          "n": 86,
+        },
+        "observation": {
+          "errorCode": null,
+          "output": {
+            "v": 1,
+          },
+          "status": "ok",
+        },
+        "outcome": "success",
+        "prediction": {
+          "expectedObservation": "値が返る",
+          "expectedStatus": "ok",
+        },
+        "refs": [],
+        "rejection": null,
+        "seq": 3,
+        "settlement": {
+          "digest": null,
+          "effects": null,
+          "stage": "done",
+        },
+        "startedAt": 1012,
+        "state": "settled",
+        "tool": "read",
+        "whatChanged": "",
+      },
+      {
+        "features": {
+          "filesTouched": [],
+          "linesChanged": 0,
+          "match": null,
+          "progress": null,
+          "protectedTouched": [],
+        },
+        "fingerprint": "v2:cbb7d1f655446d4647e60326022b8acd:ee8dcfac1c97ec767d6de5b67ef9bb39",
+        "hypothesisId": "hyp3",
+        "id": "att14",
+        "input": {
+          "n": 87,
+        },
+        "observation": {
+          "errorCode": null,
+          "output": {
+            "v": 1,
+          },
+          "status": "ok",
+        },
+        "outcome": "success",
+        "prediction": {
+          "expectedObservation": "値が返る",
+          "expectedStatus": "ok",
+        },
+        "refs": [],
+        "rejection": null,
+        "seq": 4,
+        "settlement": {
+          "digest": null,
+          "effects": null,
+          "stage": "done",
+        },
+        "startedAt": 1015,
+        "state": "settled",
+        "tool": "read",
+        "whatChanged": "",
+      },
+      {
+        "features": {
+          "filesTouched": [],
+          "linesChanged": 0,
+          "match": null,
+          "progress": null,
+          "protectedTouched": [],
+        },
+        "fingerprint": "v2:cbb7d1f655446d4647e60326022b8acd:d5f1fca85e2439f57a506b299612c682",
+        "hypothesisId": "hyp3",
+        "id": "att17",
+        "input": {
+          "n": 88,
+        },
+        "observation": {
+          "errorCode": null,
+          "output": {
+            "v": 1,
+          },
+          "status": "ok",
+        },
+        "outcome": "success",
+        "prediction": {
+          "expectedObservation": "値が返る",
+          "expectedStatus": "ok",
+        },
+        "refs": [],
+        "rejection": null,
+        "seq": 5,
+        "settlement": {
+          "digest": null,
+          "effects": null,
+          "stage": "done",
+        },
+        "startedAt": 1018,
+        "state": "settled",
+        "tool": "read",
+        "whatChanged": "",
+      },
+    ],
+    "consultations": [],
+    "currentHypothesisId": "hyp29",
+    "currentStrategyId": "str1",
+    "decisions": [
+      {
+        "basis": {
+          "rule": "hypothesis_budget",
+        },
+        "decidedBy": "rules",
+        "kind": "step_back",
+        "reason": "仮説の試行予算を使い切りました",
+        "seq": 1,
+      },
+      {
+        "basis": {
+          "direction": "",
+          "escalation": [],
+          "judge": null,
+          "review": null,
+          "signals": [],
+        },
+        "decidedBy": "rules",
+        "kind": "change_hypothesis",
+        "reason": "仮説の試行予算を使い切りました",
+        "seq": 2,
+      },
+      {
+        "basis": {},
+        "decidedBy": "generator",
+        "kind": "step_back",
+        "reason": "m",
+        "seq": 3,
+      },
+      {
+        "basis": {
+          "direction": "",
+          "escalation": [],
+          "judge": null,
+          "review": null,
+          "signals": [],
+        },
+        "decidedBy": "rules",
+        "kind": "change_hypothesis",
+        "reason": "m",
+        "seq": 4,
+      },
+      {
+        "basis": {
+          "verified": false,
+        },
+        "decidedBy": "generator",
+        "kind": "give_up",
+        "reason": "m",
+        "seq": 5,
+      },
+    ],
+    "findings": [
+      {
+        "assurance": "exact",
+        "hypothesisId": null,
+        "id": "fnd21",
+        "kind": "dead_end",
+        "reason": null,
+        "scope": "strategy",
+        "seq": 1,
+        "sourceAttemptId": null,
+        "sourceVerificationId": null,
+        "statement": "仮説1「仮説」は成り立たないまま閉じた（実行した試行 5 回: 反証の条件に当たらなかった 0・当たった 0・未判定 5。拒否 0 回）。最後に実行した試行: #5 read → 未判定（状態は予測どおり。反証の条件なし）。一段上へ戻した理由（規則・判定の説明。ホストは確かめていない）: 仮説の試行予算を使い切りました",
+        "status": "active",
+        "strategyId": "str1",
+      },
+      {
+        "assurance": "exact",
+        "hypothesisId": null,
+        "id": "fnd27",
+        "kind": "dead_end",
+        "reason": null,
+        "scope": "strategy",
+        "seq": 2,
+        "sourceAttemptId": null,
+        "sourceVerificationId": null,
+        "statement": "仮説2「仮説」は成り立たないまま閉じた（実行した試行 0 回: 反証の条件に当たらなかった 0・当たった 0・未判定 0。拒否 0 回）。実行した試行はない。一段上へ戻した理由（生成側の説明。ホストは確かめていない）: m",
+        "status": "active",
+        "strategyId": "str1",
+      },
+    ],
+    "goal": "売上表の合計を出す",
+    "hypotheses": [
+      {
+        "body": "仮説",
+        "budget": 5,
+        "checkpoint": null,
+        "expected": "e",
+        "id": "hyp3",
+        "rationale": "r",
+        "result": "打ち切り（判断: 規則）: 仮説の試行予算を使い切りました",
+        "seq": 1,
+        "status": "closed",
+        "strategyId": "str1",
+        "targets": [],
+        "tools": [
+          "read",
+        ],
+      },
+      {
+        "body": "仮説",
+        "budget": 5,
+        "checkpoint": null,
+        "expected": "e",
+        "id": "hyp23",
+        "rationale": "r",
+        "result": "打ち切り（判断: 規則）: m",
+        "seq": 2,
+        "status": "closed",
+        "strategyId": "str1",
+        "targets": [],
+        "tools": [
+          "read",
+        ],
+      },
+      {
+        "body": "仮説",
+        "budget": 5,
+        "checkpoint": null,
+        "expected": "e",
+        "id": "hyp29",
+        "rationale": "r",
+        "result": null,
+        "seq": 3,
+        "status": "active",
+        "strategyId": "str1",
+        "targets": [],
+        "tools": [
+          "read",
+        ],
+      },
+    ],
+    "id": "pur0",
+    "inference": [
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "plan",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "hypothesize",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "hypothesize",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "hypothesize",
+      },
+      {
+        "cacheReadTokens": 0,
+        "inputTokens": 1,
+        "latencyMs": 1,
+        "model": "scripted",
+        "outputTokens": 1,
+        "purpose": "propose",
+      },
+    ],
+    "input": {
+      "acceptance": [
+        {
+          "id": "total",
+          "method": "machine",
+          "text": "answer.json に合計値がある",
+        },
+      ],
+      "conditions": {
+        "adapter": null,
+        "attemptCount": "all",
+        "claimFeedback": "off",
+        "completionCheck": "off",
+        "findings": "verified",
+        "judge": false,
+        "language": "ja",
+        "prediction": "status",
+        "questionSet": {
+          "id": "pursuit-guards",
+          "version": 1,
+        },
+        "review": false,
+        "rollback": "notify",
+        "rules": true,
+        "selfCheck": "off",
+        "strategyChange": "free",
+        "verdictLabel": "refutation",
+        "verifyOn": "attempt",
+      },
+      "goal": "売上表の合計を出す",
+      "goalRef": null,
+      "grant": [
+        "data.read",
+        "answer.write",
+      ],
+      "label": "unit",
+      "policy": {
+        "budget": {
+          "attempts": 40,
+          "attemptsPerHypothesis": 5,
+          "hypothesesPerStrategy": 3,
+          "rejectionsInRow": 3,
+          "stepBacks": 4,
+          "strategies": 1,
+          "transitions": 300,
+          "wallMs": 1800000,
+        },
+        "consultation": {
+          "requireProgress": false,
+        },
+        "judge": {
+          "confidence": 0.7,
+          "guardYes": 0.8,
+          "mismatchBelow": 0.5,
+          "trajectoryPersist": 2,
+        },
+        "judgeState": {
+          "maxChars": 2500,
+          "textChars": 240,
+        },
+        "observation": {
+          "latestChars": 8000,
+          "olderChars": 1800,
+        },
+        "restore": "protective",
+        "retry": {
+          "sameFingerprintWithReason": 1,
+        },
+        "signals": {
+          "consecutiveFailures": 3,
+          "goalDrift": 3,
+          "mismatchNotShrinking": 3,
+          "protectedTouches": 1,
+          "revisits": 3,
+          "scopeGrowth": 3,
+          "scratchDirs": [
+            "scratch",
+            "notes",
+            "tmp",
+            "__pycache__",
+          ],
+        },
+        "version": 1,
+      },
+    },
+    "judgements": [],
+    "report": {
+      "criteria": [
+        {
+          "evidence": "不合格",
+          "id": "total",
+          "passed": false,
+        },
+      ],
+      "findings": {
+        "checked": [],
+        "total": 2,
+      },
+      "needs": [],
+      "outcome": "incomplete",
+      "pursuitId": "pur0",
+      "reason": "m",
+      "refs": [],
+      "stats": {
+        "attempts": 5,
+        "consultations": 0,
+        "hypotheses": 3,
+        "rejected": 0,
+        "stepBacks": 2,
+        "strategies": 1,
+      },
+      "verified": false,
+    },
+    "revision": 26,
+    "startedAt": 1001,
+    "status": "incomplete",
+    "strategies": [
+      {
+        "alternatives": [
+          "別案",
+        ],
+        "assessment": null,
+        "body": "方針",
+        "closeReason": null,
+        "id": "str1",
+        "parts": [],
+        "previousId": null,
+        "rationale": "r",
+        "seq": 1,
+        "status": "active",
+      },
+    ],
+    "updatedAt": 1034,
+    "verifications": [
+      {
+        "attemptId": "att5",
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "attempt",
+      },
+      {
+        "attemptId": "att8",
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "attempt",
+      },
+      {
+        "attemptId": "att11",
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "attempt",
+      },
+      {
+        "attemptId": "att14",
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "attempt",
+      },
+      {
+        "attemptId": "att17",
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "attempt",
+      },
+      {
+        "attemptId": null,
+        "criteria": [
+          {
+            "evidence": "不合格",
+            "id": "total",
+            "passed": false,
+          },
+        ],
+        "passed": false,
+        "trigger": "final",
+      },
+    ],
+  },
+}
+`;

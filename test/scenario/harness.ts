@@ -1,4 +1,5 @@
 /** Scripted generator, tools and workspace for the scenario tests of spec/fixes-2026-10-22.md. */
+import { expect } from "bun:test";
 import {
 	createPursuitEngine,
 	type LlmPort,
@@ -175,5 +176,8 @@ export async function run(options: {
 		const r = await engine.step(pursuitId, rt, AbortSignal.timeout(5000));
 		if (r.done) break;
 	}
-	return { view: (await engine.view(pursuitId))!, prompts };
+	const view = (await engine.view(pursuitId))!;
+	if (process.env.PURSUIT_GOLDEN === "1")
+		expect({ prompts, view }).toMatchSnapshot();
+	return { view, prompts };
 }
