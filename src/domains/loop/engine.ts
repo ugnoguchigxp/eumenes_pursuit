@@ -3,107 +3,29 @@ import {
 	startInputSchema,
 	terminalStatuses,
 	type AcceptancePort,
-	type ArtifactRef,
 	type Clock,
-	type CriterionResult,
-	type DecidedBy,
-	type DecisionKind,
 	type IdSource,
 	type JsonObject,
 	type JsonValue,
 	type JudgePort,
-	type LedgerDb,
 	type LlmPort,
-	type LlmRequest,
-	type LlmResult,
 	type PursuitStatus,
 	type PursuitStore,
-	type Report,
-	type StepEvent,
 	type StepResult,
-	type ToolDescriptor,
-	type ToolOutcome,
 	type ToolPort,
 	type WorkspacePort,
-	type WorkspaceChanges,
 } from "../../contracts/index.ts";
-import {
-	findQuestionSet,
-	stageQuestions,
-	type Stage,
-} from "../judge/question-sets.ts";
-import {
-	interpret,
-	moreCautious,
-	type JudgeEffects,
-} from "../judge/interpret.ts";
-import { postState, preState, reviewState } from "../judge/state.ts";
-import {
-	attemptTally,
-	hypothesisRequest,
-	planRequest,
-	verdictText,
-	budgetCounted,
-	proposalRequest,
-	reviewRequest,
-	type Proposal,
-	type Review,
-} from "../generation/prompts.ts";
 import * as ledger from "../ledger/index.ts";
-import {
-	consultedWithoutProgress,
-	describeUnfinished,
-	unfinishedParts,
-} from "../rules/parts.ts";
-import type {
-	AttemptFeatures,
-	InferenceRow,
-	JudgementRow,
-	Prediction,
-	PursuitView,
-	Rejection,
-} from "../ledger/types.ts";
-import { acceptancePassed } from "../rules/acceptance.ts";
-import { refutationHeld } from "../rules/refutation.ts";
-import {
-	attemptOutcome,
-	attemptsOf,
-	executed,
-	invariantRejections,
-	isScratchPath,
-	pursuitBudgetExceeded,
-	remainingWallMs,
-	rejectionsInRow,
-	ruleRejections,
-	signals,
-	unrecordedFindingRefs,
-	type Signal,
-} from "../rules/checks.ts";
-import {
-	citationNote,
-	damaging,
-	decidedByLabel,
-	budgetReasons,
-	findingRefs,
-	hypothesisHeld,
-	noChanges,
-	normalPath,
-	reviewKinds,
-	sentenceClip,
-	trajectoryStreak,
-	WallTimeExpired,
-} from "./helpers.ts";
+import type { PursuitView } from "../ledger/types.ts";
+import { pursuitBudgetExceeded, remainingWallMs } from "../rules/checks.ts";
+import { digestJson } from "../rules/fingerprint.ts";
 import { makeAttempt } from "./attempt.ts";
+import { makeBase, type EngineCtx } from "./context.ts";
+import { budgetReasons, WallTimeExpired } from "./helpers.ts";
 import { makePropose } from "./propose.ts";
-import type { EngineCtx } from "./context.ts";
-import { makeTransitions } from "./transitions.ts";
+import { makeReview } from "./review.ts";
 import { makeSupport } from "./support.ts";
-import { makeBase } from "./context.ts";
-import {
-	digestJson,
-	fingerprint,
-	sameConditions,
-} from "../rules/fingerprint.ts";
+import { makeTransitions } from "./transitions.ts";
 
 /** What the host lends for one pursuit. In Eumenes: toolchain, workspace, verifier. */
 export interface PursuitRuntime {
@@ -153,331 +75,15 @@ export { citationNote } from "./helpers.ts";
 export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 	const base = makeBase(deps);
 	const { store, clock, ids } = deps;
-	const { read, result } = base;
+	const { read, result, checkTime } = base;
 	const ctx = { ...base, ...makeSupport(base) } as EngineCtx;
-	Object.assign(ctx, makeTransitions(ctx), makePropose(ctx), makeAttempt(ctx), {
-		review,
-	});
-	const {
-		warn,
-		inference,
-		llmRow,
-		call,
-		checkTime,
-		askJudge,
-		recordFindings,
-		recordDeadEnd,
-		checkedFindings,
-		writeJudgements,
-		featuresOf,
-		changingTools,
-		firedSignals,
-		reject,
-	} = ctx;
-	async function review(
-		view: PursuitView,
-		runtime: PursuitRuntime,
-		signal: AbortSignal,
-	): Promise<StepResult> {
-		const conditions = view.input.conditions;
-		const policy = view.input.policy;
-		const tools = runtime.tools.list();
-		const hypothesis = view.hypotheses.find(
-			(h) => h.id === view.currentHypothesisId,
-		);
-		const strategy = view.strategies.find(
-			(s) => s.id === view.currentStrategyId,
-		);
-		const reason =
-			[...view.decisions].reverse().find((d) => d.kind === "step_back")
-				?.reason ?? "";
-		const fired = firedSignals(view, tools);
-		const usage: InferenceRow[] = [];
-		let reviewed: Review | null = null;
-		if (conditions.review && deps.reviewer) {
-			const r = await call(
-				deps.reviewer,
-				reviewRequest({
-					view,
-					reason,
-					signals: fired.map((s) => s.code),
-					tools,
-				}),
-				signal,
-				view,
-			);
-			reviewed = r.value;
-			usage.push(llmRow("review", r));
-		}
-		const judged = await askJudge(
-			view,
-			"review",
-			reviewState({ view, reason, fired }),
-			null,
-			signal,
-		);
-		const fromReview = reviewed ? reviewKinds[reviewed.decision] : null;
-		const fromJudge = judged?.effects.next ?? null;
-		let kind: DecisionKind = fromReview ?? fromJudge ?? "change_hypothesis";
-		let decidedBy: DecidedBy = fromReview
-			? "review"
-			: fromJudge
-				? "judge"
-				: "rules";
-		if (fromReview && fromJudge) {
-			kind = moreCautious(fromReview, fromJudge);
-			decidedBy = kind === fromReview ? "review" : "judge";
-		}
-		const budgetLeft =
-			hypothesis !== undefined &&
-			budgetCounted(view, attemptsOf(view, hypothesis.id), runtime.tools.list())
-				.length < hypothesis.budget;
-		const lastStepBack = [...view.decisions]
-			.reverse()
-			.find((d) => d.kind === "step_back");
-		// A step back forced by the rules or a guard cannot be undone by "keep going".
-		if (
-			(kind === "continue" || kind === "change_tool") &&
-			(!budgetLeft || (lastStepBack && lastStepBack.decidedBy !== "generator"))
-		)
-			kind = "change_hypothesis";
-		const escalation: string[] = [];
-		let unfinishedNote = "";
-		if (conditions.rules) {
-			const stepBacks = view.decisions.filter(
-				(d) => d.kind === "step_back",
-			).length;
-			const answered = view.consultations.filter(
-				(c) => c.answer !== null,
-			).length;
-			const inStrategy = view.hypotheses.filter(
-				(h) => h.strategyId === strategy?.id,
-			).length;
-			// An answered consultation with nothing tried since: asking again spins.
-			if (
-				kind === "consult" &&
-				policy.consultation.requireProgress &&
-				consultedWithoutProgress(view)
-			) {
-				kind = "change_hypothesis";
-				decidedBy = "rules";
-				escalation.push("consult_without_progress");
-			}
-			if (
-				kind === "change_hypothesis" &&
-				inStrategy >= policy.budget.hypothesesPerStrategy
-			) {
-				kind = "revise_strategy";
-				escalation.push("hypotheses_per_strategy");
-			}
-			// A strategy is kept until its parts are worked through (spec/persistence-design.md §2).
-			if (
-				conditions.selfCheck === "parts" &&
-				kind === "revise_strategy" &&
-				strategy &&
-				inStrategy < policy.budget.hypothesesPerStrategy
-			) {
-				const unfinished = unfinishedParts(strategy);
-				if (unfinished.length) {
-					kind = "change_hypothesis";
-					decidedBy = "rules";
-					escalation.push("strategy_not_exhausted");
-					unfinishedNote = describeUnfinished(unfinished);
-				}
-			}
-			if (
-				kind === "revise_strategy" &&
-				view.strategies.length >= policy.budget.strategies
-			) {
-				kind = "consult";
-				escalation.push("strategies");
-			}
-			if (stepBacks > policy.budget.stepBacks && kind !== "stop") {
-				kind = answered > 0 ? "stop" : "consult";
-				escalation.push("step_backs");
-			}
-			if (kind === "consult" && answered >= 2) {
-				kind = "stop";
-				escalation.push("consultations");
-			}
-			// A budget escalation back to consult would ask again with nothing tried since.
-			if (
-				kind === "consult" &&
-				escalation.includes("consult_without_progress")
-			) {
-				kind = "stop";
-				escalation.push("consultations");
-			}
-		}
-		const direction =
-			unfinishedNote && kind === "change_hypothesis"
-				? `残りの部品に取り組む: ${unfinishedNote}`
-				: (reviewed?.direction ?? "");
-		const why = reviewed?.reason || reason;
-		// A review that kept the strategy, turned into a new plan only because the strategy's
-		// hypothesis budget is spent (spec/fixes-2026-10-22-f.md §A): the strategy did not fail.
-		const continuation =
-			kind === "revise_strategy" &&
-			reviewed?.decision === "continue_strategy" &&
-			escalation.includes("hypotheses_per_strategy");
-		// How the hypothesis ended and who decided, so a later request does not read a reviewer's
-		// reason as the hypothesis's own outcome (spec/fixes-2026-10-22-c.md §3).
-		const closing = (prefix = "") =>
-			`${prefix}${
-				hypothesis && hypothesisHeld(view, hypothesis.id, lastStepBack, fired)
-					? "成り立ったので次へ"
-					: "打ち切り"
-			}（判断: ${decidedByLabel[decidedBy]}）: ${why}`;
-		// rollback "notify": the reverted task files go into the decision basis, and the next
-		// generator requests name them until an attempt runs (prompts.ts revertBlock). Scratch
-		// work is never reverted; generated outputs are reverted and only counted.
-		let revertNote: JsonObject = {};
-		if (
-			conditions.rules &&
-			conditions.rollback === "notify" &&
-			runtime.workspace &&
-			hypothesis?.checkpoint &&
-			kind !== "continue" &&
-			kind !== "change_tool" &&
-			(policy.restore === "always" || damaging(lastStepBack?.basis))
-		) {
-			const changes = await featuresOf(
-				view,
-				runtime,
-				hypothesis.checkpoint,
-				null,
-			);
-			const scratchDirs = policy.signals.scratchDirs;
-			const generated = new Set(changes.generated ?? []);
-			const kept = changes.filesTouched.filter((f) =>
-				isScratchPath(f, scratchDirs),
-			);
-			const reverted = changes.filesTouched
-				.filter((f) => !isScratchPath(f, scratchDirs) && !generated.has(f))
-				.sort();
-			await runtime.workspace.restore(hypothesis.checkpoint, {
-				dirs: scratchDirs,
-			});
-			revertNote = {
-				reverted,
-				revertedGenerated: changes.filesTouched.filter(
-					(f) => !isScratchPath(f, scratchDirs) && generated.has(f),
-				).length,
-				keptScratch: kept.length,
-				attemptsAtRevert: view.attempts.length,
-			};
-		}
-		const basis: JsonObject = {
-			...revertNote,
-			review: reviewed
-				? {
-						decision: reviewed.decision,
-						brokenAssumption: reviewed.brokenAssumption,
-						// Which strategy a continue_strategy correction belongs to (fixes-2026-10-22-e §4).
-						...(strategy ? { strategyId: strategy.id } : {}),
-					}
-				: null,
-			judge: fromJudge,
-			signals: fired.map((s) => s.code),
-			escalation,
-			direction,
-			...(continuation
-				? {
-						continuation: true,
-						hypothesesPerStrategy: policy.budget.hypothesesPerStrategy,
-					}
-				: {}),
-		};
-		if (kind === "stop") {
-			await store.write((db) => {
-				inference(db, view, usage);
-				writeJudgements(db, view, judged);
-			});
-			return ctx.finish(
-				await read(view.id),
-				runtime,
-				"stopped",
-				why,
-				decidedBy,
-				signal,
-				undefined,
-				revertNote,
-			);
-		}
-		if (kind === "consult")
-			return ctx.consult(
-				view,
-				direction || why || "どう進めるか判断してください",
-				reviewed?.brokenAssumption ?? reason,
-				decidedBy,
-				(db) => {
-					inference(db, view, usage);
-					writeJudgements(db, view, judged);
-					if (hypothesis?.status === "active") {
-						ledger.closeHypothesis(db, {
-							id: hypothesis.id,
-							result: closing("相談・"),
-							now: clock.now(),
-						});
-						if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))
-							recordDeadEnd(db, view, hypothesis.id);
-					}
-				},
-				revertNote,
-			);
-		const status: PursuitStatus =
-			kind === "continue" || kind === "change_tool"
-				? "proposing"
-				: kind === "revise_strategy"
-					? "planning"
-					: "hypothesizing";
-		const revision = await store.write((db) => {
-			inference(db, view, usage);
-			writeJudgements(db, view, judged);
-			if (status !== "proposing" && hypothesis?.status === "active") {
-				ledger.closeHypothesis(db, {
-					id: hypothesis.id,
-					result: closing(),
-					now: clock.now(),
-				});
-				if (!hypothesisHeld(view, hypothesis.id, lastStepBack, fired))
-					recordDeadEnd(db, view, hypothesis.id);
-			}
-			if (status === "planning" && strategy?.status === "active") {
-				ledger.closeStrategy(db, {
-					id: strategy.id,
-					reason: continuation
-						? `仮説の上限（方針あたり ${policy.budget.hypothesesPerStrategy} 件）に達したので、規則で方針を立て直す。振り返りは方針${strategy.seq}の継続を勧めた（方針の誤りによる終了ではない）`
-						: why,
-					now: clock.now(),
-				});
-				// Continued in a new plan: what was found under it still stands (§A).
-				if (conditions.findings !== "off" && !continuation)
-					ledger.supersedeStrategyFindings(db, {
-						pursuitId: view.id,
-						strategyId: strategy.id,
-						reason: `方針${strategy.seq}を見直した`,
-						now: clock.now(),
-					});
-			}
-			ledger.insertDecision(db, {
-				id: ids.next("dec"),
-				pursuitId: view.id,
-				kind,
-				reason: why,
-				basis,
-				decidedBy,
-				now: clock.now(),
-			});
-			return ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: view.revision,
-				now: clock.now(),
-				status,
-			});
-		});
-		return result(view, revision, status, "stepped_back");
-	}
+	Object.assign(
+		ctx,
+		makeTransitions(ctx),
+		makePropose(ctx),
+		makeAttempt(ctx),
+		makeReview(ctx),
+	);
 
 	return {
 		async start(input, operationKey) {
@@ -556,7 +162,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 					case "proposing":
 						return await ctx.propose(view, runtime, signal);
 					case "reviewing":
-						return await review(view, runtime, signal);
+						return await ctx.review(view, runtime, signal);
 					default:
 						throw new Error(`pursuit_status_unhandled:${view.status}`);
 				}
