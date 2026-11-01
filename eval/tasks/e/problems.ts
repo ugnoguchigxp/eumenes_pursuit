@@ -420,6 +420,109 @@ export const reasoningTasks: readonly EvalTask[] = [
 		traps: ["小さい n の確認の省略", "Π_{p≤x} p < 4^x の証明の省略"],
 	}),
 	defineReasoningTask({
+		id: "e4-zeta2-beukers",
+		domain: "math",
+		level: 4,
+		title: "ζ(2) の無理数性（Beukers の積分）",
+		statement:
+			"ζ(2) = Σ_{n=1}^∞ 1/n² が無理数であることを、二重積分 I_n = ∫₀¹∫₀¹ (1−y)ⁿ P_n(x)/(1−xy) dx dy（P_n(x) = (1/n!) dⁿ/dxⁿ [xⁿ(1−x)ⁿ]）を使って証明せよ。ζ(2) = π²/6 や、π の無理数性・超越性は使わないこと。d_n = lcm(1, 2, …, n) について d_n ≤ 3^n（n ≥ 1）は証明なしで使ってよい。",
+		document: true,
+		numericChecks: false,
+		rubric: [
+			{
+				id: "integrals",
+				text: "∫₀¹∫₀¹ x^r y^s/(1−xy) dx dy の値（r > s なら (1/(r−s))(1/(s+1)+…+1/r)、r = s なら ζ(2) − Σ_{k=1}^{r} 1/k²）を正しく示している",
+			},
+			{
+				id: "integrality",
+				text: "I_n = (a_n + b_n ζ(2))/d_n²（a_n, b_n ∈ ℤ）の形になることを正しく示している",
+			},
+			{
+				id: "transform",
+				text: "x について n 回部分積分して I_n = (−1)ⁿ ∫₀¹∫₀¹ xⁿ(1−x)ⁿyⁿ(1−y)ⁿ/(1−xy)^{n+1} dx dy を正しく導き、I_n ≠ 0 を示している",
+			},
+			{
+				id: "bounds",
+				text: "x(1−x)y(1−y)/(1−xy) ≤ ((√5−1)/2)⁵ から |I_n| ≤ ((√5−1)/2)^{5n} ζ(2) を示し、d_n²|I_n| → 0 を正しく評価している",
+			},
+			exactClaim,
+			noGaps,
+		],
+		reference:
+			"Beukers (1979)。r > s なら ∫∫ x^r y^s/(1−xy) = Σ_{k≥0} 1/((r+k+1)(s+k+1)) = (1/(r−s))(1/(s+1)+…+1/r)、r = s なら ζ(2) − Σ_{k≤r} 1/k²。分母はどちらも d_r² を割る。P_n は整数係数なので I_n = (a_n + b_n ζ(2))/d_n²。Dⁿ_x[1/(1−xy)] = n! yⁿ/(1−xy)^{n+1} と、xⁿ(1−x)ⁿ の n 階未満の導関数が 0, 1 で 0 になることから、n 回の部分積分で I_n = (−1)ⁿ ∫∫ xⁿ(1−x)ⁿyⁿ(1−y)ⁿ/(1−xy)^{n+1}。被積分関数は [x(1−x)y(1−y)/(1−xy)]ⁿ/(1−xy) で、括弧の最大は ((√5−1)/2)⁵ ≈ 0.0902、∫∫ 1/(1−xy) = ζ(2) なので 0 < |I_n| ≤ 0.0902ⁿ ζ(2)。ζ(2) = p/q なら q d_n²|I_n| は正の整数だが ≤ q·9ⁿ·0.0902ⁿ ζ(2)（9 × 0.0902 ≈ 0.81）→ 0 で矛盾。",
+		traps: [
+			"r = s の積分で ζ(2) が出ることの省略",
+			"分母が d_n² を割ることの省略",
+			"I_n ≠ 0 の省略",
+		],
+	}),
+	defineReasoningTask({
+		id: "e4-e-transcendental",
+		domain: "math",
+		level: 4,
+		title: "e の超越性",
+		statement:
+			"e が超越数である（0 でない整数係数の多項式の根にならない）ことを証明せよ。e の超越性そのもの、Lindemann–Weierstrass の定理、Gelfond–Schneider の定理は引用せず、証明の中で示すこと。素数が無限に存在することは使ってよい。手法は問わない。",
+		document: true,
+		numericChecks: false,
+		rubric: [
+			{
+				id: "setup",
+				text: "a_0 ≠ 0 として Σ_{k=0}^m a_k e^k = 0 を仮定してよいことを示し、補助の多項式（例: f(x) = x^{p−1}(x−1)^p⋯(x−m)^p/(p−1)!）と I(t) = ∫₀ᵗ e^{t−u} f(u) du を正しく構成している",
+			},
+			{
+				id: "identity",
+				text: "I(t) = e^t Σ_j f^{(j)}(0) − Σ_j f^{(j)}(t) を導き、J = Σ_k a_k I(k) = −Σ_k Σ_j a_k f^{(j)}(k) を正しく示している",
+			},
+			{
+				id: "nonzero-integer",
+				text: "大きな素数 p について J が 0 でない整数であること（k ≥ 1 や j ≥ p の項は p の倍数で、k = 0, j = p−1 の項 a_0((−1)^m m!)^p だけが p > max(m, |a_0|) のとき p で割り切れない）を正しく示している",
+			},
+			{
+				id: "bound",
+				text: "|J| ≤ C^p/(p−1)!（C は p によらない）と評価し、p → ∞ で |J| < 1 となることから矛盾を導いている",
+			},
+			exactClaim,
+			noGaps,
+		],
+		reference:
+			"Hermite の証明（Hilbert・Hurwitz の形）。整数 a_k で Σ_{k=0}^m a_k e^k = 0 と仮定（a_0 = 0 なら e のべきで割って a_0 ≠ 0 にできる）。素数 p に対し f(x) = x^{p−1}(x−1)^p⋯(x−m)^p/(p−1)!、N = deg f = (m+1)p − 1、I(t) = ∫₀ᵗ e^{t−u} f(u) du = e^t Σ_{j=0}^N f^{(j)}(0) − Σ_{j=0}^N f^{(j)}(t)。J = Σ a_k I(k) = −Σ_{k=0}^m Σ_{j=0}^N a_k f^{(j)}(k)（仮定で e^k の項が消える）。k ≥ 1 では f^{(j)}(k) はすべて p の倍数の整数。k = 0 では j < p−1 で 0、j = p−1 で ((−1)^m m!)^p、j ≥ p で p の倍数。p > max(m, |a_0|) なら J ≢ 0 (mod p) なので |J| ≥ 1。一方 [0, k] 上で |f| ≤ m^{(m+1)p}/(p−1)! なので |J| ≤ (Σ|a_k| k e^k) m^{(m+1)p}/(p−1)! → 0。矛盾。",
+		traps: [
+			"a_0 ≠ 0 にできることの省略",
+			"k = 0, j = p−1 の項だけが p で割り切れないことの確認の省略",
+			"上からの評価の省略",
+		],
+	}),
+	defineReasoningTask({
+		id: "e4-e-not-quadratic",
+		domain: "math",
+		level: 3,
+		title: "e は 2 次の無理数でない",
+		statement:
+			"e が 2 次の無理数でない（整数 a, b, c が a e² + b e + c = 0 を満たすなら a = b = c = 0）ことを証明せよ。e の超越性や、それを含む定理は引用しないこと。手法は問わない。",
+		document: true,
+		numericChecks: false,
+		rubric: [
+			{
+				id: "reduce",
+				text: "a e² + b e + c = 0 を a e + b + c e^{−1} = 0 に直し、a, c が同時に 0 なら b = 0 となることを示している",
+			},
+			{
+				id: "tails",
+				text: "n!e と n!e^{−1} を整数と余り α_n, β_n に分け、0 < α_n < 1/n、|β_n| < 1/(n+1)、β_n ≠ 0 で符号が (−1)^{n+1} であることを正しく示している",
+			},
+			{
+				id: "parity",
+				text: "a α_n + c β_n が整数で、n が大きいと絶対値が 1 未満になること、n の偶奇を選べば 0 でないこと（a = 0 や c = 0 の場合も含む）を正しく示している",
+			},
+			exactClaim,
+			noGaps,
+		],
+		reference:
+			"Liouville (1840)。a e + b + c e^{−1} = 0 を n! 倍する。n!e = A_n + α_n（A_n ∈ ℤ、α_n = Σ_{k>n} n!/k!、0 < α_n < 1/n）、n!e^{−1} = B_n + β_n（B_n ∈ ℤ、β_n = Σ_{k>n} (−1)^k n!/k!、交代級数で 0 < |β_n| < 1/(n+1)、符号は (−1)^{n+1}）。a α_n + c β_n = −(a A_n + b n! + c B_n) は整数で、|·| ≤ (|a|+|c|)/n < 1（n 大）なので 0。c = 0 なら a α_n = 0 から a = 0。a = 0 なら c β_n = 0 から c = 0。どちらも 0 でないなら、a α_n と c β_n が同じ符号になる偶奇の n を選べば和は 0 でない。矛盾。よって a = c = 0、さらに b = 0。",
+		traps: ["a = 0 や c = 0 の場合の省略", "β_n の符号の扱いの誤り"],
+	}),
+	defineReasoningTask({
 		id: "e4-zeta3-irrational",
 		domain: "math",
 		level: 4,
