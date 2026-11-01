@@ -19,6 +19,7 @@ import type { InferenceRow, PursuitView } from "../ledger/types.ts";
 import { remainingWallMs } from "../rules/checks.ts";
 import { WallTimeExpired } from "./helpers.ts";
 import type { EngineDeps, PursuitRuntime } from "./engine.ts";
+import type { makeSupport } from "./support.ts";
 
 export function makeBase(deps: EngineDeps) {
 	const { store, clock, ids } = deps;
@@ -99,7 +100,7 @@ export function makeBase(deps: EngineDeps) {
 	};
 }
 export type EngineBase = ReturnType<typeof makeBase>;
-export type EngineHelpers = EngineBase;
+export type EngineHelpers = EngineBase & ReturnType<typeof makeSupport>;
 
 /** 段の関数。互いに呼び合うので、型を明示する（推論させると循環して tsc が失敗する）。引数は engine.ts の宣言をそのまま写す。 */
 export interface EngineSteps {
