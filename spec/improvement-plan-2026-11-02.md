@@ -14,8 +14,8 @@
 | 1 | hz11 で追求（E1R）と直接解法（D0）を Haiku で比べる | B | 中止 | 2026-11-02 | 環境 B なし（この Mac には bwrap・`/workspace`・非公開資料がない） |
 | 2 | 判定層（d1）の寄与を測る（E3 と E1R） | A | 中止 | 2026-11-02 | LARM に届かない: `missing env var PURSUIT_LARM_ORIGIN`（`192.168.0.130:9810` へ ping / curl ともタイムアウト） |
 | 3 | `engine.ts` を、振る舞いを変えずに分割する | A か B | 済み | 2026-11-02 | `engine.ts` 2142→242 行。`helpers.ts` 156・`context.ts` 166・`support.ts` 350・`transitions.ts` 343・`propose.ts` 407・`attempt.ts` 425・`review.ts` 354 行。golden snapshot 41 件は分割前（`92b6290`）のまま一致 |
-| 4 | π² 以外の主課題を 3 題足し、難しさを確かめる | A | 実行中 | 2026-11-02 | |
-| 5 | 最終報告 | - | 未着手 | | |
+| 4 | π² 以外の主課題を 3 題足し、難しさを確かめる | A | 中止 | 2026-11-02 | 課題 3 題の追加は済み（`32823a1`）。band-2 は 9 件中 1 件だけ記録、3 件が `Connection error.` で、費用不明の呼び出し 3 件により計器が `Infinity`（fail-closed）となり、再実行も `spend_limit_reached_or_usage_unknown` で即停止。§2-3 により直さず中止。band-2 の結果は公開していない |
+| 5 | 最終報告 | - | 済み | 2026-11-02 | 利用者への最終報告で実施 |
 
 ---
 
