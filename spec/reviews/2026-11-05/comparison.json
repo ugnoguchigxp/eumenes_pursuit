@@ -1,0 +1,107 @@
+{
+  "sameRubric": "1.1.0",
+  "profile": "agent",
+  "sameMaturity": "local research prototype before host integration",
+  "applicabilityChanged": false,
+  "commonAssessedWeightPercent": 97.33333333333333,
+  "baselineCommonAssessed": 64.72602739726027,
+  "reevaluatedCommonAssessed": 80.90753424657534,
+  "exactBaselineCommon": "4725/73",
+  "exactReevaluatedCommon": "23625/292",
+  "formalScoreFromValidator": 80.8,
+  "criterionChanges": [
+    {
+      "criterion": "correctness.contracts",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "correctness.edge_cases",
+      "before": 3,
+      "after": 4
+    },
+    {
+      "criterion": "security.access",
+      "before": 3,
+      "after": 4
+    },
+    {
+      "criterion": "security.abuse",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "reliability.recovery",
+      "before": 3,
+      "after": 4
+    },
+    {
+      "criterion": "reliability.resilience",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "common_components.duplication",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "criterion": "testing.risk_coverage",
+      "before": 3,
+      "after": 4
+    },
+    {
+      "criterion": "testing.quality",
+      "before": 3,
+      "after": 4
+    },
+    {
+      "criterion": "testing.automation",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "supply_chain.dependencies",
+      "before": null,
+      "after": 3
+    },
+    {
+      "criterion": "supply_chain.build_release",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "supply_chain.license",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "performance.budget",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "criterion": "performance.hot_path",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "performance.measurement",
+      "before": 2,
+      "after": 3
+    },
+    {
+      "criterion": "operability.lifecycle",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "criterion": "operability.interaction",
+      "before": 2,
+      "after": 3
+    }
+  ],
+  "notIncludedInCommonComparison": [
+    "supply_chain.dependencies (previous unknown, now3)"
+  ]
+}
