@@ -8,4 +8,7 @@ export type {
 } from "./contracts/index.ts";
 export { migrations } from "./domains/ledger/index.ts";
 export { listPursuitIds, loadPursuit } from "./domains/ledger/index.ts";
-export { forgetPursuit } from "./domains/ledger/host-lifecycle.ts";
+export {
+	forgetPursuit,
+	findPursuitByOperation,
+} from "./domains/ledger/host-lifecycle.ts";

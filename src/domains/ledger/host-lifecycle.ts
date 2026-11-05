@@ -4,6 +4,19 @@ import {
 	type LedgerDb,
 } from "../../contracts/index.ts";
 
+/** Find a committed core even if the host crashed before saving its correspondence. */
+export function findPursuitByOperation(
+	db: LedgerDb,
+	key: string,
+): string | null {
+	const row = db
+		.query(
+			"SELECT pursuit_id FROM pursuit_operation WHERE operation_key=? AND forgotten_at IS NULL",
+		)
+		.get(key) as { pursuit_id: string } | null;
+	return row?.pursuit_id ?? null;
+}
+
 export function deferAttempt(
 	db: LedgerDb,
 	id: string,

@@ -8,7 +8,12 @@ import {
 	type PursuitRuntime,
 	type ToolOutcome,
 } from "../../src/index.ts";
-import { forgetPursuit, listPursuitIds, migrations } from "../../src/sqlite.ts";
+import {
+	findPursuitByOperation,
+	forgetPursuit,
+	listPursuitIds,
+	migrations,
+} from "../../src/sqlite.ts";
 import * as ledger from "../../src/domains/ledger/index.ts";
 import { openStore } from "../../standalone/store.ts";
 import { startInput } from "../support.ts";
@@ -282,6 +287,11 @@ test("waiting checks the wall deadline and never records an expired receipt", as
 test("host erasure removes private bodies, blocks delayed writes and tombstones operation replay", async () => {
 	const f = await fixture();
 	try {
+		expect(
+			await f
+				.store()
+				.readSnapshot((db) => findPursuitByOperation(db, "opaque-start-key")),
+		).toBe(f.id);
 		const p = (await f.engine().step(f.id, f.runtime, signal())).pendingTool!;
 		await expect(
 			f
@@ -299,6 +309,11 @@ test("host erasure removes private bodies, blocks delayed writes and tombstones 
 			false,
 		);
 		expect(await f.engine().view(f.id)).toBeNull();
+		expect(
+			await f
+				.store()
+				.readSnapshot((db) => findPursuitByOperation(db, "opaque-start-key")),
+		).toBeNull();
 		expect(
 			await f.store().readSnapshot((db) => listPursuitIds(db)),
 		).not.toContain(f.id);
@@ -318,23 +333,21 @@ test("host erasure removes private bodies, blocks delayed writes and tombstones 
 				),
 		).rejects.toThrow("pursuit_not_found");
 		await expect(
-			f
-				.store()
-				.write((db) =>
-					ledger.insertInference(db, {
-						id: "late",
-						pursuitId: f.id,
-						now: 3000,
-						row: {
-							purpose: "plan",
-							model: "fixture",
-							inputTokens: 1,
-							outputTokens: 1,
-							cacheReadTokens: 0,
-							latencyMs: 0,
-						},
-					}),
-				),
+			f.store().write((db) =>
+				ledger.insertInference(db, {
+					id: "late",
+					pursuitId: f.id,
+					now: 3000,
+					row: {
+						purpose: "plan",
+						model: "fixture",
+						inputTokens: 1,
+						outputTokens: 1,
+						cacheReadTokens: 0,
+						latencyMs: 0,
+					},
+				}),
+			),
 		).rejects.toThrow("pursuit_forgotten");
 		await f.store().readSnapshot((db) => {
 			for (const table of [
