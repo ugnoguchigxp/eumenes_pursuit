@@ -61,8 +61,8 @@ export interface RunRecord {
 	readonly judgeFailures: number;
 	readonly judgeFired: number;
 	readonly llmCalls: number;
-	readonly inputTokens: number;
-	readonly outputTokens: number;
+	readonly inputTokens: number | null;
+	readonly outputTokens: number | null;
 	readonly usd: number | null;
 	readonly usage?: UsageTotals;
 	readonly durationMs: number;
@@ -173,11 +173,20 @@ export function measure(
 		failedBefore.add(a.fingerprint);
 	}
 	const llm = view.inference.filter((i) => !i.purpose.startsWith("judge:"));
-	const usd = llm.some((i) => !price(i.model))
+	const usd = llm.some(
+		(i) =>
+			!price(i.model) ||
+			i.inputTokens === null ||
+			i.outputTokens === null ||
+			i.cacheReadTokens === null,
+	)
 		? null
 		: llm.reduce((sum, i) => {
 				const p = price(i.model);
-				return p
+				return p &&
+					i.inputTokens !== null &&
+					i.outputTokens !== null &&
+					i.cacheReadTokens !== null
 					? sum +
 							(i.inputTokens * p.input +
 								i.cacheReadTokens * p.input * 0.1 +
@@ -263,8 +272,12 @@ export function measure(
 			(j) => j.fired && j.usable && j.stage !== "review",
 		).length,
 		llmCalls: llm.length,
-		inputTokens: llm.reduce((s, i) => s + i.inputTokens, 0),
-		outputTokens: llm.reduce((s, i) => s + i.outputTokens, 0),
+		inputTokens: llm.some((i) => i.inputTokens === null)
+			? null
+			: llm.reduce((s, i) => s + (i.inputTokens ?? 0), 0),
+		outputTokens: llm.some((i) => i.outputTokens === null)
+			? null
+			: llm.reduce((s, i) => s + (i.outputTokens ?? 0), 0),
 		usd,
 	};
 }

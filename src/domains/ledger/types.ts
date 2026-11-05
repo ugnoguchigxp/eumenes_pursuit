@@ -175,9 +175,9 @@ export interface VerificationRow {
 export interface InferenceRow {
 	readonly purpose: string;
 	readonly model: string;
-	readonly inputTokens: number;
-	readonly outputTokens: number;
-	readonly cacheReadTokens: number;
+	readonly inputTokens: number | null;
+	readonly outputTokens: number | null;
+	readonly cacheReadTokens: number | null;
 	readonly latencyMs: number;
 }
 

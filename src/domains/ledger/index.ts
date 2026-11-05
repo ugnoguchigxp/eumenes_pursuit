@@ -44,6 +44,11 @@ export const migrations: readonly MigrationDescriptor[] = [
 		sql: ledgerV7HostLifecycle,
 		sha256: "b9e5e6bc470319847f3d653b18c17d2be600003ad617e8e58d5b4ae78b50918b",
 	},
+	{
+		id: "pursuit-0008-unknown-usage",
+		sql: "\nALTER TABLE pursuit_inference ADD COLUMN usage_json TEXT;\n",
+		sha256: "cc8047d1431acd0ec6180366cc19443aa7564bdb58e59145e3a4650616bee70c",
+	},
 ];
 export * from "./host-lifecycle.ts";
 export * from "./findings.ts";

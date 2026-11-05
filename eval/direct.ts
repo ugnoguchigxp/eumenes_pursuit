@@ -316,6 +316,12 @@ export async function runDirect(options: {
 				}),
 				options.signal,
 			);
+			if (
+				r.inputTokens === null ||
+				r.outputTokens === null ||
+				r.cacheReadTokens === null
+			)
+				throw new Error("direct_usage_unreported");
 			usage.push({
 				model: r.model,
 				inputTokens: r.inputTokens,

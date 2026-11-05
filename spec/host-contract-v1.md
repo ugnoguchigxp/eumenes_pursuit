@@ -153,3 +153,7 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `/sqlite`の`forgetPursuit(db,id,now)`はホスト専用。受入条件を通常編集する操作ではない。本文・条件・観測・知見等を削除し、不透明IDと忘却印だけを残す。同じ操作keyの再送・遅延した台帳書込みでは内容を復元できない。ホストは原文を含まない操作keyを生成し、子job・ホスト側の写し・未採用通知の取消/削除も同じ忘却へ接続する。
 - 追加migration `pursuit-0007-host-lifecycle`のみ。既存の受入条件更新禁止は維持し、削除は忘却済みpursuitに限る。適用済みSQLや旧checksumは変更しない。
 - ホストの既存task入力上限に合わせ、goalの上限を4000から8000文字へ拡張した。入力を切り捨てず、8000文字を超える入力は引き続き拒否する。
+
+### v1.11: 未報告の推論使用量
+
+LlmResultと台帳のinputTokens/outputTokens/cacheReadTokensは未報告ならnull。0で実測を代用しない。migration 8は既存のNOT NULL列を互換用に残し、usage_jsonを正本としてnullableの値を保存・読取りする。過去行のusage_jsonがNULLなら既存値を読む。評価のトークン合計と推定額も未報告があればnull。ホストの正式会計はホスト側の使用量台帳を正本とし、呼出し回数の上限は未報告でも強制する。

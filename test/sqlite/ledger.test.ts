@@ -8,6 +8,60 @@ import { startInput } from "../support.ts";
 const open = () => openStore(":memory:", migrations);
 
 describe("ledger", () => {
+	test("unreported usage stays unknown and legacy known usage is preserved", async () => {
+		const store = open();
+		await store.write((db) => {
+			ledger.insertPursuit(db, {
+				id: "usage",
+				start: startInput(),
+				status: "planning",
+				now: 1,
+			});
+			ledger.insertInference(db, {
+				id: "unknown",
+				pursuitId: "usage",
+				now: 2,
+				row: {
+					purpose: "plan",
+					model: "unreported",
+					inputTokens: null,
+					outputTokens: null,
+					cacheReadTokens: null,
+					latencyMs: 1,
+				},
+			});
+			ledger.insertInference(db, {
+				id: "known",
+				pursuitId: "usage",
+				now: 3,
+				row: {
+					purpose: "plan",
+					model: "known",
+					inputTokens: 20,
+					outputTokens: 5,
+					cacheReadTokens: 0,
+					latencyMs: 1,
+				},
+			});
+			db.query(
+				"UPDATE pursuit_inference SET usage_json=NULL WHERE id='known'",
+			).run();
+		});
+		const rows = await store.readSnapshot(
+			(db) => ledger.loadPursuit(db, "usage")!.inference,
+		);
+		expect(rows[0]).toMatchObject({
+			inputTokens: null,
+			outputTokens: null,
+			cacheReadTokens: null,
+		});
+		expect(rows[1]).toMatchObject({
+			inputTokens: 20,
+			outputTokens: 5,
+			cacheReadTokens: 0,
+		});
+		store.close();
+	});
 	test("migration checksums are pinned", () => {
 		for (const m of migrations)
 			expect(new Bun.CryptoHasher("sha256").update(m.sql).digest("hex")).toBe(
@@ -21,6 +75,7 @@ describe("ledger", () => {
 			"5b8d4499ad9382fe54118585cdf4c6a3c50b5be6de329addd19f96f28ed6f9b0",
 			"3db990ae902fba0c296ebde600a2dfc220cc3b768b7824be36dcf41c0b5c032e",
 			"b9e5e6bc470319847f3d653b18c17d2be600003ad617e8e58d5b4ae78b50918b",
+			"cc8047d1431acd0ec6180366cc19443aa7564bdb58e59145e3a4650616bee70c",
 		]);
 	});
 

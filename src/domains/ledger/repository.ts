@@ -506,18 +506,23 @@ export function insertInference(
 ): void {
 	requireTransaction(db);
 	db.query(
-		`INSERT INTO pursuit_inference (id, pursuit_id, purpose, model, input_tokens, output_tokens, cache_read_tokens, latency_ms, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO pursuit_inference (id, pursuit_id, purpose, model, input_tokens, output_tokens, cache_read_tokens, latency_ms, created_at, usage_json)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	).run(
 		input.id,
 		input.pursuitId,
 		input.row.purpose,
 		input.row.model,
-		input.row.inputTokens,
-		input.row.outputTokens,
-		input.row.cacheReadTokens,
+		input.row.inputTokens ?? 0,
+		input.row.outputTokens ?? 0,
+		input.row.cacheReadTokens ?? 0,
 		Math.round(input.row.latencyMs),
 		input.now,
+		JSON.stringify({
+			inputTokens: input.row.inputTokens,
+			outputTokens: input.row.outputTokens,
+			cacheReadTokens: input.row.cacheReadTokens,
+		}),
 	);
 }
 
@@ -729,6 +734,11 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		outputTokens: Number(r.output_tokens),
 		cacheReadTokens: Number(r.cache_read_tokens),
 		latencyMs: Number(r.latency_ms),
+		...(r.usage_json
+			? parse<
+					Pick<InferenceRow, "inputTokens" | "outputTokens" | "cacheReadTokens">
+				>(r.usage_json)
+			: {}),
 	}));
 	const report = db
 		.query("SELECT report_json FROM pursuit_report WHERE pursuit_id = ?")
