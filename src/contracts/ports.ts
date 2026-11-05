@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { JsonObject, JsonValue } from "./json.ts";
+import type { LedgerDb } from "./db.ts";
 
 /** What a tool may change. Read-only tools never need a checkpoint. */
 export type ToolSideEffect = "none" | "workspace";
@@ -64,6 +65,14 @@ export interface ToolOutcome {
 /** Eumenes replaces this with its toolchain. */
 export interface ToolPort {
 	list(): readonly ToolDescriptor[];
+	/** Reserve external work in the same writer transaction as its started attempt.
+	 * Return null for a synchronous tool. Never perform network I/O or retain db here.
+	 */
+	deferInTransaction?(
+		db: LedgerDb,
+		call: { readonly tool: string; readonly input: JsonObject },
+		context: { readonly pursuitId: string; readonly attemptId: string },
+	): { readonly operationId: string } | null;
 	invoke(
 		call: { readonly tool: string; readonly input: JsonObject },
 		signal: AbortSignal,

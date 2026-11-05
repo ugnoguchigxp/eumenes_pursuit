@@ -5,6 +5,7 @@ import type {
 	ToolDescriptor,
 	ToolOutcome,
 } from "../../contracts/index.ts";
+import { terminalStatuses } from "../../contracts/index.ts";
 import { budgetCounted, type Proposal } from "../generation/prompts.ts";
 import { postState, preState } from "../judge/state.ts";
 import * as ledger from "../ledger/index.ts";
@@ -16,14 +17,18 @@ import {
 	invariantRejections,
 	ruleRejections,
 } from "../rules/checks.ts";
-import { fingerprint, sameConditions } from "../rules/fingerprint.ts";
+import {
+	digestJson,
+	fingerprint,
+	sameConditions,
+} from "../rules/fingerprint.ts";
 import type { EngineCtx, EngineSteps } from "./context.ts";
 import type { PursuitRuntime } from "./engine.ts";
 import { trajectoryStreak } from "./helpers.ts";
 
 export function makeAttempt(
 	ctx: EngineCtx,
-): Pick<EngineSteps, "attempt" | "resumeSettlement"> {
+): Pick<EngineSteps, "attempt" | "resumeSettlement" | "completeTool"> {
 	const {
 		store,
 		clock,
@@ -161,7 +166,7 @@ export function makeAttempt(
 		}
 		checkTime(view, signal);
 		const attemptId = ids.next("att");
-		await store.write((db) => {
+		const pending = await store.write((db) => {
 			ledger.insertAttempt(db, {
 				id: attemptId,
 				pursuitId: view.id,
@@ -177,12 +182,30 @@ export function makeAttempt(
 					rows: pre.rows.map((row) => ({ ...row, attemptId })),
 					usage: pre.usage,
 				});
-			return ledger.advancePursuit(db, {
+			const deferred = runtime.tools.deferInTransaction
+				? runtime.tools.deferInTransaction(
+						db,
+						{ tool: tool.name, input },
+						{ pursuitId: view.id, attemptId },
+					)
+				: null;
+			if (deferred !== null) {
+				if (!deferred || typeof deferred !== "object")
+					throw new Error("invalid_deferred_tool");
+				ledger.deferAttempt(db, attemptId, deferred.operationId);
+			}
+			const revision = ledger.advancePursuit(db, {
 				id: view.id,
 				expectedRevision: view.revision,
 				now: clock.now(),
 			});
+			return { revision, operationId: deferred?.operationId ?? null };
 		});
+		if (pending.operationId)
+			return {
+				...result(view, pending.revision, view.status, "waiting_tool"),
+				pendingTool: { attemptId, operationId: pending.operationId },
+			};
 		let outcome: ToolOutcome;
 		checkTime(view, signal);
 		try {
@@ -200,14 +223,67 @@ export function makeAttempt(
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}
+		return acceptOutcome(
+			await read(view.id),
+			runtime,
+			attemptId,
+			outcome,
+			signal,
+		);
+	}
+
+	async function completeTool(
+		view: PursuitView,
+		runtime: PursuitRuntime,
+		attemptId: string,
+		operationId: string,
+		outcome: ToolOutcome,
+		signal: AbortSignal,
+	): Promise<StepResult> {
+		signal.throwIfAborted();
+		const a = view.attempts.find((a) => a.id === attemptId);
+		if (!a || a.pendingOperationId !== operationId)
+			throw new Error("tool_operation_mismatch");
+		const digest = digestJson(
+			outcome as unknown as import("../../contracts/index.ts").JsonValue,
+		);
+		if (a.pendingResultDigest) {
+			if (a.pendingResultDigest !== digest)
+				throw new Error("tool_result_conflict");
+			return result(
+				view,
+				view.revision,
+				view.status,
+				terminalStatuses.includes(view.status) ? "finished" : "executed",
+			);
+		}
+		if (terminalStatuses.includes(view.status) || a.state !== "started")
+			throw new Error("tool_result_not_pending");
+		checkTime(view, signal);
+		return acceptOutcome(view, runtime, attemptId, outcome, signal, digest);
+	}
+
+	async function acceptOutcome(
+		view: PursuitView,
+		runtime: PursuitRuntime,
+		attemptId: string,
+		outcome: ToolOutcome,
+		signal: AbortSignal,
+		pendingDigest?: string,
+	): Promise<StepResult> {
+		const a = view.attempts.find((a) => a.id === attemptId)!;
+		const hypothesis = view.hypotheses.find((h) => h.id === a.hypothesisId)!;
 		const features = await featuresOf(view, runtime, hypothesis.checkpoint, {
-			tool: tool.name,
-			input,
+			tool: a.tool,
+			input: a.input,
 		});
 		const awaitDigest = runtime.workspace
 			? await runtime.workspace.digest()
 			: null;
 		const current = await read(view.id);
+		if (terminalStatuses.includes(current.status))
+			throw new Error("tool_result_not_pending");
+		if (pendingDigest) checkTime(current, signal);
 		await store.write((db) => {
 			ledger.settleAttempt(db, {
 				id: attemptId,
@@ -219,7 +295,12 @@ export function makeAttempt(
 						? { unclipped: outcome.unclipped }
 						: {}),
 				},
-				outcome: attemptOutcome(prediction, outcome.status, null, policy),
+				outcome: attemptOutcome(
+					a.prediction,
+					outcome.status,
+					null,
+					view.input.policy,
+				),
 				refs: outcome.refs,
 				features,
 				settlement: {
@@ -229,6 +310,10 @@ export function makeAttempt(
 				},
 				now: clock.now(),
 			});
+			if (pendingDigest)
+				db.query(
+					"UPDATE pursuit_attempt SET pending_result_digest=? WHERE id=?",
+				).run(pendingDigest, attemptId);
 			recordFindings(
 				db,
 				current,
@@ -421,5 +506,5 @@ export function makeAttempt(
 		);
 		return result(current, current.revision, current.status, "executed");
 	}
-	return { attempt, resumeSettlement };
+	return { attempt, resumeSettlement, completeTool };
 }

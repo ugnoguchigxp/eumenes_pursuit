@@ -11,6 +11,7 @@ import {
 	type StepEvent,
 	type StepResult,
 	type ToolDescriptor,
+	type ToolOutcome,
 } from "../../contracts/index.ts";
 import type { Report } from "../../contracts/index.ts";
 import type { Proposal } from "../generation/prompts.ts";
@@ -155,6 +156,14 @@ export interface EngineSteps {
 		view: PursuitView,
 		runtime: PursuitRuntime,
 		attemptId: string,
+		signal: AbortSignal,
+	): Promise<StepResult>;
+	completeTool(
+		view: PursuitView,
+		runtime: PursuitRuntime,
+		attemptId: string,
+		operationId: string,
+		outcome: ToolOutcome,
 		signal: AbortSignal,
 	): Promise<StepResult>;
 	review(

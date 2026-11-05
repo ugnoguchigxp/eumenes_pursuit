@@ -13,6 +13,7 @@ import {
 	type PursuitStore,
 	type StepResult,
 	type ToolPort,
+	type ToolOutcome,
 	type WorkspacePort,
 } from "../../contracts/index.ts";
 import * as ledger from "../ledger/index.ts";
@@ -48,6 +49,15 @@ export interface EngineDeps {
 }
 
 export interface PursuitEngine {
+	/** Adopt one confirmed result of a host-queued tool; never invokes that tool again. */
+	completeTool(
+		pursuitId: string,
+		attemptId: string,
+		operationId: string,
+		outcome: ToolOutcome,
+		runtime: PursuitRuntime,
+		signal: AbortSignal,
+	): Promise<StepResult>;
 	start(
 		input: unknown,
 		operationKey: string,
@@ -93,6 +103,23 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 	);
 
 	return {
+		async completeTool(
+			pursuitId,
+			attemptId,
+			operationId,
+			outcome,
+			runtime,
+			signal,
+		) {
+			return ctx.completeTool(
+				await read(pursuitId),
+				runtime,
+				attemptId,
+				operationId,
+				outcome,
+				signal,
+			);
+		},
 		async start(input, operationKey) {
 			const start = startInputSchema.parse(input);
 			if (start.conditions.judge && !deps.judge)
@@ -126,7 +153,7 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			if (terminalStatuses.includes(view.status))
 				return result(view, view.revision, view.status, "finished");
 			const started = view.attempts.find((a) => a.state === "started");
-			if (started) {
+			if (started && !started.pendingOperationId) {
 				// No restore: earlier successful attempts of the hypothesis keep their effects.
 				const revision = await store.write((db) => {
 					ledger.interruptAttempt(db, { id: started.id, now: clock.now() });
@@ -143,6 +170,14 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 
 			try {
 				checkTime(view, signal);
+				if (started?.pendingOperationId)
+					return {
+						...result(view, view.revision, view.status, "waiting_tool"),
+						pendingTool: {
+							attemptId: started.id,
+							operationId: started.pendingOperationId,
+						},
+					};
 				const pending = view.attempts.find(
 					(a) =>
 						a.state === "settled" &&

@@ -88,7 +88,7 @@ export const acceptanceInputSchema = z.strictObject({
 });
 
 export const startInputSchema = z.strictObject({
-	goal: z.string().min(1).max(4000),
+	goal: z.string().min(1).max(8000),
 	acceptance: z.array(acceptanceInputSchema).min(1).max(20),
 	/** Permission keys; a tool whose `permission` is absent here is refused. */
 	grant: z.array(z.string().min(1)).max(64),
@@ -140,6 +140,7 @@ export type StepEvent =
 	| "hypothesized"
 	| "rejected"
 	| "executed"
+	| "waiting_tool"
 	| "interrupted"
 	| "stepped_back"
 	| "consult_requested"
@@ -152,6 +153,11 @@ export interface StepResult {
 	readonly revision: number;
 	readonly event: StepEvent;
 	readonly done: boolean;
+	/** Host-owned external work; waiting never requires a model call. */
+	readonly pendingTool?: {
+		readonly attemptId: string;
+		readonly operationId: string;
+	};
 }
 
 export interface Report {

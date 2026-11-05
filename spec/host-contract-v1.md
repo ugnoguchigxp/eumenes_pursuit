@@ -144,3 +144,12 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `reverify(id, runtime, signal)` を追加。終端状態で最終照合がpending/aborted/failedのときだけ、照合を再実行して記録を更新する。方針・道具・副作用を再実行しない。stopped/incompleteをcompletedに変えない。
 - ホストが新しい期限付きsignalを渡し、1追求への操作を直列化する。元の作業予算を延ばす操作ではない。照合が済んでいれば保存済み結果を返す。失敗・中断を区別し、遅れて返った結果は上書きに使わない。
 - 旧記載の「startedを再開時にcheckpointへ戻す」は現在の挙動ではない。結果不明の作用としてinterruptedを記録し、以前の成功した試行の作用は保持する（v1.5以降の契約）。
+
+## v1.10（2026-11-06、core 0.0.3）
+
+- `ToolPort.deferInTransaction(db, call, {pursuitId, attemptId})` は任意の同期受付操作。ホストの同じwriter transactionで外部jobを受付し、`{operationId}`を返す。coreはstarted試行とpending参照を同時に保存する。nullなら従来の`invoke`を使う。callbackでネットワークI/O・非同期処理・dbの保持はしない。
+- `StepResult.pendingTool`とevent `waiting_tool`を追加した。pending試行は再起動後もinterruptedへ変更せず、`step`の再呼出しは同じ参照を返すだけで推論・道具を再実行しない。ホストはQueue枠・推論枠を解放して外部結果を待つ。外部待ち時間は元の壁時計予算に含まれる。
+- `completeTool(pursuitId, attemptId, operationId, outcome, runtime, signal)`で確定した同一operationの結果だけを既存settlementへ渡す。同じ結果は再採用せず、異なる結果の再送・違うoperation・取消/期限後の結果は拒否する。ホストは外部jobの所有・世代・有効な出所も検査し、同一pursuitの操作を直列化する。
+- `/sqlite`の`forgetPursuit(db,id,now)`はホスト専用。受入条件を通常編集する操作ではない。本文・条件・観測・知見等を削除し、不透明IDと忘却印だけを残す。同じ操作keyの再送・遅延した台帳書込みでは内容を復元できない。ホストは原文を含まない操作keyを生成し、子job・ホスト側の写し・未採用通知の取消/削除も同じ忘却へ接続する。
+- 追加migration `pursuit-0007-host-lifecycle`のみ。既存の受入条件更新禁止は維持し、削除は忘却済みpursuitに限る。適用済みSQLや旧checksumは変更しない。
+- ホストの既存task入力上限に合わせ、goalの上限を4000から8000文字へ拡張した。入力を切り捨てず、8000文字を超える入力は引き続き拒否する。

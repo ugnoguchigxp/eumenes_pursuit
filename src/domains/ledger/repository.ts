@@ -563,10 +563,12 @@ export function claimOperation(
 	requireTransaction(db);
 	const existing = db
 		.query(
-			"SELECT kind, digest, pursuit_id FROM pursuit_operation WHERE operation_key = ?",
+			"SELECT kind, digest, pursuit_id, forgotten_at FROM pursuit_operation WHERE operation_key = ?",
 		)
 		.get(input.key) as Row | null;
 	if (existing) {
+		if (existing.forgotten_at !== null)
+			throw new LedgerIntegrityError("operation_forgotten");
 		if (existing.kind !== input.kind || existing.digest !== input.digest)
 			throw new LedgerIntegrityError("operation_conflict");
 		return { replayed: true, pursuitId: text(existing.pursuit_id) };
@@ -585,10 +587,14 @@ export function listPursuitIds(
 		filter.statuses?.length
 			? db
 					.query(
-						`SELECT id FROM pursuit_pursuit WHERE status IN (${filter.statuses.map(() => "?").join(", ")}) ORDER BY started_at`,
+						`SELECT id FROM pursuit_pursuit WHERE forgotten_at IS NULL AND status IN (${filter.statuses.map(() => "?").join(", ")}) ORDER BY started_at`,
 					)
 					.all(...filter.statuses)
-			: db.query("SELECT id FROM pursuit_pursuit ORDER BY started_at").all()
+			: db
+					.query(
+						"SELECT id FROM pursuit_pursuit WHERE forgotten_at IS NULL ORDER BY started_at",
+					)
+					.all()
 	) as Row[];
 	return rows.map((row) => text(row.id));
 }
@@ -597,7 +603,7 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 	const p = db
 		.query("SELECT * FROM pursuit_pursuit WHERE id = ?")
 		.get(id) as Row | null;
-	if (!p) return null;
+	if (!p || p.forgotten_at != null) return null;
 	const all = (sql: string) => db.query(sql).all(id) as Row[];
 	const acceptance: AcceptanceRow[] = all(
 		"SELECT * FROM pursuit_acceptance WHERE pursuit_id = ? ORDER BY seq",
@@ -659,6 +665,12 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		features: nullable<AttemptFeatures>(r.features_json),
 		startedAt: Number(r.started_at),
 		settlement: parse<Settlement>(r.settlement_json),
+		...(r.pending_operation_id
+			? {
+					pendingOperationId: text(r.pending_operation_id),
+					pendingResultDigest: textOrNull(r.pending_result_digest),
+				}
+			: {}),
 	}));
 	const judgements: JudgementRow[] = all(
 		"SELECT * FROM pursuit_judgement WHERE pursuit_id = ? ORDER BY created_at, rowid",

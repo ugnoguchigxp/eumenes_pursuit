@@ -130,6 +130,8 @@ export interface AttemptRow {
 	readonly features: AttemptFeatures | null;
 	readonly startedAt: number;
 	readonly settlement?: Settlement;
+	readonly pendingOperationId?: string;
+	readonly pendingResultDigest?: string | null;
 }
 
 export interface JudgementRow {

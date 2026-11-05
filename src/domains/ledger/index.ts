@@ -5,6 +5,7 @@ import { ledgerV3Parts } from "./parts-schema.ts";
 import { ledgerV4Settlement } from "./settlement-schema.ts";
 import { ledgerV1 } from "./schema.ts";
 import { ledgerV6HypothesisTargets } from "./targets-schema.ts";
+import { ledgerV7HostLifecycle } from "./host-lifecycle-schema.ts";
 
 /** Append-only; the host applies them in order inside its own migration runner. */
 export const migrations: readonly MigrationDescriptor[] = [
@@ -38,7 +39,13 @@ export const migrations: readonly MigrationDescriptor[] = [
 		sql: ledgerV6HypothesisTargets,
 		sha256: "3db990ae902fba0c296ebde600a2dfc220cc3b768b7824be36dcf41c0b5c032e",
 	},
+	{
+		id: "pursuit-0007-host-lifecycle",
+		sql: ledgerV7HostLifecycle,
+		sha256: "b9e5e6bc470319847f3d653b18c17d2be600003ad617e8e58d5b4ae78b50918b",
+	},
 ];
+export * from "./host-lifecycle.ts";
 export * from "./findings.ts";
 export * from "./repository.ts";
 export type * from "./types.ts";
