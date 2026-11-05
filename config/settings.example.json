@@ -21,15 +21,35 @@
 	"spend.pricing": {
 		"claude-haiku-5-5": {
 			"input": 0.1,
-			"output": 0.5
+			"output": 0.5,
+			"cacheRead": 0.01,
+			"cacheWrite": 0.125,
+			"inputLong": 0.5,
+			"outputLong": 2.5,
+			"longThreshold": 100000,
+			"maxInputTokens": 1050000
 		},
 		"claude-sonnet-5-5": {
 			"input": 2,
-			"output": 10
+			"output": 10,
+			"cacheRead": 0.2,
+			"cacheWrite": 2.5,
+			"maxInputTokens": 1050000
 		},
 		"claude-opus-5-5": {
 			"input": 4,
-			"output": 20
+			"output": 20,
+			"maxInputTokens": 1050000
+		},
+		"gpt-6-luna": {
+			"input": 0.1,
+			"output": 0.5,
+			"cacheRead": 0.01,
+			"cacheWrite": 0.125,
+			"inputLong": 0.2,
+			"outputLong": 0.75,
+			"longThreshold": 272000,
+			"maxInputTokens": 1050000
 		}
 	},
 	"llm.grader": {

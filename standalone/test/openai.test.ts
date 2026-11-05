@@ -44,6 +44,94 @@ function response(over: Record<string, unknown> = {}) {
 		...over,
 	};
 }
+for (const provider of ["claude", "openai"] as const)
+	for (const [name, usage] of [
+		["empty", {}],
+		["negative output", { input_tokens: 2, output_tokens: -1 }],
+		[
+			"invalid cache count",
+			provider === "claude"
+				? { input_tokens: 2, output_tokens: 1, cache_read_input_tokens: -1 }
+				: {
+						input_tokens: 2,
+						output_tokens: 1,
+						input_tokens_details: { cached_tokens: 3 },
+					},
+		],
+	] as const)
+		test(`${provider} ${name} usage remains unknown and blocks another request`, async () => {
+			const s = setup();
+			let calls = 0;
+			try {
+				const scope = {
+					runId: "malformed-usage",
+					configId: "fixture",
+					jobId: `${provider}-${name}`,
+					pursuitId: null,
+				};
+				const meter = s.meter(scope, "grader");
+				const fetch = async () => {
+					calls++;
+					return Response.json(
+						provider === "openai"
+							? response({ usage })
+							: {
+									id: "msg_fixture",
+									model: "m",
+									type: "message",
+									role: "assistant",
+									stop_reason: "end_turn",
+									usage,
+									content: [{ type: "text", text: '{"ok":true}' }],
+								},
+					);
+				};
+				const role = {
+					model: "m",
+					effort: "medium" as const,
+					thinkingHeadroom: 0,
+				};
+				const port =
+					provider === "openai"
+						? createOpenAiLlm(
+								role,
+								meter,
+								new OpenAI({ apiKey: "fixture", maxRetries: 0, fetch }),
+							)
+						: createClaudeLlm(
+								role,
+								meter,
+								new Anthropic({ apiKey: "fixture", maxRetries: 0, fetch }),
+							);
+				await expect(
+					port.complete(request, new AbortController().signal),
+				).rejects.toThrow("usage_invalid");
+				expect(meter.events()).toHaveLength(1);
+				expect(meter.events()[0]).toMatchObject({
+					provider,
+					scope,
+					role: "grader",
+					requestedModel: "m",
+					servedModel: "m",
+					status: "error",
+					inputTokens: null,
+					outputTokens: null,
+					usd: null,
+					costStatus: "unknown",
+				});
+				expect(s.budgetSnapshot().reservations).toHaveLength(1);
+				expect(s.budgetSnapshot().reservations[0]).toMatchObject({
+					state: "uncertain",
+				});
+				expect(s.exposureUsd()).toBe(Infinity);
+				await expect(
+					port.complete(request, new AbortController().signal),
+				).rejects.toThrow("usage_unknown");
+				expect(calls).toBe(1);
+			} finally {
+				s.close();
+			}
+		});
 for (const purpose of [
 	"plan",
 	"hypothesize",

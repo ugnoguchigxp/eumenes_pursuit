@@ -187,6 +187,24 @@ export function openSettings(path = settingsPath): Settings {
 						),
 					)
 					.digest("hex");
+			function recordUnknown(
+				call: UsageCall,
+				servedModel: string | null = null,
+			) {
+				save({
+					...call,
+					scope: scope ? { ...scope } : null,
+					role,
+					servedModel,
+					inputTokens: null,
+					outputTokens: null,
+					cacheReadTokens: null,
+					cacheWriteTokens: null,
+					pricingVersion: priceVersion(),
+					costStatus: "unknown",
+					usd: null,
+				});
+			}
 			return {
 				spentUsd,
 				reserve: (call, upperUsd) =>
@@ -309,8 +327,10 @@ export function openSettings(path = settingsPath): Settings {
 						usage.cache_creation_input_tokens ?? 0,
 						usage.cache_read_input_tokens ?? 0,
 					];
-					if (counts.some((n) => !Number.isSafeInteger(n) || n < 0))
+					if (counts.some((n) => !Number.isSafeInteger(n) || n < 0)) {
+						recordUnknown({ ...metadata(call), status: "error" }, model);
 						throw new Error("usage_invalid");
+					}
 					const usd = price
 						? (usage.input_tokens * inputRate! +
 								(usage.cache_creation_input_tokens ?? 0) * writeRate +
@@ -365,21 +385,7 @@ export function openSettings(path = settingsPath): Settings {
 						usd,
 					});
 				},
-				recordUnknown(call) {
-					save({
-						...call,
-						scope: scope ? { ...scope } : null,
-						role,
-						servedModel: null,
-						inputTokens: null,
-						outputTokens: null,
-						cacheReadTokens: null,
-						cacheWriteTokens: null,
-						pricingVersion: priceVersion(),
-						costStatus: "unknown",
-						usd: null,
-					});
-				},
+				recordUnknown,
 				markStatus(callId, status) {
 					db.query(
 						"UPDATE usage_call SET event_json = json_set(event_json, '$.status', ?) WHERE call_id = ?",
