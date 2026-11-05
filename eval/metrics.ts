@@ -495,7 +495,7 @@ export function compare(records: readonly RunRecord[]): string {
 	const keys = [...new Set(records.map(keyOf))].sort();
 	const lines = [
 		"| 群 | 方式 | 予算 | n | 正しい結末 | 偽の完了 | 止めすぎ | カナリア(件/回) | 採点 pass/呼出 | 申告 不合格/全 | 道具 平均/中央 | 応答要求 平均 | 時間 平均(分) | 強制停止 | 誤り | 設定 |",
-		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 	];
 	for (const key of keys) {
 		const [family, mode, budget, variant] = key.split("|");

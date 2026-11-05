@@ -178,6 +178,10 @@ for (const provider of ["claude", "openai"] as const)
 					port.complete(request, new AbortController().signal),
 				).rejects.toThrow();
 				expect(calls).toBe(1);
+				await expect(
+					port.complete(request, new AbortController().signal),
+				).rejects.toThrow("usage_unknown");
+				expect(calls).toBe(1);
 				expect(s.budgetSnapshot().reservations).toHaveLength(1);
 				expect(s.meter().events()[0]?.usd).toBeNull();
 			} finally {
@@ -232,6 +236,43 @@ for (const [name, phases, error] of [
 			if (error) await expect(result).rejects.toThrow(error);
 			else expect((await result).value).toEqual({ ok: true });
 			expect(s.exposureUsd()).toBeGreaterThan(0);
+			expect(s.budgetSnapshot().reservations).toHaveLength(0);
+		} finally {
+			s.close();
+		}
+	});
+
+for (const provider of ["claude", "openai"] as const)
+	test(`${provider} rejects unregistered requested pricing before any network request`, async () => {
+		const s = setup();
+		let requests = 0;
+		try {
+			const fail = async () => {
+				requests++;
+				throw new Error("must not dispatch");
+			};
+			const role = {
+				model: "unregistered",
+				effort: "medium" as const,
+				thinkingHeadroom: 0,
+			};
+			const port =
+				provider === "openai"
+					? createOpenAiLlm(
+							role,
+							s.meter(),
+							new OpenAI({ apiKey: "fixture", maxRetries: 0, fetch: fail }),
+						)
+					: createClaudeLlm(
+							role,
+							s.meter(),
+							new Anthropic({ apiKey: "fixture", maxRetries: 0, fetch: fail }),
+						);
+			await expect(
+				port.complete(request, new AbortController().signal),
+			).rejects.toThrow("pricing_required");
+			expect(requests).toBe(0);
+			expect(s.meter().events()).toHaveLength(0);
 			expect(s.budgetSnapshot().reservations).toHaveLength(0);
 		} finally {
 			s.close();

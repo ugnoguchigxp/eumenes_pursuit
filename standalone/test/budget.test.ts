@@ -152,3 +152,32 @@ test("reconciliation is idempotent and a made-up zero upper bound is rejected", 
 		s.close();
 	}
 });
+
+test("a reserved unknown stops fresh requests until audited reconciliation", () => {
+	const s = setup();
+	try {
+		const meter = s.meter(scope());
+		meter.reserve(call("lost"), 0.4);
+		meter.dispatch("lost");
+		meter.recordUnknown!(call("lost"));
+		expect(s.exposureUsd()).toBe(Infinity);
+		expect(() => meter.assertWithinLimit()).toThrow("usage_unknown");
+		expect(() => s.meter(scope("next")).reserve(call("next"), 0.1)).toThrow(
+			"usage_unknown",
+		);
+		expect(s.budgetSnapshot().reservations).toHaveLength(1);
+		s.reconcile(
+			"lost",
+			0.4,
+			"operator",
+			"documented upper bound",
+			"upper_bound",
+		);
+		expect(s.exposureUsd()).toBe(0.4);
+		s.meter(scope("next")).reserve(call("next"), 0.6);
+		expect(s.exposureUsd()).toBe(1);
+		expect(meter.events()[0]?.costStatus).toBe("estimated");
+	} finally {
+		s.close();
+	}
+});

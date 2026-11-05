@@ -67,6 +67,9 @@ export function openBudget(db: Database, globalLimit: () => number) {
 			)
 			.all() as Reservation[];
 		const pendingIds = new Set(pending.map((r) => r.call_id));
+		const uncertainIds = new Set(
+			pending.filter((r) => r.state === "uncertain").map((r) => r.call_id),
+		);
 		let value = 0;
 		for (const row of db.query("SELECT event_json FROM usage_call").all() as {
 			event_json: string;
@@ -79,7 +82,7 @@ export function openBudget(db: Database, globalLimit: () => number) {
 				value += resolved.get(event.callId)!.usd_micro;
 			else if (
 				["claude", "openai"].includes(provider) &&
-				!pendingIds.has(event.callId)
+				(!pendingIds.has(event.callId) || uncertainIds.has(event.callId))
 			)
 				return Infinity;
 		}

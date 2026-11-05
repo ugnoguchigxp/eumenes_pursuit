@@ -19,7 +19,16 @@ const scope = (jobId: string): UsageScope => ({
 function settings() {
 	const s = openSettings(":memory:");
 	s.set("spend.limitUsd", 100);
-	s.set("spend.pricing", { m: { input: 2, output: 10 } });
+	// Requested aliases also need an explicit pre-dispatch tariff; served-model assertions stay distinct.
+	s.set(
+		"spend.pricing",
+		Object.fromEntries(
+			["m", "requested", "slow", "fast"].map((model) => [
+				model,
+				{ input: 2, output: 10 },
+			]),
+		),
+	);
 	return s;
 }
 test("job and role attribution, idempotence and conservative unknown pricing", () => {

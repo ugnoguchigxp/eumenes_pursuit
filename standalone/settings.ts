@@ -196,21 +196,8 @@ export function openSettings(path = settingsPath): Settings {
 				upperBound(model, maxOutputTokens) {
 					const pricing = settings.require("spend.pricing");
 					const p = pricing[model];
-					if (!p) {
-						const values = Object.values(pricing);
-						if (!values.length) throw new Error("pricing_required");
-						return Math.max(
-							...values.map(
-								(v) =>
-									(v.maxInputTokens *
-										Math.max(v.input, v.inputLong ?? v.input) *
-										1.25 +
-										maxOutputTokens *
-											Math.max(v.output, v.outputLong ?? v.output)) /
-									1e6,
-							),
-						);
-					}
+					// Another model's tariff/context limit cannot bound this request.
+					if (!p) throw new Error(`pricing_required:${model}`);
 					return (
 						(p.maxInputTokens *
 							Math.max(
