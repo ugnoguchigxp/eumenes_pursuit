@@ -100,6 +100,8 @@ bun standalone/cli.ts spend reconcile <call-id> <USD> <operator> upper_bound '<d
 
 送出後の接続断・強制終了では予約が残ります。照合前にDBや履歴を消さず、call-idと根拠を確認してください。`upper_bound` は実請求の確認とは区別され、原本のunknownと照合履歴を保持します。終端報告の照合が失敗した場合、ホストは `engine.reverify(id, runtime, signal)` で道具や生成を再実行せず照合だけをやり直せます。
 
+要求モデルに加え、APIが返した実モデルの料金も登録が必要です。実モデルの料金が未登録なら、応答の利用量を保存し、費用不明として後続の呼出を止めます。別モデルの料金で代用しません。請求資料に基づく `invoice` は予約額を超えても実額を記録します。その結果上限を超えた場合は次の呼出を禁止します。推定値の `upper_bound` は元の予約額以下に限ります。
+
 通常の `bun run verify` はAPIキーを使わない試験です。Linuxの使い捨て検証は `scripts/verify-linux.sh`、coreだけの配布物の作成は `bun run pack:core` で行います。CIはmacOS/Linuxを対象に同じ検証とビルドを実行します。パッケージは公開しません。
 
 ## live の評価

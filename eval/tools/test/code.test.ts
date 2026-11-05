@@ -29,15 +29,19 @@ describe("code execution isolation", () => {
 				for (const path of ["work/test", "hidden", "data"])
 					await mkdir(join(task, path), { recursive: true });
 				const outside = join(dir, "outside.txt");
+				const otherPrivate = join(dir, "other-task", "hidden", "private.txt");
+				await mkdir(join(dir, "other-task", "hidden"), { recursive: true });
+				await writeFile(otherPrivate, "other-pursuit-private-fixture");
 				const privateFile = join(homeDir, "private.txt");
 				await writeFile(privateFile, "private fixture");
 				// Computed property access deliberately bypasses the lexical filter. OS permissions must hold.
 				const content = `const runtime = (() => {})["con" + "structor"]("return Bun")();
 export async function probe() {
-  const result = { inside: false, outside: false, home: false, network: false };
+  const result = { inside: false, outside: false, home: false, network: false, other: null };
   await runtime.write("inside.txt", "allowed"); result.inside = true;
   try { await runtime.write(${JSON.stringify(outside)}, "forbidden"); result.outside = true; } catch {}
   try { await runtime.file(${JSON.stringify(privateFile)}).text(); result.home = true; } catch {}
+  try { result.other = await runtime.file(${JSON.stringify(otherPrivate)}).text(); } catch {}
   try { await (0, (() => {})["con" + "structor"]("return fetch")())(${JSON.stringify(server.url.href)}, {signal: AbortSignal.timeout(500)}); result.network = true; } catch {}
   return result;
 }`;
@@ -59,7 +63,7 @@ export async function probe() {
 import { probe } from "../src/probe.ts";
 test("OS boundary", async () => {
   const r = await probe();
-  expect(r).toMatchObject({inside:true,home:false,network:false});
+  expect(r).toMatchObject({inside:true,home:false,network:false,other:null});
   // macOS denies the write itself; Linux bubblewrap gives the run a private /tmp, so the write lands
   // there and is discarded with the sandbox. The host-side check below covers both.
   if (${process.platform === "darwin"}) expect(r.outside).toBe(false);

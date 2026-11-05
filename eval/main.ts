@@ -3,6 +3,8 @@ import { totalUsage, type UsageScope } from "../standalone/usage.ts";
 import {
 	configIdentity,
 	jobKey,
+	persistPlannedJobs,
+	readPlannedJobs,
 	recordKey,
 	sourceIdentity,
 	type EffectiveRunConfig,
@@ -42,6 +44,7 @@ import {
 import { migrations } from "../src/sqlite.ts";
 import { createRoleLlm } from "../standalone/llm.ts";
 import { createFileLlm } from "../standalone/file-llm.ts";
+import { canonicalHostPath, pathsOverlap } from "./tools/paths.ts";
 import { openDecisionLease } from "../standalone/larm/connection.ts";
 import { serialJudge } from "../standalone/larm/serial.ts";
 import { openSettings } from "../standalone/settings.ts";
@@ -63,9 +66,15 @@ import {
 	measure,
 	measureDirect,
 	summarize,
+	summarizePlanned,
 	type RunRecord,
 } from "./metrics.ts";
-import { redactAcceptance, redactTools, secretValues } from "./redact.ts";
+import {
+	redactAcceptance,
+	redactError,
+	redactTools,
+	secretValues,
+} from "./redact.ts";
 import {
 	claimLimitReached,
 	claimLimitReason,
@@ -152,7 +161,12 @@ const { values, positionals } = parseArgs({
 	},
 });
 const command = positionals[0];
-if (!values.name || !/^[A-Za-z0-9_.-]+$/.test(values.name))
+if (
+	!values.name ||
+	!/^[A-Za-z0-9_.-]+$/.test(values.name) ||
+	values.name === "." ||
+	values.name === ".."
+)
 	throw new Error("--name <run> is required (ASCII)");
 const root = resolve(import.meta.dir, "results", values.name);
 mkdirSync(root, { recursive: true });
@@ -213,6 +227,8 @@ function writeSummary() {
 		"",
 		`記録: ${records.length} 追求。fixture ではなく live（${describeLive(records)}・実道具）。`,
 		"",
+		summarizePlanned(readPlannedJobs(join(root, "planned-jobs.json")), records),
+		"",
 		summarize(records),
 		"",
 		"## 誤りを見抜く力（強制とは分けて）",
@@ -234,7 +250,18 @@ if (command === "report") {
 }
 if (command !== "run") throw new Error("usage: run | report");
 
+function positiveInteger(value: string | undefined, option: string): number {
+	const parsed = Number(value);
+	if (!Number.isSafeInteger(parsed) || parsed < 1)
+		throw new Error(`${option} must be a positive safe integer`);
+	return parsed;
+}
+const repeatCount = positiveInteger(values.repeat, "--repeat");
+const concurrency = positiveInteger(values.concurrency, "--concurrency");
+const maxSteps = positiveInteger(values["max-steps"], "--max-steps");
 const conditionNames = values.conditions!.split(",") as ConditionName[];
+if (new Set(conditionNames).size !== conditionNames.length)
+	throw new Error("--conditions must not contain duplicates");
 for (const c of conditionNames)
 	if (!knownConditions.includes(c)) throw new Error(`unknown condition ${c}`);
 const pursuitConditions = conditionNames.filter((c) => c !== "D0");
@@ -292,19 +319,42 @@ const graderMode =
 	values["grader-llm"] ?? (useFile ? "none" : (graderRole?.provider ?? "none"));
 if (!["claude", "openai", "file", "none"].includes(graderMode))
 	throw new Error("--grader-llm must be claude, file or none");
+// Materialize active responder roots before canonicalizing. On case-insensitive
+// volumes, two previously missing spellings can denote the same new directory.
+const fileDirectories = [
+	...(useFile ? [values["llm-dir"]!] : []),
+	...(useFile &&
+	(pursuitConditions.length || values.critic) &&
+	values["reviewer-dir"]
+		? [values["reviewer-dir"]]
+		: []),
+	...(graderMode === "file" ? [values["grader-dir"]!] : []),
+];
+for (const directory of fileDirectories)
+	mkdirSync(directory, { recursive: true });
+for (const key of [
+	"llm-dir",
+	"reviewer-dir",
+	"grader-dir",
+	"rubric-dir",
+	"secret-dir",
+	"corpus-log",
+] as const) {
+	if (values[key]) values[key] = canonicalHostPath(values[key]);
+}
 if (
 	graderMode === "file" &&
 	useFile &&
-	resolve(values["grader-dir"]!) === resolve(values["llm-dir"]!)
+	pathsOverlap(values["grader-dir"]!, values["llm-dir"]!)
 )
-	throw new Error("--grader-dir must differ from --llm-dir");
+	throw new Error("--grader-dir must be disjoint from --llm-dir");
 if (
 	graderMode === "file" &&
 	useFile &&
 	values["reviewer-dir"] &&
-	resolve(values["grader-dir"]!) === resolve(values["reviewer-dir"])
+	pathsOverlap(values["grader-dir"]!, values["reviewer-dir"])
 )
-	throw new Error("--grader-dir must differ from --reviewer-dir");
+	throw new Error("--grader-dir must be disjoint from --reviewer-dir");
 const graderAvailable =
 	graderMode === "file" ||
 	((graderMode === "claude" || graderMode === "openai") && !!graderRole);
@@ -430,6 +480,10 @@ const directVariant = [
 const variantOf = (c: ConditionName) =>
 	c === "D0" ? directVariant : pursuitVariant;
 const secrets = secretValues(process.env);
+function errorText(error: unknown): string {
+	const safe = redactError(error, secrets);
+	return `${safe.name}: ${safe.message}`;
+}
 // E0, E1 and E1R never ask the judge, so they run without LARM.
 const needsJudge = conditionNames.some(
 	(c) => !["E0", "E1", "E1R", "D0"].includes(c),
@@ -482,9 +536,16 @@ const adapter = values.adapter
 const language = values.language === "en" ? "en" : "ja";
 const groups = new Set(values.groups!.split(","));
 const only = values.tasks ? new Set(values.tasks.split(",")) : null;
+for (const id of only ?? [])
+	if (!tasks.some((task) => task.id === id))
+		throw new Error(`unknown_task:${id}`);
+for (const group of groups)
+	if (!tasks.some((task) => task.group === group))
+		throw new Error(`unknown_group:${group}`);
 const selected = tasks.filter(
 	(t) => groups.has(t.group) && (!only || only.has(t.id)),
 );
+if (!selected.length) throw new Error("no_tasks_selected");
 const rubricDir = values["rubric-dir"] ? resolve(values["rubric-dir"]) : null;
 const secretDir = values["secret-dir"] ? resolve(values["secret-dir"]) : null;
 const responderDirs = [
@@ -495,9 +556,7 @@ const responderDirs = [
 	.filter((d): d is string => !!d)
 	.map((d) => resolve(d));
 const overlaps = (dir: string) =>
-	responderDirs.some(
-		(d) => dir === d || dir.startsWith(`${d}/`) || d.startsWith(`${dir}/`),
-	);
+	responderDirs.some((d) => pathsOverlap(dir, d));
 const secretTasks = selected.filter((t) => t.secretId);
 if (secretTasks.length) {
 	if (!secretDir)
@@ -533,21 +592,7 @@ if (rubricTasks.length) {
 		throw new Error(
 			`${rubricTasks.map((t) => t.id).join(",")} need --rubric-dir`,
 		);
-	const responderDirs = [
-		values["llm-dir"],
-		values["reviewer-dir"],
-		values["grader-dir"],
-	]
-		.filter((d): d is string => !!d)
-		.map((d) => resolve(d));
-	if (
-		responderDirs.some(
-			(d) =>
-				rubricDir === d ||
-				rubricDir.startsWith(`${d}/`) ||
-				d.startsWith(`${rubricDir}/`),
-		)
-	)
+	if (overlaps(rubricDir))
 		throw new Error("--rubric-dir must be outside every responder directory");
 	for (const t of rubricTasks) await loadRubric(rubricDir, t.rubricId!);
 }
@@ -638,9 +683,9 @@ for (const condition of conditionNames) {
 					}) as Record<string, import("../src/index.ts").JsonValue>),
 			toolTier,
 			critic: values.critic!,
-			maxSteps: Number(values["max-steps"]),
+			maxSteps,
 			orderSeed: values["order-seed"] ?? null,
-			concurrency: Number(values.concurrency),
+			concurrency,
 			corpusUrl: corpus?.url ?? null,
 			runtime: {
 				bun: Bun.version,
@@ -668,7 +713,7 @@ const done = new Set(
 );
 const planned: { task: EvalTask; condition: ConditionName; repeat: number }[] =
 	[];
-for (let repeat = 1; repeat <= Number(values.repeat); repeat++)
+for (let repeat = 1; repeat <= repeatCount; repeat++)
 	for (const condition of conditionNames)
 		for (const task of selected) planned.push({ task, condition, repeat });
 if (values["order-seed"])
@@ -686,17 +731,15 @@ if (values["order-seed"])
 				.digest("hex");
 		return rank(a).localeCompare(rank(b));
 	});
-writeFileSync(
-	join(root, "planned-jobs.json"),
-	JSON.stringify(
+await store.write(() =>
+	persistPlannedJobs(
+		join(root, "planned-jobs.json"),
 		planned.map((j) => ({
 			task: j.task.id,
 			condition: j.condition,
 			repeat: j.repeat,
 			configId: effectiveConfigs.get(j.condition)!.id,
 		})),
-		null,
-		2,
 	),
 );
 const jobs = planned.filter(
@@ -852,10 +895,7 @@ async function runOne(job: (typeof jobs)[number]) {
 				budget: {
 					toolCalls: policy.budget.attempts,
 					wallMs: policy.budget.wallMs,
-					requests: Math.min(
-						policy.budget.transitions,
-						Number(values["max-steps"]),
-					),
+					requests: Math.min(policy.budget.transitions, maxSteps),
 				},
 				fullEntries: directFull,
 				observation: policy.observation,
@@ -864,7 +904,7 @@ async function runOne(job: (typeof jobs)[number]) {
 					appendFileSync(transcript, `${JSON.stringify(entry)}\n`),
 			});
 		} catch (e) {
-			error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+			error = errorText(e);
 			console.error(`[error] ${label}`, error);
 		}
 		if (!result) {
@@ -917,7 +957,7 @@ async function runOne(job: (typeof jobs)[number]) {
 				claimOracle,
 			),
 		};
-		for (let i = 0; i < Number(values["max-steps"]); i++) {
+		for (let i = 0; i < maxSteps; i++) {
 			const step = await stepWithDeadline(
 				engine,
 				pursuitId,
@@ -964,7 +1004,7 @@ async function runOne(job: (typeof jobs)[number]) {
 				controller.signal,
 			);
 	} catch (e) {
-		error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+		error = errorText(e);
 		console.error(`[error] ${label}`, error);
 	}
 	const view = pursuitId ? await engine.view(pursuitId) : null;
@@ -985,65 +1025,87 @@ async function runOne(job: (typeof jobs)[number]) {
 	);
 }
 
+let runFailure: Error | null = null;
 try {
 	const queue = [...jobs];
-	await Promise.all(
-		Array.from(
-			{ length: Math.max(1, Number(values.concurrency)) },
-			async () => {
-				for (let job = queue.shift(); job; job = queue.shift()) {
-					try {
-						meter.assertWithinLimit();
-					} catch (e) {
-						console.error(String(e));
-						queue.length = 0;
-						return;
-					}
-					const identity = {
-						task: job.task.id,
-						condition: job.condition,
-						repeat: job.repeat,
-						configId: effectiveConfigs.get(job.condition)!.id,
-					};
+	const workers = await Promise.allSettled(
+		Array.from({ length: concurrency }, async () => {
+			for (let job = queue.shift(); job; job = queue.shift()) {
+				try {
+					meter.assertWithinLimit();
+				} catch (e) {
+					console.error(errorText(e));
+					queue.length = 0;
+					return;
+				}
+				const identity = {
+					task: job.task.id,
+					condition: job.condition,
+					repeat: job.repeat,
+					configId: effectiveConfigs.get(job.condition)!.id,
+				};
+				appendFileSync(
+					join(root, "job-events.jsonl"),
+					JSON.stringify({
+						...identity,
+						status: "started",
+						at: new Date().toISOString(),
+					}) + "\n",
+				);
+				let jobError: string | null = null;
+				try {
+					await runOne(job);
+				} catch (error) {
+					jobError = errorText(error);
+					queue.length = 0;
+					throw error;
+				} finally {
+					const record = readRecords().find(
+						(r) =>
+							recordKey(r) ===
+							jobKey(
+								identity.task,
+								identity.condition,
+								identity.configId,
+								identity.repeat,
+							),
+					);
 					appendFileSync(
 						join(root, "job-events.jsonl"),
 						JSON.stringify({
 							...identity,
-							status: "started",
+							status: record ? "recorded" : "record_missing",
+							error: record?.error ?? jobError,
 							at: new Date().toISOString(),
 						}) + "\n",
 					);
-					try {
-						await runOne(job);
-					} finally {
-						const record = readRecords().find(
-							(r) =>
-								recordKey(r) ===
-								jobKey(
-									identity.task,
-									identity.condition,
-									identity.configId,
-									identity.repeat,
-								),
-						);
-						appendFileSync(
-							join(root, "job-events.jsonl"),
-							JSON.stringify({
-								...identity,
-								status: record ? "recorded" : "record_missing",
-								error: record?.error ?? null,
-								at: new Date().toISOString(),
-							}) + "\n",
-						);
-					}
 				}
-			},
-		),
+			}
+		}),
 	);
+	const failure = workers.find((worker) => worker.status === "rejected");
+	if (failure?.status === "rejected")
+		throw redactError(failure.reason, secrets);
+} catch (error) {
+	runFailure = redactError(error, secrets);
 } finally {
-	await lease?.release();
-	store.close();
-	console.log(`spent so far $${meter.spentUsd().toFixed(3)}`);
-	settings.close();
-	writeSummary();
+	const failures: Error[] = [];
+	// Keep cleanup ordered and attempt every step, even if the remote lease cannot be released.
+	for (const cleanup of [
+		() => lease?.release(),
+		() => store.close(),
+		() => console.log(`spent so far $${meter.spentUsd().toFixed(3)}`),
+		() => settings.close(),
+		() => writeSummary(),
+	]) {
+		try {
+			await cleanup();
+		} catch (error) {
+			failures.push(redactError(error, secrets));
+		}
+	}
+	for (const failure of runFailure ? failures : failures.slice(1))
+		console.error(`[cleanup] ${failure.name}: ${failure.message}`);
+	runFailure ??= failures[0] ?? null;
 }
+if (runFailure) throw runFailure;

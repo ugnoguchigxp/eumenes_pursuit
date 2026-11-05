@@ -9,6 +9,7 @@
  * wall time (budget.wallMs) and responder requests (budget.transitions).
  */
 import { z } from "zod";
+import { acceptanceEvidencePolicy } from "../src/domains/generation/prompts.ts";
 import { claimLimitReason } from "./claim-oracle.ts";
 import {
 	acceptancePassed,
@@ -104,6 +105,7 @@ const show = (value: JsonValue | undefined, limit: number) =>
 /** The pursuit executor's rules minus everything structural (strategy, hypothesis, prediction). */
 export const directSystem = `You work on a task for a user, using only the tools listed.
 Each turn, choose one action: call one tool, claim completion, or give up.
+${acceptanceEvidencePolicy}
 Rules you must respect:
 - The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
 - Never claim completion you cannot show. An honest "could not finish" is a good outcome; a faked success is the worst outcome.

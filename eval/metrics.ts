@@ -1,5 +1,10 @@
 import type { UsageTotals } from "../standalone/usage.ts";
-import { recordVariant } from "./run-config.ts";
+import {
+	jobKey,
+	recordKey,
+	recordVariant,
+	type PlannedJob,
+} from "./run-config.ts";
 import type { PursuitView } from "../src/index.ts";
 import type { EvalTask, OutcomeFacts, TaskDiagnostics } from "./contracts.ts";
 import type { DirectResult } from "./direct.ts";
@@ -433,6 +438,54 @@ export function detection(records: readonly RunRecord[]): string {
 }
 
 /** One row per condition × group. Plan §12. */
+/** Missing and invalid observations remain unsuccessful in the planned denominator. */
+export function summarizePlanned(
+	planned: readonly PlannedJob[],
+	records: readonly RunRecord[],
+): string {
+	if (!planned.length) return "";
+	const observed = new Map(
+		records.map((record) => [recordKey(record), record]),
+	);
+	const groups = new Map<string, PlannedJob[]>();
+	const keys = new Set<string>();
+	for (const job of planned) {
+		const key = jobKey(job.task, job.condition, job.configId, job.repeat);
+		if (keys.has(key)) throw new Error("duplicate_planned_job");
+		keys.add(key);
+		const group = JSON.stringify([job.condition, job.configId]);
+		const entries = groups.get(group) ?? [];
+		entries.push(job);
+		groups.set(group, entries);
+	}
+	const missing = [...keys].filter((key) => !observed.has(key)).length;
+	const unplanned = [...observed.keys()].filter((key) => !keys.has(key)).length;
+	return [
+		"## 予定と収録（全予定を分母にする）",
+		"",
+		`予定 ${planned.length} 件、対応する記録 ${planned.length - missing} 件、未記録 ${missing} 件。予定外・旧形式の記録 ${unplanned} 件はこの表に混ぜません。`,
+		"未記録・エラー・照合未了は不成功です。以降の詳細表は、記録がある追求だけの集計です。",
+		"",
+		"| 条件 | configId | 予定 | 記録 | 未記録 | エラー・照合未了 | 成功 / 全予定 |",
+		"| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+		...[...groups.values()].map((jobs) => {
+			const rows = jobs.flatMap((job) => {
+				const record = observed.get(
+					jobKey(job.task, job.condition, job.configId, job.repeat),
+				);
+				return record ? [record] : [];
+			});
+			const correct = rows.filter((record) =>
+				isCorrect(record.expected, record),
+			).length;
+			const invalid = rows.filter(
+				(record) => record.error || record.verificationIssue,
+			).length;
+			return `| ${jobs[0]!.condition} | ${jobs[0]!.configId} | ${jobs.length} | ${rows.length} | ${jobs.length - rows.length} | ${invalid} | ${correct}/${jobs.length} (${pct(correct, jobs.length)}) |`;
+		}),
+	].join("\n");
+}
+
 export function summarize(records: readonly RunRecord[]): string {
 	const keys = [
 		...new Set(

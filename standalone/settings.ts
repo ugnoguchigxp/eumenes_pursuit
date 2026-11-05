@@ -222,6 +222,7 @@ export function openSettings(path = settingsPath): Settings {
 								p.input,
 								p.inputLong ?? p.input,
 								Math.max(p.input, p.inputLong ?? p.input) * 1.25,
+								p.cacheRead ?? 0,
 								p.cacheWrite ?? 0,
 							) +
 							maxOutputTokens * Math.max(p.output, p.outputLong ?? p.output)) /
@@ -260,6 +261,7 @@ export function openSettings(path = settingsPath): Settings {
 						for (const r of legacy)
 							events.push({
 								callId: `legacy-${r.id}`,
+								provider: "claude",
 								requestedModel: "unattributed",
 								servedModel: r.model,
 								scope: null,
@@ -284,15 +286,7 @@ export function openSettings(path = settingsPath): Settings {
 				},
 				record(model, usage, call) {
 					const pricing = settings.require("spend.pricing");
-					const prices = Object.values(pricing);
-					const price =
-						pricing[model] ??
-						(prices.length
-							? {
-									input: Math.max(...prices.map((p) => p.input)),
-									output: Math.max(...prices.map((p) => p.output)),
-								}
-							: null);
+					const price = pricing[model];
 					const totalInput =
 						usage.input_tokens +
 						(usage.cache_creation_input_tokens ?? 0) +
@@ -349,13 +343,11 @@ export function openSettings(path = settingsPath): Settings {
 						cacheReadTokens: usage.cache_read_input_tokens ?? 0,
 						cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
 						pricingVersion: priceVersion(),
-						costStatus: pricing[model]
-							? "known"
-							: price
-								? "estimated"
-								: "unknown",
+						costStatus: price ? "known" : "unknown",
 						usd,
 					});
+					// Another model's tariff cannot establish the cost of this response.
+					if (!price) throw new Error(`pricing_required:${model}`);
 				},
 				recordExternal(call, info) {
 					const price =

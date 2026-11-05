@@ -1,6 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import type { JsonObject } from "../../src/contracts/index.ts";
 import { listFiles, replaceTree } from "./fs-util.ts";
@@ -26,21 +25,32 @@ export interface BunRun {
 const sandboxExec = "/usr/bin/sandbox-exec";
 
 /**
- * macOS sandbox for agent-written code: no network, no reads under HOME (the
- * project, .env, credentials) except bun itself. All filesystem writes are
- * denied except within the run's own snapshot. The lexical filter is not a sandbox.
+ * macOS sandbox for agent-written code: reads are limited to the snapshot,
+ * Bun and public OS runtime files. Writes stay in the snapshot; no network.
+ * The lexical filter is not a sandbox.
  */
 function sandboxProfile(cwd: string, taskDirectory: string): string {
 	const q = (p: string) => JSON.stringify(realpathSync(p));
-	const home = homedir();
-	const bun = join(home, ".bun");
 	return [
 		"(version 1)",
 		"(allow default)",
 		"(deny network*)",
 		"(deny file-write*)",
-		`(deny file-read-data (subpath ${q(home)}))`,
-		existsSync(bun) ? `(allow file-read-data (subpath ${q(bun)}))` : "",
+		"(deny file-read-data)",
+		`(allow file-read-data (literal ${q(process.execPath)}))`,
+		`(allow file-read-data (subpath ${q(cwd)}))`,
+		`(allow file-read-data (path-ancestors ${q(process.execPath)}) (path-ancestors ${q(cwd)}))`,
+		// Never allow /System wholesale: /System/Volumes/Data aliases private data.
+		...[
+			"/System/Library",
+			"/usr/lib",
+			"/usr/share",
+			"/Library/Apple/System/Library",
+		].map((path) => `(allow file-read-data (subpath ${JSON.stringify(path)}))`),
+		// Apple's bootstrap profile covers the OS cryptex and its directory ancestors.
+		existsSync("/System/Library/Sandbox/Profiles/dyld-support.sb")
+			? '(import "dyld-support.sb")'
+			: "",
 		`(deny file-read-data (subpath ${q(join(taskDirectory, "hidden"))}))`,
 		`(deny file-read-data (subpath ${q(join(taskDirectory, "data"))}))`,
 		`(deny file-write* (subpath ${q(taskDirectory)}))`,

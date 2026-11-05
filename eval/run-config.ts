@@ -1,5 +1,13 @@
-import { readdirSync, readFileSync } from "node:fs";
+import {
+	existsSync,
+	readdirSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 import { canonicalJson } from "../src/domains/rules/fingerprint.ts";
 import type { JsonValue } from "../src/index.ts";
 
@@ -27,6 +35,48 @@ export function jobKey(
 	repeat: number,
 ): string {
 	return JSON.stringify([task, condition, configId, repeat]);
+}
+
+const plannedJobSchema = z.strictObject({
+	task: z.string().min(1),
+	condition: z.string().min(1),
+	configId: z.string().min(1),
+	repeat: z.int().positive(),
+});
+export type PlannedJob = z.infer<typeof plannedJobSchema>;
+
+export function readPlannedJobs(path: string): PlannedJob[] {
+	return existsSync(path)
+		? z.array(plannedJobSchema).parse(JSON.parse(readFileSync(path, "utf8")))
+		: [];
+}
+
+/** The caller serializes updates with the run store's write transaction. */
+export function persistPlannedJobs(
+	path: string,
+	requested: readonly PlannedJob[],
+): void {
+	const previous = readPlannedJobs(path);
+	const merged = new Map<string, PlannedJob>();
+	for (const input of [previous, requested]) {
+		const seen = new Set<string>();
+		for (const job of z.array(plannedJobSchema).parse(input)) {
+			const key = jobKey(job.task, job.condition, job.configId, job.repeat);
+			if (seen.has(key)) throw new Error("duplicate_planned_job");
+			seen.add(key);
+			merged.set(key, job);
+		}
+	}
+	const temporary = `${path}.${crypto.randomUUID()}.tmp`;
+	try {
+		writeFileSync(
+			temporary,
+			JSON.stringify([...merged.values()], null, 2) + "\n",
+		);
+		renameSync(temporary, path);
+	} finally {
+		rmSync(temporary, { force: true });
+	}
 }
 export function recordKey(r: {
 	task: string;

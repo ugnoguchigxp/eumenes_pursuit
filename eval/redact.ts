@@ -21,17 +21,53 @@ function scrub(text: string, secrets: readonly string[]): string {
 	return out;
 }
 
+function scrubJson<T>(value: T, secrets: readonly string[]): T {
+	function visit(value: unknown): unknown {
+		if (typeof value === "string") return scrub(value, secrets);
+		if (Array.isArray(value)) return value.map(visit);
+		if (value !== null && typeof value === "object")
+			return Object.fromEntries(
+				Object.entries(value).map(([key, item]) => [
+					scrub(key, secrets),
+					visit(item),
+				]),
+			);
+		return value;
+	}
+	// Decode before matching: quotes, backslashes and controls have JSON escape sequences.
+	return visit(JSON.parse(JSON.stringify(value))) as T;
+}
+
+export function redactError(error: unknown, secrets: readonly string[]): Error {
+	const safe = new Error(
+		scrub(error instanceof Error ? error.message : String(error), secrets),
+	);
+	if (error instanceof Error) {
+		safe.name = scrub(error.name, secrets);
+		if (error.stack) safe.stack = scrub(error.stack, secrets);
+	}
+	// Do not copy arbitrary cause/provider payloads or mutate the original exception.
+	return safe;
+}
+
 export function redactTools(
 	tools: ToolPort,
 	secrets: readonly string[],
 ): ToolPort {
 	return {
-		list: () => tools.list(),
+		list() {
+			try {
+				return scrubJson(tools.list(), secrets);
+			} catch (error) {
+				throw redactError(error, secrets);
+			}
+		},
 		async invoke(call, signal) {
-			const outcome = await tools.invoke(call, signal);
-			return JSON.parse(
-				scrub(JSON.stringify(outcome), secrets),
-			) as typeof outcome;
+			try {
+				return scrubJson(await tools.invoke(call, signal), secrets);
+			} catch (error) {
+				throw redactError(error, secrets);
+			}
 		},
 	};
 }
@@ -42,10 +78,11 @@ export function redactAcceptance(
 ): AcceptancePort {
 	return {
 		async verify(signal) {
-			const results = await acceptance.verify(signal);
-			return results.map(
-				(r) => JSON.parse(scrub(JSON.stringify(r), secrets)) as typeof r,
-			);
+			try {
+				return scrubJson(await acceptance.verify(signal), secrets);
+			} catch (error) {
+				throw redactError(error, secrets);
+			}
 		},
 	};
 }

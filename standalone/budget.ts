@@ -86,7 +86,8 @@ export function openBudget(db: Database, globalLimit: () => number) {
 			)
 				return Infinity;
 		}
-		if (key === "global") {
+		// Rows predating usage_call came from the original Claude-only meter.
+		if (key === "global" || key === "provider:claude") {
 			const rows = db
 				.query(
 					"SELECT usd FROM spend WHERE id NOT IN (SELECT spend_id FROM usage_call WHERE spend_id IS NOT NULL)",
@@ -219,7 +220,7 @@ export function openBudget(db: Database, globalLimit: () => number) {
 				}
 				if (
 					reservation &&
-					(amount > reservation.upper_micro ||
+					((kind === "upper_bound" && amount > reservation.upper_micro) ||
 						!["dispatched", "uncertain"].includes(reservation.state))
 				)
 					throw new Error("invalid_reservation_resolution");

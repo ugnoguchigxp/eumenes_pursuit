@@ -35,6 +35,44 @@ async function waitForRequest(dir: string, count = 1): Promise<string> {
 }
 
 describe("file LLM port", () => {
+	test("rejects roles that could leave the request directory before creating files", () => {
+		for (const role of ["", "../../escape", "a\\b", "a\0b"]) {
+			const dir = join(tmpdir(), `file-llm-invalid-${crypto.randomUUID()}`);
+			expect(() => createFileLlm({ dir, role })).toThrow(
+				"invalid_file_llm_role",
+			);
+			expect(existsSync(dir)).toBe(false);
+		}
+	});
+
+	test("a pre-aborted call publishes no request or usage event", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "file-llm-"));
+		let recorded = 0;
+		const llm = createFileLlm({
+			dir,
+			role: "generator",
+			meter: {
+				record() {},
+				assertWithinLimit() {},
+				reserve() {},
+				dispatch() {},
+				release() {},
+				upperBound: () => 0,
+				recordUnknown() {
+					recorded++;
+				},
+			},
+		});
+		await expect(
+			llm.complete(
+				request,
+				AbortSignal.abort(new Error("cancelled_before_dispatch")),
+			),
+		).rejects.toThrow("cancelled_before_dispatch");
+		expect(readdirSync(join(dir, "requests"))).toHaveLength(0);
+		expect(recorded).toBe(0);
+	});
+
 	test("writes the request with a JSON schema and returns the parsed response", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "file-llm-"));
 		const llm = createFileLlm({ dir, role: "generator", pollMs: 5 });

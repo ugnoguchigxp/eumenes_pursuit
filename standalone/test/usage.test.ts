@@ -31,7 +31,7 @@ function settings() {
 	);
 	return s;
 }
-test("job and role attribution, idempotence and conservative unknown pricing", () => {
+test("job and role attribution, idempotence and unknown tariff preservation", () => {
 	const s = settings();
 	try {
 		const a = scope("a");
@@ -67,13 +67,18 @@ test("job and role attribution, idempotence and conservative unknown pricing", (
 			10,
 		);
 		expect(s.meter().spentUsd()).toBeCloseTo(totalUsage(events).usd!, 10);
-		s.meter(a, "generator").record("fallback", usage, {
-			callId: "unknown-price",
-			requestedModel: "m",
-			status: "ok",
-			latencyMs: 0,
+		expect(() =>
+			s.meter(a, "generator").record("fallback", usage, {
+				callId: "unknown-price",
+				requestedModel: "m",
+				status: "ok",
+				latencyMs: 0,
+			}),
+		).toThrow("pricing_required");
+		expect(totalUsage(s.meter().events("a"))).toMatchObject({
+			costStatus: "unknown",
+			usd: null,
 		});
-		expect(totalUsage(s.meter().events("a")).costStatus).toBe("estimated");
 	} finally {
 		s.close();
 	}

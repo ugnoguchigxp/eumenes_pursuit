@@ -1,7 +1,7 @@
 import { pause } from "./larm/control.ts";
 import type { UsageMeter } from "./claude.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { z } from "zod";
 import {
 	LlmOutputError,
@@ -30,6 +30,13 @@ export function createFileLlm(options: {
 	/** Re-requests after an invalid response before giving up (default 2). */
 	readonly maxRetries?: number;
 }): LlmPort {
+	if (
+		!options.role ||
+		basename(options.role) !== options.role ||
+		options.role.includes("\\") ||
+		options.role.includes("\0")
+	)
+		throw new Error("invalid_file_llm_role");
 	const requests = join(options.dir, "requests");
 	const responses = join(options.dir, "responses");
 	mkdirSync(requests, { recursive: true });
@@ -43,6 +50,7 @@ export function createFileLlm(options: {
 			request: LlmRequest<T>,
 			signal: AbortSignal,
 		): Promise<LlmResult<T>> {
+			signal.throwIfAborted();
 			const base = `${options.role}-${process.pid}-${instanceId}-${String(++counter).padStart(4, "0")}`;
 			const started = performance.now();
 			const body = {
@@ -55,6 +63,7 @@ export function createFileLlm(options: {
 			};
 			let previous: { id: string; error: unknown } | null = null;
 			for (let attempt = 0; ; attempt++) {
+				signal.throwIfAborted();
 				const callId = crypto.randomUUID();
 				const callStarted = performance.now();
 				let responseRecorded = false;

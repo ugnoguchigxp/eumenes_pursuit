@@ -127,8 +127,16 @@ export const reviewSchema = z.strictObject({
 });
 export type Review = z.infer<typeof reviewSchema>;
 
+export const acceptanceEvidencePolicy = `Judge completion against the stated goal and acceptance criteria. Tool and test results are evidence about those criteria, not additional requirements. If results conflict, relate them to the stated criteria and investigate the mismatch without changing the criteria or protected checks. When available evidence supports all criteria, claim completion so the host can verify it; do not give up merely because an unrelated check failed.`;
+
+const consultationPolicy = `Treat answered consultations as constraints for subsequent decisions. Do not ask again for the same prerequisite unless new evidence changes whether it can be supplied. Rereading unchanged information does not resolve that prerequisite.
+An unavailable prerequisite blocks that route, not necessarily the goal. Check alternative routes against tool descriptions and observed evidence.
+When no viable route remains, explain why the goal cannot be completed rather than asking the same question or inventing the missing input. Remaining budget is not evidence that another consultation will help.`;
+
 const executorSystem = `You pursue a goal for a user by trial and error, using only the tools listed.
 You work in small, explicit steps: a strategy (overall approach), then a hypothesis under it ("doing X should produce Y"), then single tool attempts that test the hypothesis.
+${acceptanceEvidencePolicy}
+${consultationPolicy}
 Rules you must respect:
 - Before every tool call, write the prediction: the status (ok/error) and what you expect to observe. An attempt without a prediction is not accepted.
 - The acceptance criteria are fixed. Never edit, weaken, delete or work around tests, checks or acceptance conditions. Satisfying a reworded or weaker condition is failure.
@@ -951,6 +959,8 @@ export function proposalRequest(input: {
 }
 
 const reviewerSystem = `You review a pursuit from the outside at a step back. You did not do the work and you see only a summary.
+${acceptanceEvidencePolicy}
+${consultationPolicy}
 A step back is either routine (the last hypothesis held and the work moves to its next part) or a stall (predictions failed, moves were rejected, or a budget ran out); the request says which the record shows ("## 戻った事情"). A routine step back usually needs only a check, not a new strategy.
 Question the strategy, not the details: Is the current strategy still heading to the ORIGINAL goal and acceptance criteria? Did a premise break (say which, or write なし)? What untried strategy exists?
 You may only answer: continue_strategy (keep the strategy, try a new hypothesis; a broken premise you name in brokenAssumption is shown with the strategy from then on as its correction), change_strategy, consult (the user must supply information, permission or a decision), or stop.
@@ -1034,7 +1044,7 @@ export function reviewRequest(input: {
 	view: PursuitView;
 	reason: string;
 	signals: readonly string[];
-	/** The run's tools: lets the parts check tell read-only attempts apart (fixes g §9). */
+	/** Capabilities for strategy review, permissions and the parts check (fixes g §9). */
 	tools?: readonly ToolDescriptor[];
 }): LlmRequest<Review> {
 	const { view } = input;
@@ -1046,6 +1056,9 @@ export function reviewRequest(input: {
 		maxOutputTokens: 3000,
 		prompt: [
 			goalBlock(view),
+			input.tools
+				? `## 使える道具\n${toolsBlock(input.tools, view.input.grant)}`
+				: "",
 			`## 一段上へ戻した理由\n${input.reason}`,
 			input.signals.length
 				? `## 記録から数えた兆候\n${input.signals.join(", ")}`

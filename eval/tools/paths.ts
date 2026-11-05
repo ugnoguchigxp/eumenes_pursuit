@@ -1,5 +1,39 @@
 import { lstat } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { lstatSync, realpathSync } from "node:fs";
+import {
+	basename,
+	dirname,
+	isAbsolute,
+	join,
+	relative,
+	resolve,
+	sep,
+} from "node:path";
+
+/** Host configuration may name a directory that has not been created yet. */
+export function canonicalHostPath(path: string): string {
+	const absolute = resolve(path);
+	try {
+		return realpathSync(absolute);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+		// A dangling symlink is ambiguous; do not turn it into an unrelated new path.
+		if (lstatSync(absolute, { throwIfNoEntry: false })?.isSymbolicLink())
+			throw error;
+		const parent = dirname(absolute);
+		if (parent === absolute) throw error;
+		return join(canonicalHostPath(parent), basename(absolute));
+	}
+}
+
+/** Inputs are canonical absolute host paths. Equality and nesting both overlap. */
+export function pathsOverlap(a: string, b: string): boolean {
+	const rel = relative(a, b);
+	const reverse = relative(b, a);
+	const inside = (path: string) =>
+		path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
+	return inside(rel) || inside(reverse);
+}
 
 export type SafePath =
 	| { readonly ok: true; readonly abs: string; readonly rel: string }

@@ -7,7 +7,34 @@ import {
 	measure,
 	type RunRecord,
 	summarize,
+	summarizePlanned,
 } from "../metrics.ts";
+
+test("planned success rates retain missing and invalid observations and separate configurations", () => {
+	const planned = [
+		{ task: "a", condition: "E1R", configId: "A", repeat: 1 },
+		{ task: "b", condition: "E1R", configId: "A", repeat: 1 },
+		{ task: "c", condition: "D0", configId: "B", repeat: 1 },
+	];
+	const completed = rec({ task: "a", configId: "A", repeat: 1 });
+	const invalid = rec({
+		task: "c",
+		condition: "D0",
+		configId: "B",
+		repeat: 1,
+		error: "failed",
+	});
+	const table = summarizePlanned(planned, [
+		completed,
+		completed,
+		invalid,
+		rec({ task: "legacy" }),
+	]);
+	expect(table).toContain("予定 3 件、対応する記録 2 件、未記録 1 件");
+	expect(table).toContain("予定外・旧形式の記録 1 件");
+	expect(table).toContain("| E1R | A | 2 | 1 | 1 | 0 | 1/2 (50%) |");
+	expect(table).toContain("| D0 | B | 1 | 1 | 0 | 1 | 0/1 (0%) |");
+});
 
 const rec = (over: Partial<RunRecord>): RunRecord =>
 	({

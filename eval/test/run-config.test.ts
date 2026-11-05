@@ -1,4 +1,10 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+	mkdtempSync,
+	mkdirSync,
+	writeFileSync,
+	readFileSync,
+	rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "bun:test";
@@ -7,8 +13,33 @@ import {
 	sourceIdentity,
 	jobKey,
 	recordKey,
+	persistPlannedJobs,
+	readPlannedJobs,
 	type EffectiveRunConfig,
 } from "../run-config.ts";
+
+test("resumed plans retain missing jobs, prior configurations and repeat identities", () => {
+	const root = mkdtempSync(join(tmpdir(), "planned-jobs-"));
+	const path = join(root, "plan.json");
+	try {
+		const original = { task: "a", condition: "D0", configId: "old", repeat: 1 };
+		persistPlannedJobs(path, [original]);
+		const added = { ...original, task: "b", configId: "new", repeat: 2 };
+		persistPlannedJobs(path, [added]);
+		persistPlannedJobs(path, [added]);
+		expect(readPlannedJobs(path)).toEqual([original, added]);
+		const before = readFileSync(path, "utf8");
+		expect(() => persistPlannedJobs(path, [added, added])).toThrow(
+			"duplicate_planned_job",
+		);
+		expect(readFileSync(path, "utf8")).toBe(before);
+		writeFileSync(path, "{broken");
+		expect(() => persistPlannedJobs(path, [added])).toThrow();
+		expect(readFileSync(path, "utf8")).toBe("{broken");
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
 const config: EffectiveRunConfig = {
 	format: 1,
 	roles: { generator: { provider: "claude", model: "m", effort: "high" } },

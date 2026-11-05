@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { countLineDiff } from "../fs-util.ts";
-import { resolveInside } from "../paths.ts";
+import { canonicalHostPath, pathsOverlap, resolveInside } from "../paths.ts";
 import { clipText } from "../text.ts";
 import {
 	createToolPort,
@@ -12,6 +12,26 @@ import {
 	prop,
 	validateInput,
 } from "../tool-port.ts";
+
+test("host path separation follows aliases and missing children, rejecting dangling links", async () => {
+	const root = await mkdtemp(join(tmpdir(), "host-paths-"));
+	try {
+		const real = join(root, "real");
+		await mkdir(real);
+		await symlink(real, join(root, "alias"));
+		await symlink(join(root, "missing"), join(root, "dangling"));
+		const a = canonicalHostPath(join(root, "alias", "new", "child"));
+		expect(a).toBe(join(canonicalHostPath(real), "new", "child"));
+		expect(pathsOverlap(a, canonicalHostPath(real))).toBe(true);
+		expect(pathsOverlap(canonicalHostPath(real), a)).toBe(true);
+		expect(
+			pathsOverlap(canonicalHostPath(real), canonicalHostPath(`${real}-other`)),
+		).toBe(false);
+		expect(() => canonicalHostPath(join(root, "dangling", "child"))).toThrow();
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
 
 describe("resolveInside", () => {
 	test("accepts nested paths and refuses escapes and links", async () => {

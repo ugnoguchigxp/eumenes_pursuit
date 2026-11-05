@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +25,34 @@ function setup(path = ":memory:") {
 	s.set("spend.pricing", { m: { input: 1, output: 1 } });
 	return s;
 }
+
+test("Claude provider limits include pre-usage-call spend without double counting", () => {
+	const directory = mkdtempSync(join(tmpdir(), "legacy-provider-"));
+	const path = join(directory, "settings.sqlite");
+	setup(path).close();
+	const db = new Database(path);
+	db.query(
+		"INSERT INTO spend(model,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,usd,at) VALUES (?,?,?,?,?,?,?)",
+	).run("old-model", 1, 0, 0, 0, 0.4, 1);
+	db.close();
+	const s = openSettings(path);
+	try {
+		expect(s.exposureUsd()).toBe(0.4);
+		expect(s.exposureUsd("provider:claude")).toBe(0.4);
+		expect(() => s.setBudget("provider:claude", 0.3)).toThrow("exposure");
+		s.setBudget("provider:claude", 0.5);
+		expect(() =>
+			s.meter().reserve({ ...call("claude-next"), provider: "claude" }, 0.2),
+		).toThrow("spend_limit");
+		s.meter().reserve(call("openai-next"), 0.3);
+		expect(s.exposureUsd("provider:openai")).toBe(0.3);
+		expect(s.exposureUsd()).toBe(0.7);
+		expect(s.meter().events()[0]?.provider).toBe("claude");
+	} finally {
+		s.close();
+		rmSync(directory, { recursive: true, force: true });
+	}
+});
 
 test("reservations block overspend before dispatch, and known usage settles exactly once", () => {
 	const s = setup();
@@ -177,6 +206,93 @@ test("a reserved unknown stops fresh requests until audited reconciliation", () 
 		s.meter(scope("next")).reserve(call("next"), 0.6);
 		expect(s.exposureUsd()).toBe(1);
 		expect(meter.events()[0]?.costStatus).toBe("estimated");
+	} finally {
+		s.close();
+	}
+});
+
+test("the input reservation covers every configured billable cache category", () => {
+	const s = setup();
+	try {
+		s.set("spend.limitUsd", 0.00015);
+		s.set("spend.pricing", {
+			m: { input: 1, output: 1, cacheRead: 2, maxInputTokens: 100 },
+		});
+		const meter = s.meter(scope());
+		expect(meter.upperBound("m", 0)).toBe(0.0002);
+		expect(() =>
+			meter.reserve(call("cache-read"), meter.upperBound("m", 0)),
+		).toThrow("spend_limit");
+		expect(s.budgetSnapshot().reservations).toHaveLength(0);
+		expect(s.exposureUsd()).toBe(0);
+	} finally {
+		s.close();
+	}
+});
+
+test("an invoice above the reserved bound records the real liability and blocks overspend", () => {
+	const s = setup();
+	try {
+		const meter = s.meter(scope());
+		meter.reserve(call("underestimated"), 0.4);
+		meter.dispatch("underestimated");
+		meter.recordUnknown!(call("underestimated"));
+		expect(() =>
+			s.reconcile(
+				"underestimated",
+				1.1,
+				"operator",
+				"provider invoice",
+				"upper_bound",
+			),
+		).toThrow("invalid_reservation_resolution");
+		s.reconcile(
+			"underestimated",
+			1.1,
+			"operator",
+			"provider invoice",
+			"invoice",
+		);
+		expect(s.exposureUsd()).toBe(1.1);
+		expect(meter.events()[0]).toMatchObject({
+			usd: 1.1,
+			costStatus: "known",
+			reconciliation: { kind: "invoice", basis: "provider invoice" },
+		});
+		expect(s.budgetSnapshot().reservations).toHaveLength(0);
+		expect(() => meter.reserve(call("after-invoice"), 0.01)).toThrow(
+			"spend_limit",
+		);
+	} finally {
+		s.close();
+	}
+});
+
+test("a served model without a tariff retains usage and stops fresh dispatch", () => {
+	const s = setup();
+	try {
+		const meter = s.meter(scope());
+		meter.reserve(call("unknown-tariff"), 0.4);
+		meter.dispatch("unknown-tariff");
+		expect(() =>
+			meter.record(
+				"served-alias",
+				{ input_tokens: 100, output_tokens: 20 },
+				call("unknown-tariff"),
+			),
+		).toThrow("pricing_required");
+		expect(meter.events()[0]).toMatchObject({
+			requestedModel: "m",
+			servedModel: "served-alias",
+			inputTokens: 100,
+			outputTokens: 20,
+			usd: null,
+			costStatus: "unknown",
+		});
+		expect(s.exposureUsd()).toBe(Infinity);
+		expect(() => meter.reserve(call("after-unknown-tariff"), 0.1)).toThrow(
+			"usage_unknown",
+		);
 	} finally {
 		s.close();
 	}

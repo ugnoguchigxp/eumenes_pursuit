@@ -1,0 +1,48 @@
+{
+	"completedAt": "2026-11-05T15:30:22.039Z",
+	"baseCommit": "52d5fde4c5f6d60e94f9c0a658380bada0fe2ec9",
+	"sourceId": "5fa61ef493baedfaafae2bed80975b7ded039ca6c32712f44027b16af3ad9fd3",
+	"full": {
+		"command": "PURSUIT_LIVE=0 PATH=\"$PWD/.venv/bin:$PATH\" bun test ./src ./test ./standalone ./eval",
+		"pass": 537,
+		"skip": 12,
+		"fail": 0,
+		"assertions": 4920,
+		"seconds": 45.03,
+		"log": "artifacts/code-review-20261105/full-v4.log"
+	},
+	"partial": {
+		"pass": 1,
+		"fail": 0,
+		"log": "artifacts/code-review-20261105/reviewer-info-after.log"
+	},
+	"integration": {
+		"pass": 80,
+		"fail": 0,
+		"log": "artifacts/code-review-20261105/v4-integration.log"
+	},
+	"typecheck": {
+		"exit": 0,
+		"log": "artifacts/code-review-20261105/typecheck-v4.log"
+	},
+	"lint": {
+		"exit": 0,
+		"log": "artifacts/code-review-20261105/lint-v4.log"
+	},
+	"negativeControls": {
+		"pass": 3,
+		"fail": 0,
+		"containedInFull": true
+	},
+	"reviewPass": {
+		"pass": 33,
+		"fail": 0,
+		"log": "artifacts/code-review-20261105/final-targeted-review.log"
+	},
+	"ciRun": false,
+	"push": false,
+	"mainstreamIntegration": false,
+	"formatBaseline": "Seven unchanged JSON evidence files under spec/reviews/2026-11-05 use the generator format rather than oxfmt format; original historical evidence preserved.",
+	"apiGate": true,
+	"reviewScope": "Budget reservations, billing attribution, invoice reconciliation, result plans/denominators, CLI contracts, secret redaction, OS file boundaries, grader separation, worker draining, cleanup, file LLM dispatch and shared completion/consultation instructions."
+}
