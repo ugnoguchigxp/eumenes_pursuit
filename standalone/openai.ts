@@ -89,7 +89,14 @@ export function createOpenAiLlm(
 						response.status ?? "status_missing",
 						response.model,
 					);
-				const messages = response.output.filter((r) => r.type === "message");
+				// The provider marks intermediate text separately from the structured final answer.
+				const messages = response.output.filter(
+					(r): r is OpenAI.Responses.ResponseOutputMessage =>
+						r.type === "message" &&
+						(r.phase == null || r.phase === "final_answer"),
+				);
+				if (messages.length > 1)
+					throw new LlmOutputError("multiple_final_messages", response.model);
 				if (messages.some((m) => m.content.some((c) => c.type === "refusal")))
 					throw new LlmOutputError("refusal", response.model);
 				const text = messages

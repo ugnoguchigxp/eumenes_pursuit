@@ -184,3 +184,56 @@ for (const provider of ["claude", "openai"] as const)
 				s.close();
 			}
 		});
+
+for (const [name, phases, error] of [
+	[
+		"commentary followed by structured final",
+		["commentary", "final_answer"],
+		null,
+	],
+	["only commentary is not a result", ["commentary"], "empty"],
+	[
+		"ambiguous final messages are rejected",
+		["final_answer", "final_answer"],
+		"multiple_final_messages",
+	],
+	["unknown phase is not guessed", ["future_phase"], "empty"],
+] as const)
+	test(`OpenAI phase contract: ${name}`, async () => {
+		const s = setup();
+		try {
+			const client = new OpenAI({
+				apiKey: "fixture",
+				maxRetries: 0,
+				fetch: async () =>
+					Response.json(
+						response({
+							output: phases.map((phase) => ({
+								type: "message",
+								phase,
+								content: [
+									{
+										type: "output_text",
+										text:
+											phase === "final_answer"
+												? '{"ok":true}'
+												: "Working on the request; this is not JSON.",
+									},
+								],
+							})),
+						}),
+					),
+			});
+			const result = createOpenAiLlm(
+				{ model: "m", effort: "medium", thinkingHeadroom: 0 },
+				s.meter(),
+				client,
+			).complete(request, new AbortController().signal);
+			if (error) await expect(result).rejects.toThrow(error);
+			else expect((await result).value).toEqual({ ok: true });
+			expect(s.exposureUsd()).toBeGreaterThan(0);
+			expect(s.budgetSnapshot().reservations).toHaveLength(0);
+		} finally {
+			s.close();
+		}
+	});

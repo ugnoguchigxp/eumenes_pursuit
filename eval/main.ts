@@ -174,9 +174,20 @@ function readRecords(): RunRecord[] {
 /** What actually answered: from the recorded variants and conditions, not from this invocation's flags. */
 function describeLive(records: RunRecord[]): string {
 	const llm = new Set(
-		records.map((r) =>
-			r.generator.includes("/LLM-file") ? "ファイル経由の応答者" : "Claude API",
-		),
+		records.flatMap((r) => {
+			const sources = r.usage?.events
+				.filter((e) => e.role === "generator" || e.role === "reviewer")
+				.map((e) => e.provider ?? "claude");
+			return sources?.length
+				? sources
+				: [
+						r.generator.includes("/LLM-file")
+							? "file"
+							: r.usage
+								? "unrecorded"
+								: "claude (legacy)",
+					];
+		}),
 	);
 	const graders = new Set(
 		records.flatMap((r) =>
