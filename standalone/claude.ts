@@ -1,4 +1,5 @@
-import type { UsageCall } from "./usage.ts";
+import type { UsageCall, UsageMeter } from "./usage.ts";
+export type { UsageMeter } from "./usage.ts";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import {
@@ -16,53 +17,48 @@ export interface ClaudeRole {
 	readonly thinkingHeadroom: number;
 }
 
-export interface UsageMeter {
-	record(model: string, usage: Anthropic.Usage, call?: UsageCall): void;
-	recordUnknown?(call: UsageCall): void;
-	markStatus?(callId: string, status: UsageCall["status"]): void;
-	recordExternal?(
-		call: UsageCall,
-		info: {
-			model: string;
-			inputTokens: number;
-			outputTokens: number;
-			cacheReadTokens?: number;
-		},
-	): void;
-	/** Throws before a call when the spend limit would be crossed. */
-	assertWithinLimit(): void;
-}
-
 /** One stateless structured call per request: every call is a fresh context. */
 export function createClaudeLlm(
 	role: ClaudeRole,
 	meter: UsageMeter,
-	client: Anthropic = new Anthropic({ maxRetries: 0 }),
+	client: Anthropic = new Anthropic({ maxRetries: 0, timeout: 120_000 }),
 ): LlmPort {
 	return {
 		async complete<T>(
 			request: LlmRequest<T>,
 			signal: AbortSignal,
 		): Promise<LlmResult<T>> {
+			signal.throwIfAborted();
 			meter.assertWithinLimit();
 			const started = performance.now();
 			// create (not parse) so usage is recorded even when the JSON is cut off or malformed.
 			const callId = crypto.randomUUID();
+			const maxTokens = Math.min(
+				16000,
+				request.maxOutputTokens + role.thinkingHeadroom,
+			);
+			const call: UsageCall = {
+				callId,
+				provider: "claude",
+				requestedModel: role.model,
+				latencyMs: 0,
+				status: "response",
+			};
+			const format = zodOutputFormat(request.schema);
+			meter.reserve(call, meter.upperBound(role.model, maxTokens));
 			let response: Anthropic.Message;
 			try {
+				meter.dispatch(callId);
 				response = await client.messages.create(
 					{
 						model: role.model,
-						max_tokens: Math.min(
-							16000,
-							request.maxOutputTokens + role.thinkingHeadroom,
-						),
+						max_tokens: maxTokens,
 						cache_control: { type: "ephemeral" },
 						system: request.system,
 						messages: [{ role: "user", content: request.prompt }],
 						output_config: {
 							effort: role.effort,
-							format: zodOutputFormat(request.schema),
+							format,
 						},
 					},
 					{ signal },
@@ -70,15 +66,26 @@ export function createClaudeLlm(
 			} catch (error) {
 				meter.recordUnknown?.({
 					callId,
+					provider: "claude",
 					requestedModel: role.model,
 					latencyMs: performance.now() - started,
 					status: "error",
 				});
 				throw error;
 			}
+			if (!response.usage) {
+				meter.recordUnknown?.({
+					...call,
+					status: "error",
+					latencyMs: performance.now() - started,
+				});
+				throw new LlmOutputError("usage_missing", response.model);
+			}
 			meter.record(response.model, response.usage, {
 				callId,
+				provider: "claude",
 				requestedModel: role.model,
+				requestId: response.id,
 				latencyMs: performance.now() - started,
 				status: "response",
 			});

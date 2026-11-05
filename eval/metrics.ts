@@ -491,14 +491,14 @@ const median = (xs: readonly number[]) => {
 export function compare(records: readonly RunRecord[]): string {
 	const ok = (r: RunRecord) => r.outcome === "completed" && r.verified;
 	const keyOf = (r: RunRecord) =>
-		`${familyOf(r)}|${modeOf(r)}|${r.budgetTag ?? "-"}`;
+		`${familyOf(r)}|${modeOf(r)}|${r.budgetTag ?? "-"}|${recordVariant(r)}`;
 	const keys = [...new Set(records.map(keyOf))].sort();
 	const lines = [
-		"| 群 | 方式 | 予算 | n | 正しい結末 | 偽の完了 | 止めすぎ | カナリア(件/回) | 採点 pass/呼出 | 申告 不合格/全 | 道具 平均/中央 | 応答要求 平均 | 時間 平均(分) | 強制停止 | 誤り |",
+		"| 群 | 方式 | 予算 | n | 正しい結末 | 偽の完了 | 止めすぎ | カナリア(件/回) | 採点 pass/呼出 | 申告 不合格/全 | 道具 平均/中央 | 応答要求 平均 | 時間 平均(分) | 強制停止 | 誤り | 設定 |",
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 	];
 	for (const key of keys) {
-		const [family, mode, budget] = key.split("|");
+		const [family, mode, budget, variant] = key.split("|");
 		const rs = records.filter((r) => keyOf(r) === key);
 		const sum = (f: (r: RunRecord) => number) =>
 			rs.reduce((s, r) => s + f(r), 0);
@@ -511,12 +511,16 @@ export function compare(records: readonly RunRecord[]): string {
 		const graded = rs.filter((r) => r.graderVerdict != null);
 		const tools = rs.map((r) => r.toolCalls ?? r.attempts);
 		lines.push(
-			`| ${family} | ${mode} | ${budget} | ${rs.length} | ${correctness(rs)} | ${rs.filter((r) => r.falseCompletion).length} | ${over}/${solvable} | ${sum((r) => r.canaryHits ?? 0)}/${rs.filter((r) => (r.canaryHits ?? 0) > 0).length} | ${graded.filter((r) => r.graderVerdict === "pass").length}/${graded.length} | ${sum((r) => r.failedClaims)}/${sum((r) => r.claims ?? 0)} | ${avg(tools)}/${median(tools)} | ${avg(rs.map((r) => r.responderRequests ?? r.llmCalls))} | ${avg(rs.map((r) => r.durationMs / 60000))} | ${rs.filter((r) => isForcedStop(r.reason)).length} | ${rs.filter((r) => r.error).length} |`,
+			`| ${family} | ${mode} | ${budget} | ${rs.length} | ${correctness(rs)} | ${rs.filter((r) => r.falseCompletion).length} | ${over}/${solvable} | ${sum((r) => r.canaryHits ?? 0)}/${rs.filter((r) => (r.canaryHits ?? 0) > 0).length} | ${graded.filter((r) => r.graderVerdict === "pass").length}/${graded.length} | ${sum((r) => r.failedClaims)}/${sum((r) => r.claims ?? 0)} | ${avg(tools)}/${median(tools)} | ${avg(rs.map((r) => r.responderRequests ?? r.llmCalls))} | ${avg(rs.map((r) => r.durationMs / 60000))} | ${rs.filter((r) => isForcedStop(r.reason)).length} | ${rs.filter((r) => r.error).length} | ${variant} |`,
 		);
 	}
 	const tasks = [...new Set(records.map((r) => r.task))].sort();
 	const modes = [
-		...new Set(records.map((r) => `${modeOf(r)}|${r.budgetTag ?? "-"}`)),
+		...new Set(
+			records.map(
+				(r) => `${modeOf(r)}|${r.budgetTag ?? "-"}|${recordVariant(r)}`,
+			),
+		),
 	].sort();
 	lines.push(
 		"",
@@ -527,7 +531,9 @@ export function compare(records: readonly RunRecord[]): string {
 		const cells = modes.map((m) => {
 			const rs = records
 				.filter(
-					(r) => r.task === task && `${modeOf(r)}|${r.budgetTag ?? "-"}` === m,
+					(r) =>
+						r.task === task &&
+						`${modeOf(r)}|${r.budgetTag ?? "-"}|${recordVariant(r)}` === m,
 				)
 				.sort((a, b) => a.run.localeCompare(b.run) || a.repeat - b.repeat);
 			if (!rs.length) return "-";

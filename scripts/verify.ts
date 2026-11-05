@@ -1,5 +1,6 @@
 /** Daily check: format, lint, types, boundaries, run artifacts kept out of the index, deterministic tests. Live runs are separate (eval/). */
 const steps = [
+	["check:python"],
 	["format:check"],
 	["lint"],
 	["typecheck"],

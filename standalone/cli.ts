@@ -37,13 +37,24 @@ try {
 		console.log(settings.all());
 	} else if (group === "settings" && action === "show") {
 		console.log(settings.all());
+	} else if (group === "budget" && action === "set" && rest[0] && rest[1]) {
+		settings.setBudget(rest[0], Number(rest[1]));
+		console.log(settings.budgetSnapshot());
+	} else if (group === "budget" && action === "show") {
+		console.log(settings.budgetSnapshot());
+	} else if (group === "spend" && action === "reconcile" && rest.length === 5) {
+		const [id, usd, actor, kind, basis] = rest;
+		if (kind !== "invoice" && kind !== "upper_bound")
+			throw new Error("reconciliation_kind");
+		settings.reconcile(id!, Number(usd), actor!, basis!, kind);
+		console.log(settings.budgetSnapshot());
 	} else if (group === "spend") {
 		console.log(
 			`spent: $${settings.meter().spentUsd().toFixed(4)} / limit $${settings.get("spend.limitUsd") ?? "unset"}`,
 		);
 	} else {
 		throw new Error(
-			"usage: settings init <file> | settings set <key> <json> | settings show | spend",
+			"usage: settings init <file> | settings set <key> <json> | settings show | spend [reconcile <call-id> <USD> <operator> invoice|upper_bound <basis>] | budget set <key> <USD> | budget show",
 		);
 	}
 } finally {

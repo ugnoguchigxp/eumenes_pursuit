@@ -40,7 +40,7 @@ import {
 	terminalStatuses,
 } from "../src/index.ts";
 import { migrations } from "../src/sqlite.ts";
-import { createClaudeLlm } from "../standalone/claude.ts";
+import { createRoleLlm } from "../standalone/llm.ts";
 import { createFileLlm } from "../standalone/file-llm.ts";
 import { openDecisionLease } from "../standalone/larm/connection.ts";
 import { serialJudge } from "../standalone/larm/serial.ts";
@@ -118,7 +118,9 @@ const { values, positionals } = parseArgs({
 		/** Group E: add the in-loop referee tool review_draft. */
 		critic: { type: "boolean", default: false },
 		/** LLM port: claude (API) or file (an outside responder answers request files). */
-		llm: { type: "string", default: "claude" },
+		llm: { type: "string", default: "api" },
+		"budget-id": { type: "string" },
+		"order-seed": { type: "string" },
 		/** Directory for --llm file (requests/ and responses/). */
 		"llm-dir": { type: "string", default: "/workspace/pursuit_llm" },
 		/** Directory for the reviewer with --llm file; defaults to --llm-dir. A separate one keeps review in its own responder. */
@@ -228,12 +230,26 @@ const pursuitConditions = conditionNames.filter((c) => c !== "D0");
 const settings = openSettings();
 const meter = settings.meter();
 const pricing = settings.require("spend.pricing");
-const generatorRole = settings.require(
+const configuredGeneratorRole = settings.require(
 	values.generator === "strong" ? "llm.strong" : "llm.generator",
 );
 const useFile = values.llm === "file";
-if (!["claude", "file"].includes(values.llm!))
-	throw new Error("--llm must be claude or file");
+const generatorRole = {
+	...configuredGeneratorRole,
+	provider:
+		values.llm === "claude" || values.llm === "openai"
+			? values.llm
+			: configuredGeneratorRole.provider,
+};
+const reviewerRole = {
+	...settings.require("llm.reviewer"),
+	provider:
+		values.llm === "claude" || values.llm === "openai"
+			? values.llm
+			: settings.require("llm.reviewer").provider,
+};
+if (!["api", "claude", "openai", "file"].includes(values.llm!))
+	throw new Error("--llm must be api, claude, openai or file");
 function generatorFor(scope: UsageScope) {
 	const usage = settings.meter(scope, "generator");
 	return useFile
@@ -242,7 +258,7 @@ function generatorFor(scope: UsageScope) {
 				role: values.generator!,
 				meter: usage,
 			})
-		: createClaudeLlm(generatorRole, usage);
+		: createRoleLlm(generatorRole, usage);
 }
 function reviewerFor(scope: UsageScope, role = "reviewer"): LlmPort {
 	// A direct-only run (D0) has no reviewer: no reviewer directory is created or read.
@@ -257,12 +273,13 @@ function reviewerFor(scope: UsageScope, role = "reviewer"): LlmPort {
 				role,
 				meter: usage,
 			})
-		: createClaudeLlm(settings.require("llm.reviewer"), usage);
+		: createRoleLlm(reviewerRole, usage);
 }
 const graderRole = settings.get("llm.grader");
 // Default: claude when --llm claude; none when --llm file (the generator's responder must not grade itself).
-const graderMode = values["grader-llm"] ?? (useFile ? "none" : "claude");
-if (!["claude", "file", "none"].includes(graderMode))
+const graderMode =
+	values["grader-llm"] ?? (useFile ? "none" : (graderRole?.provider ?? "none"));
+if (!["claude", "openai", "file", "none"].includes(graderMode))
 	throw new Error("--grader-llm must be claude, file or none");
 if (
 	graderMode === "file" &&
@@ -278,7 +295,8 @@ if (
 )
 	throw new Error("--grader-dir must differ from --reviewer-dir");
 const graderAvailable =
-	graderMode === "file" || (graderMode === "claude" && !!graderRole);
+	graderMode === "file" ||
+	((graderMode === "claude" || graderMode === "openai") && !!graderRole);
 function graderFor(scope: UsageScope) {
 	const usage = settings.meter(scope, "grader");
 	return graderMode === "file"
@@ -287,8 +305,8 @@ function graderFor(scope: UsageScope) {
 				role: "grader",
 				meter: usage,
 			})
-		: graderMode === "claude" && graderRole
-			? createClaudeLlm(graderRole, usage)
+		: (graderMode === "claude" || graderMode === "openai") && graderRole
+			? createRoleLlm({ ...graderRole, provider: graderMode }, usage)
 			: null;
 }
 const toolTier = Number(values.tools) as ToolTier;
@@ -561,7 +579,7 @@ for (const condition of conditionNames) {
 						responder: values["file-responder-id"] ?? null,
 						role: values.generator!,
 					}
-				: { provider: "claude", ...generatorRole },
+				: { ...generatorRole },
 			reviewer:
 				condition === "D0" && !values.critic
 					? null
@@ -573,12 +591,12 @@ for (const condition of conditionNames) {
 								),
 								responder: values["file-responder-id"] ?? null,
 							}
-						: { provider: "claude", ...settings.require("llm.reviewer") },
+						: { ...reviewerRole },
 			grader:
 				graderMode === "file"
 					? { provider: "file", directory: resolve(values["grader-dir"]!) }
-					: graderMode === "claude" && graderRole
-						? { provider: "claude", ...graderRole }
+					: (graderMode === "claude" || graderMode === "openai") && graderRole
+						? { ...graderRole, provider: graderMode }
 						: null,
 		},
 		judge: needsJudge
@@ -610,6 +628,7 @@ for (const condition of conditionNames) {
 			toolTier,
 			critic: values.critic!,
 			maxSteps: Number(values["max-steps"]),
+			orderSeed: values["order-seed"] ?? null,
 			concurrency: Number(values.concurrency),
 			corpusUrl: corpus?.url ?? null,
 			runtime: {
@@ -636,21 +655,50 @@ const done = new Set(
 		.filter((r) => !!r.configId)
 		.map(recordKey),
 );
-const jobs: { task: EvalTask; condition: ConditionName; repeat: number }[] = [];
+const planned: { task: EvalTask; condition: ConditionName; repeat: number }[] =
+	[];
 for (let repeat = 1; repeat <= Number(values.repeat); repeat++)
 	for (const condition of conditionNames)
-		for (const task of selected)
-			if (
-				!done.has(
-					jobKey(
-						task.id,
-						condition,
-						effectiveConfigs.get(condition)!.id,
-						repeat,
-					),
+		for (const task of selected) planned.push({ task, condition, repeat });
+if (values["order-seed"])
+	planned.sort((a, b) => {
+		const rank = (v: typeof a) =>
+			new Bun.CryptoHasher("sha256")
+				.update(
+					JSON.stringify([
+						values["order-seed"],
+						v.task.id,
+						v.condition,
+						v.repeat,
+					]),
 				)
-			)
-				jobs.push({ task, condition, repeat });
+				.digest("hex");
+		return rank(a).localeCompare(rank(b));
+	});
+writeFileSync(
+	join(root, "planned-jobs.json"),
+	JSON.stringify(
+		planned.map((j) => ({
+			task: j.task.id,
+			condition: j.condition,
+			repeat: j.repeat,
+			configId: effectiveConfigs.get(j.condition)!.id,
+		})),
+		null,
+		2,
+	),
+);
+const jobs = planned.filter(
+	(j) =>
+		!done.has(
+			jobKey(
+				j.task.id,
+				j.condition,
+				effectiveConfigs.get(j.condition)!.id,
+				j.repeat,
+			),
+		),
+);
 console.log(
 	`jobs: ${jobs.length} (skipping ${done.size} already recorded); spent so far $${meter.spentUsd().toFixed(3)}`,
 );
@@ -708,6 +756,7 @@ async function runOne(job: (typeof jobs)[number]) {
 		configId,
 		jobId: crypto.randomUUID(),
 		pursuitId: null,
+		...(values["budget-id"] ? { budgetId: values["budget-id"] } : {}),
 	};
 	const label = `${task.id}/${condition}/${variant}/#${repeat}`;
 	const started = Date.now();
@@ -939,7 +988,43 @@ try {
 						queue.length = 0;
 						return;
 					}
-					await runOne(job);
+					const identity = {
+						task: job.task.id,
+						condition: job.condition,
+						repeat: job.repeat,
+						configId: effectiveConfigs.get(job.condition)!.id,
+					};
+					appendFileSync(
+						join(root, "job-events.jsonl"),
+						JSON.stringify({
+							...identity,
+							status: "started",
+							at: new Date().toISOString(),
+						}) + "\n",
+					);
+					try {
+						await runOne(job);
+					} finally {
+						const record = readRecords().find(
+							(r) =>
+								recordKey(r) ===
+								jobKey(
+									identity.task,
+									identity.condition,
+									identity.configId,
+									identity.repeat,
+								),
+						);
+						appendFileSync(
+							join(root, "job-events.jsonl"),
+							JSON.stringify({
+								...identity,
+								status: record ? "recorded" : "record_missing",
+								error: record?.error ?? null,
+								at: new Date().toISOString(),
+							}) + "\n",
+						);
+					}
 				}
 			},
 		),

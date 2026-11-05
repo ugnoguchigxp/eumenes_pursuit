@@ -17,6 +17,7 @@ import {
 } from "../../contracts/index.ts";
 import * as ledger from "../ledger/index.ts";
 import type { PursuitView } from "../ledger/types.ts";
+import { acceptancePassed } from "../rules/acceptance.ts";
 import { pursuitBudgetExceeded, remainingWallMs } from "../rules/checks.ts";
 import { digestJson } from "../rules/fingerprint.ts";
 import { makeAttempt } from "./attempt.ts";
@@ -64,6 +65,12 @@ export interface PursuitEngine {
 	cancel(
 		pursuitId: string,
 		reason: string,
+		runtime: PursuitRuntime,
+		signal: AbortSignal,
+	): Promise<StepResult>;
+	/** Retry only an unfinished final verification. Does not rerun tools or promote stopped work. */
+	reverify(
+		pursuitId: string,
 		runtime: PursuitRuntime,
 		signal: AbortSignal,
 	): Promise<StepResult>;
@@ -233,6 +240,60 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			if (terminalStatuses.includes(view.status))
 				return result(view, view.revision, view.status, "finished");
 			return ctx.finish(view, runtime, "stopped", reason, "human", signal);
+		},
+
+		async reverify(pursuitId, runtime, signal) {
+			const view = await read(pursuitId);
+			if (!terminalStatuses.includes(view.status) || !view.report)
+				throw new Error("final_verification_requires_terminal");
+			if (!view.report.verificationIssue)
+				return result(view, view.revision, view.status, "finished");
+			signal.throwIfAborted();
+			let onAbort = () => {};
+			let criteria: Awaited<ReturnType<typeof runtime.acceptance.verify>> = [];
+			let issue: "aborted" | "failed" | undefined;
+			try {
+				const aborted = new Promise<never>((_, reject) => {
+					onAbort = () => reject(signal.reason);
+					signal.addEventListener("abort", onAbort, { once: true });
+				});
+				criteria = await Promise.race([
+					runtime.acceptance.verify(signal),
+					aborted,
+				]);
+				signal.throwIfAborted();
+			} catch {
+				issue = signal.aborted ? "aborted" : "failed";
+			} finally {
+				signal.removeEventListener("abort", onAbort);
+			}
+			const { verificationIssue: _previous, ...previous } = view.report;
+			const report = {
+				...previous,
+				criteria,
+				verified: !issue && acceptancePassed(view.acceptance, criteria),
+				...(issue ? { verificationIssue: issue } : {}),
+			};
+			const revision = await store.write((db) => {
+				ledger.insertVerification(db, {
+					id: ids.next("ver"),
+					pursuitId: view.id,
+					row: {
+						attemptId: null,
+						trigger: "final",
+						passed: report.verified,
+						criteria,
+					},
+					now: clock.now(),
+				});
+				ledger.updateReport(db, { pursuitId: view.id, report });
+				return ledger.advancePursuit(db, {
+					id: view.id,
+					expectedRevision: view.revision,
+					now: clock.now(),
+				});
+			});
+			return result(view, revision, view.status, "finished");
 		},
 
 		async view(pursuitId) {

@@ -4,19 +4,30 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
 import { shareDatabase } from "./sqlite-shared.ts";
-import type { UsageMeter } from "./claude.ts";
+import type { UsageMeter } from "./usage.ts";
+import { openBudget } from "./budget.ts";
 
 const root = resolve(import.meta.dir, "..");
 export const settingsPath = resolve(root, "data/pursuit-settings.sqlite");
 
-const roleSchema = z.strictObject({
+export const roleSchema = z.strictObject({
+	provider: z.enum(["claude", "openai"]).default("claude"),
 	model: z.string().min(1),
 	effort: z.enum(["low", "medium", "high", "xhigh", "max"]),
 	thinkingHeadroom: z.int().min(0),
 });
 
 /** Per-MTok USD. Cache reads/writes are priced from the input rate. */
-const priceSchema = z.strictObject({ input: z.number(), output: z.number() });
+const priceSchema = z.strictObject({
+	input: z.number().nonnegative(),
+	output: z.number().nonnegative(),
+	cacheRead: z.number().nonnegative().optional(),
+	cacheWrite: z.number().nonnegative().optional(),
+	inputLong: z.number().nonnegative().optional(),
+	outputLong: z.number().nonnegative().optional(),
+	longThreshold: z.int().positive().optional(),
+	maxInputTokens: z.int().positive().default(1_050_000),
+});
 
 export const settingSchemas = {
 	"larm.controlOrigin": z.url(),
@@ -41,6 +52,16 @@ export interface Settings {
 	require<K extends SettingKey>(key: K): SettingValue<K>;
 	set<K extends SettingKey>(key: K, value: unknown): void;
 	all(): Record<string, unknown>;
+	setBudget(key: string, usd: number): void;
+	budgetSnapshot(): ReturnType<ReturnType<typeof openBudget>["snapshot"]>;
+	reconcile(
+		callId: string,
+		usd: number,
+		actor: string,
+		basis: string,
+		kind: "invoice" | "upper_bound",
+	): void;
+	exposureUsd(key?: string): number;
 	meter(
 		scope?: UsageScope,
 		role?: string,
@@ -72,7 +93,12 @@ export function openSettings(path = settingsPath): Settings {
 				) as SettingValue<K>)
 			: undefined;
 	};
+	const budget = openBudget(db, () => get("spend.limitUsd") ?? 0);
 	const settings: Settings = {
+		setBudget: budget.setLimit,
+		budgetSnapshot: budget.snapshot,
+		reconcile: budget.reconcile,
+		exposureUsd: budget.exposureUsd,
 		get,
 		require(key) {
 			const value = get(key);
@@ -98,20 +124,9 @@ export function openSettings(path = settingsPath): Settings {
 			);
 		},
 		meter(scope, role = "unattributed") {
-			const spentUsd = () => {
-				const unknown = db
-					.query(
-						"SELECT 1 FROM usage_call WHERE json_extract(event_json, '$.costStatus') = 'unknown' AND COALESCE(json_extract(event_json, '$.provider'), 'claude') = 'claude' LIMIT 1",
-					)
-					.get();
-				if (unknown) return Infinity;
-				return (
-					db.query("SELECT COALESCE(SUM(usd), 0) AS usd FROM spend").get() as {
-						usd: number;
-					}
-				).usd;
-			};
+			const spentUsd = () => budget.exposureUsd();
 			function save(event: UsageEvent) {
+				let withinBound = true;
 				// IMMEDIATE: take the write lock before the duplicate check, so a runner that finds the
 				// file busy waits (busy_timeout) instead of failing to upgrade a read snapshot that
 				// another runner's commit made stale (SQLITE_BUSY_SNAPSHOT is not retried by SQLite).
@@ -147,7 +162,12 @@ export function openSettings(path = settingsPath): Settings {
 						JSON.stringify(event),
 						spendId,
 					);
+
+					if (event.usd !== null)
+						withinBound = budget.settle(event.callId, event.usd);
+					else budget.uncertain(event.callId);
 				}).immediate();
+				if (!withinBound) throw new Error("billing_bound_exceeded");
 			}
 			function metadata(call?: UsageCall): UsageCall {
 				return (
@@ -169,6 +189,40 @@ export function openSettings(path = settingsPath): Settings {
 					.digest("hex");
 			return {
 				spentUsd,
+				reserve: (call, upperUsd) =>
+					budget.reserve(call, scope ? { ...scope } : null, upperUsd),
+				dispatch: budget.dispatch,
+				release: budget.release,
+				upperBound(model, maxOutputTokens) {
+					const pricing = settings.require("spend.pricing");
+					const p = pricing[model];
+					if (!p) {
+						const values = Object.values(pricing);
+						if (!values.length) throw new Error("pricing_required");
+						return Math.max(
+							...values.map(
+								(v) =>
+									(v.maxInputTokens *
+										Math.max(v.input, v.inputLong ?? v.input) *
+										1.25 +
+										maxOutputTokens *
+											Math.max(v.output, v.outputLong ?? v.output)) /
+									1e6,
+							),
+						);
+					}
+					return (
+						(p.maxInputTokens *
+							Math.max(
+								p.input,
+								p.inputLong ?? p.input,
+								Math.max(p.input, p.inputLong ?? p.input) * 1.25,
+								p.cacheWrite ?? 0,
+							) +
+							maxOutputTokens * Math.max(p.output, p.outputLong ?? p.output)) /
+						1e6
+					);
+				},
 				events(jobId) {
 					const rows = (
 						jobId === undefined
@@ -216,7 +270,7 @@ export function openSettings(path = settingsPath): Settings {
 								latencyMs: 0,
 							});
 					}
-					return events;
+					return budget.resolvedEvents(events);
 				},
 				assertWithinLimit() {
 					const limit = settings.require("spend.limitUsd");
@@ -234,12 +288,48 @@ export function openSettings(path = settingsPath): Settings {
 									output: Math.max(...prices.map((p) => p.output)),
 								}
 							: null);
+					const totalInput =
+						usage.input_tokens +
+						(usage.cache_creation_input_tokens ?? 0) +
+						(usage.cache_read_input_tokens ?? 0);
+					const high =
+						price &&
+						"longThreshold" in price &&
+						totalInput > (price.longThreshold ?? Infinity);
+					const inputRate =
+						price && high && "inputLong" in price
+							? (price.inputLong ?? price.input)
+							: price?.input;
+					const outputRate =
+						price && high && "outputLong" in price
+							? (price.outputLong ?? price.output)
+							: price?.output;
+					const readRate =
+						price && "cacheRead" in price
+							? high
+								? inputRate! * 0.1
+								: (price.cacheRead ?? inputRate! * 0.1)
+							: inputRate! * 0.1;
+					const writeRate =
+						price && "cacheWrite" in price
+							? high
+								? inputRate! * 1.25
+								: (price.cacheWrite ?? inputRate! * 1.25)
+							: inputRate! * 1.25;
+					const counts = [
+						usage.input_tokens,
+						usage.output_tokens,
+						usage.cache_creation_input_tokens ?? 0,
+						usage.cache_read_input_tokens ?? 0,
+					];
+					if (counts.some((n) => !Number.isSafeInteger(n) || n < 0))
+						throw new Error("usage_invalid");
 					const usd = price
-						? (usage.input_tokens * price.input +
-								(usage.cache_creation_input_tokens ?? 0) * price.input * 1.25 +
-								(usage.cache_read_input_tokens ?? 0) * price.input * 0.1 +
-								usage.output_tokens * price.output) /
-							1_000_000
+						? (usage.input_tokens * inputRate! +
+								(usage.cache_creation_input_tokens ?? 0) * writeRate +
+								(usage.cache_read_input_tokens ?? 0) * readRate +
+								usage.output_tokens * outputRate!) /
+							1e6
 						: null;
 					save({
 						...metadata(call),
@@ -248,6 +338,7 @@ export function openSettings(path = settingsPath): Settings {
 						servedModel: model,
 						inputTokens: usage.input_tokens,
 						outputTokens: usage.output_tokens,
+						reasoningTokens: usage.reasoning_tokens ?? 0,
 						cacheReadTokens: usage.cache_read_input_tokens ?? 0,
 						cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
 						pricingVersion: priceVersion(),

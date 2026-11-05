@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+node_modules
+data
+artifacts
+.venv
+dist
+.serena
+.claude
+**/__pycache__
+eval/results/**
+!eval/results/base-2/
+!eval/results/base-2/runs.jsonl
+!eval/results/PUBLISHED

@@ -43,7 +43,7 @@ if (values.compare) {
 		const last = new Map<string, RunRecord>();
 		for (const line of readFileSync(path, "utf8").split("\n").filter(Boolean)) {
 			const r = JSON.parse(line) as RunRecord;
-			last.set(`${r.task}|${r.condition}|${r.generator}|${r.repeat}`, r);
+			last.set(recordKey(r), r);
 		}
 		all.push(...last.values());
 	}

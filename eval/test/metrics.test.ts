@@ -135,3 +135,16 @@ describe("unfinished final verification (spec/fixes-2026-10-22.md §h)", () => {
 		expect(table).toContain("| g@legacy | E1R | E | 1 |");
 	});
 });
+
+test("comparison keeps distinct configurations separate even at equal mode and budget", async () => {
+	const { compare } = await import("../metrics.ts");
+	const text = compare([
+		rec({ configId: "A", outcome: "stopped", correct: false }),
+		rec({ configId: "B", outcome: "completed", verified: true, correct: true }),
+	]);
+	expect(text).toContain("g@A");
+	expect(text).toContain("g@B");
+	expect(text).toContain("0%");
+	expect(text).toContain("100%");
+	expect(text).not.toContain("50%");
+});

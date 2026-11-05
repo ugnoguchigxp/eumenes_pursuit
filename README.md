@@ -42,27 +42,32 @@ LLM は小さな試行錯誤はできても、大きな視点からの試行錯�
 | `src/domains/judge` | 質問セット（版つき、日本語・英語）、判定器の入力の組み立て、答えの解釈 | 含む |
 | `src/domains/generation` | 生成層と振り返りのプロンプトと出力の schema | 含む |
 | `src/domains/loop` | 一手ずつ進めるループ（engine） | 含む |
-| `standalone/` | 単独で動かすためのホスト（Claude API の LLM port、LARM の d1 接続、store、設定、費用の上限） | 含まない |
+| `standalone/` | 単独で動かすためのホスト（Claude/OpenAI API の LLM port、LARM の d1 接続、store、設定、費用の上限） | 含まない |
 | `eval/` | 課題セット、道具、照合、評価の実行器、指標、分析 | 含まない |
 
 core（`src/`）は時計・乱数・ネットワーク・ファイル・`process` を直接使いません。`bun run check:boundaries` で検査します。
 
 ## 準備
 
-Bun 1.4 以上と Python 3（sympy・mpmath。群 E の数値の検算に使う）が要ります。
+Bun 1.4 以上と Python 3.11以上（sympy・mpmath。群 E の数値の検算に使う）が要ります。
 
 群 D のコード実行には、macOS の `sandbox-exec` または Linux の `bubblewrap`・`prlimit` が必要です。隔離できない環境では実行を拒否します。
 
 ```sh
 bun install
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-eval.txt
 bun run verify          # 整形・lint・型・境界・決定的な試験
 ```
 
 live の評価には次が要ります。
 
-- `.env` に `ANTHROPIC_API_KEY`（gitignore 済み）
+- 環境変数 `ANTHROPIC_API_KEY`。共通設定として `~/.zprofile` などからexportすれば、プロジェクトごとの `.env` は不要です。手元では `CLAUDE_API_KEY` から標準名へ引き継ぐ設定を用意しています。
 - 環境変数 `LARM_API_TOKEN`（LARM Control の Bearer）
 - 手元の設定（`data/pursuit-settings.sqlite`、gitignore 済み）
+
+OpenAI接続は、標準の `OPENAI_API_KEY` を使います。手元の共通設定 `OPEN_AI_API_KEY` も `~/.zprofile` でこの名前へ引き継ぎます。設定変更後は新しいログインシェルを開くか、既存のターミナルで `source ~/.zprofile` を実行してください。キーの値はレポジトリへ保存しません。
 
 ```sh
 cp config/settings.example.json /tmp/settings.json   # 値を自分の環境に合わせる
@@ -72,6 +77,30 @@ bun standalone/cli.ts spend                           # これまでの API の�
 ```
 
 設定には、LARM Control の origin、d1 の profile の selector、audience、生成層・振り返り・採点のモデル、費用の上限と単価を入れます。モデル名はコードに書かず、設定からだけ読みます。
+
+## APIの選択と費用の復旧
+
+生成・振り返りのproviderを明示します。既存のprovider未指定設定はClaudeとして読めます。
+
+```sh
+bun standalone/cli.ts settings set llm.generator '{"provider":"openai","model":"gpt-6-luna","effort":"medium","thinkingHeadroom":6000}'
+bun standalone/cli.ts settings set llm.reviewer '{"provider":"openai","model":"gpt-6-luna","effort":"medium","thinkingHeadroom":6000}'
+bun standalone/cli.ts budget set campaign:my-validation 10
+```
+
+`--llm api --budget-id my-validation` を評価の実行に付けると、両providerで共有する上限を使います。価格は `spend.pricing` へ公式料金に基づいて設定してください。通常入力・出力のほか、cacheRead/cacheWrite、inputLong/outputLong、longThreshold、maxInputTokensを指定できます。呼出前にはモデル最大入力と最大出力に基づく保守的な額を予約します。そのため、支出済み額が上限より少なくても、予約余力が足りなければ止まります。SDKの自動再試行は無効です。
+
+```sh
+bun standalone/cli.ts budget show
+bun standalone/cli.ts spend
+# 成否不明の呼出は、請求資料または承認済み上界を根拠に追記して照合します。
+bun standalone/cli.ts spend reconcile <call-id> <USD> <operator> invoice '<billing-reference>'
+bun standalone/cli.ts spend reconcile <call-id> <USD> <operator> upper_bound '<documented-bound>'
+```
+
+送出後の接続断・強制終了では予約が残ります。照合前にDBや履歴を消さず、call-idと根拠を確認してください。`upper_bound` は実請求の確認とは区別され、原本のunknownと照合履歴を保持します。終端報告の照合が失敗した場合、ホストは `engine.reverify(id, runtime, signal)` で道具や生成を再実行せず照合だけをやり直せます。
+
+通常の `bun run verify` はAPIキーを使わない試験です。Linuxの使い捨て検証は `scripts/verify-linux.sh`、coreだけの配布物の作成は `bun run pack:core` で行います。CIはmacOS/Linuxを対象に同じ検証とビルドを実行します。パッケージは公開しません。
 
 ## live の評価
 
@@ -173,7 +202,7 @@ bun eval/analyze.ts --compare abl1-pursuit-r1 abl1-pursuit-r2 abl1-pursuit-r3 ab
 | 経験から学ぶ（題材によらない手順の教訓） | 実装済み。ln 2 で 2/8 から 5/8、有意ではない（reflect-2） |
 | 長い予算で前に進み続ける（一晩の模擬） | 設計のみ（horizon-1 は未実施） |
 | 定期の上位レビュー | 設計のみ（保留） |
-| ローカル LLM での実行 | 未着手（今の単独ホストは Claude API だけ） |
+| ローカル LLM での実行 | 未着手（単独ホストは Claude/OpenAI API に対応） |
 | Eumenes への取り込み | 未着手 |
 
 費用: Claude API の $100 のうち、計器の値で約 $39 を使いました（2026-10-21、reflect-2 の時点）。

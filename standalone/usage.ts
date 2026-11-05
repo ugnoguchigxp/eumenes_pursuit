@@ -4,13 +4,16 @@ export interface UsageScope {
 	readonly configId: string;
 	readonly jobId: string;
 	pursuitId: string | null;
+	readonly budgetId?: string;
 }
 export interface UsageCall {
 	readonly callId: string;
 	readonly requestedModel: string;
 	readonly latencyMs: number;
 	readonly status: "response" | "ok" | "invalid" | "error";
-	readonly provider?: "claude" | "file" | "larm";
+	readonly requestId?: string;
+	readonly serviceTier?: string;
+	readonly provider?: "claude" | "openai" | "file" | "larm";
 }
 export interface UsageEvent extends UsageCall {
 	readonly scope: UsageScope | null;
@@ -21,6 +24,7 @@ export interface UsageEvent extends UsageCall {
 	readonly outputTokens: number | null;
 	readonly cacheReadTokens: number | null;
 	readonly cacheWriteTokens: number | null;
+	readonly reasoningTokens?: number;
 	readonly pricingVersion: string;
 	readonly costStatus: "known" | "estimated" | "unknown";
 	readonly usd: number | null;
@@ -77,4 +81,32 @@ export function totalUsage(events: readonly UsageEvent[]): UsageTotals {
 		byRole,
 		events,
 	};
+}
+
+/** The billable token categories; provider adapters normalize before recording. */
+export interface TokenUsage {
+	input_tokens: number;
+	output_tokens: number;
+	cache_read_input_tokens?: number | null;
+	cache_creation_input_tokens?: number | null;
+	reasoning_tokens?: number;
+}
+export interface UsageMeter {
+	record(model: string, usage: TokenUsage, call?: UsageCall): void;
+	recordUnknown?(call: UsageCall): void;
+	markStatus?(callId: string, status: UsageCall["status"]): void;
+	recordExternal?(
+		call: UsageCall,
+		info: {
+			model: string;
+			inputTokens: number;
+			outputTokens: number;
+			cacheReadTokens?: number;
+		},
+	): void;
+	assertWithinLimit(): void;
+	reserve(call: UsageCall, upperUsd: number): void;
+	dispatch(callId: string): void;
+	release(callId: string): void;
+	upperBound(model: string, maxOutputTokens: number): number;
 }

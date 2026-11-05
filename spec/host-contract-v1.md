@@ -138,3 +138,9 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 - `policy.restore = "protective"` は、`protected_touch`・`goal_drift`・実行前の判定者の警告のときだけ戻す。
 - 巻き戻しの判断の basis: `reverted` は戻した課題のファイルだけ。`revertedGenerated` と `keptScratch` は件数。
 - 成り立った仮説（生成器が戻り、兆候なし、最後の試行が予測どおりで機械判定の反証が不成立）は行き止まりとして記録しない。
+
+## v1.9（2026-11-05）
+
+- `reverify(id, runtime, signal)` を追加。終端状態で最終照合がpending/aborted/failedのときだけ、照合を再実行して記録を更新する。方針・道具・副作用を再実行しない。stopped/incompleteをcompletedに変えない。
+- ホストが新しい期限付きsignalを渡し、1追求への操作を直列化する。元の作業予算を延ばす操作ではない。照合が済んでいれば保存済み結果を返す。失敗・中断を区別し、遅れて返った結果は上書きに使わない。
+- 旧記載の「startedを再開時にcheckpointへ戻す」は現在の挙動ではない。結果不明の作用としてinterruptedを記録し、以前の成功した試行の作用は保持する（v1.5以降の契約）。

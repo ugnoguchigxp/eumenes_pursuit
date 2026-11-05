@@ -1225,3 +1225,49 @@ describe("completion check (acceptance)", () => {
 		expect(view.status).toBe("completed");
 	});
 });
+
+test("unfinished terminal verification can be retried without another tool or a false completion", async () => {
+	const { engine, store } = setup(scripted({}));
+	try {
+		const { pursuitId: id } = await engine.start(startInput(), "retry-final");
+		await engine.cancel(
+			id,
+			"stopped",
+			{
+				...runtime(false),
+				acceptance: {
+					verify: async () => {
+						throw new Error("offline");
+					},
+				},
+			},
+			new AbortController().signal,
+		);
+		expect((await engine.view(id))?.report?.verificationIssue).toBe("failed");
+		let calls = 0;
+		const rt = {
+			...runtime(true),
+			tools: {
+				list: () => [tool],
+				invoke: async () => {
+					throw new Error("must not execute");
+				},
+			},
+			acceptance: {
+				verify: async () => {
+					calls++;
+					return [{ id: "total", passed: true, evidence: "recovered" }];
+				},
+			},
+		};
+		await engine.reverify(id, rt, AbortSignal.timeout(1000));
+		const v = (await engine.view(id))!;
+		expect(v.status).toBe("stopped");
+		expect(v.report?.verified).toBe(true);
+		expect(v.report?.verificationIssue).toBeUndefined();
+		await engine.reverify(id, rt, AbortSignal.timeout(1000));
+		expect(calls).toBe(1);
+	} finally {
+		store.close();
+	}
+});
