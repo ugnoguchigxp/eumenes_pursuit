@@ -1,95 +1,95 @@
 {
-  "at": "2026-11-05T13:40:12.158Z",
-  "snapshot": "c8ee93818db9ef11a3ead2bdb99e594692089985",
-  "sourceId": "afe4c2bdc6e33a14f3e7e478cde229a0dc8c8d6c3cdb35bfe01bf81290aa2919",
-  "matchedTestedStage": true,
-  "apiCaptureSnapshot": "4ad3999c4df2fb561e1faea98cffaab7d951b227",
-  "apiCaptureSourceId": "b3f6f4de5fc2b9f0bf81cf5bb93ae563cb7ec749525cc90bab901396e49e2e60",
-  "runtimeChangesSinceApiCapture": [
-    "config/settings.example.json",
-    "standalone/settings.ts",
-    "standalone/test/openai.test.ts"
-  ],
-  "normalApiPathUnchanged": {
-    "requests": true,
-    "prompts": true,
-    "tools": true,
-    "acceptance": true,
-    "validUsagePriceCalculation": true,
-    "basis": "Full runtime diff inspected: shared recordUnknown body moved into reusable closure; malformed billable counts now save unknown before throwing. Other source change is verified tariff data in example config; live campaign tariff DB was already correct."
-  },
-  "partial": {
-    "command": "PURSUIT_LIVE=0 bun test ./standalone/test/openai.test.ts ./standalone/test/usage.test.ts ./standalone/test/budget.test.ts",
-    "pass": 38,
-    "fail": 0,
-    "exitCode": 0,
-    "log": "logs/invalid-usage-partial.log"
-  },
-  "integration": {
-    "where": "isolated tracked snapshot with identical runtime sourceId",
-    "command": "PURSUIT_LIVE=0 bun test ./standalone/test ./standalone/larm/test",
-    "pass": 76,
-    "skip": 3,
-    "fail": 0,
-    "exitCode": 0,
-    "skipReason": "live d1 only; not part of Claude/Luna plan",
-    "log": "logs/invalid-usage-staged-integration.log"
-  },
-  "typecheck": {
-    "command": "bun run typecheck",
-    "exitCode": 0,
-    "log": "logs/final-local-typecheck.log"
-  },
-  "targetedLint": {
-    "command": "oxlint --deny-warnings standalone/settings.ts standalone/test/openai.test.ts",
-    "exitCode": 0,
-    "log": "logs/final-local-lint.log"
-  },
-  "package": {
-    "command": "PURSUIT_LIVE=0 bun test ./test/scripts/package.test.ts",
-    "pass": 1,
-    "fail": 0,
-    "exitCode": 0,
-    "assertions": 265,
-    "log": "logs/final-package.log",
-    "scope": "actual final commit; complete core tgz, hash-tamper rejection, cold consumer install/migrate/start/finish"
-  },
-  "negativeControl": {
-    "oldSnapshot": "4ad3999c",
-    "exitCode": 1,
-    "failedRegressions": 6,
-    "log": "logs/invalid-usage-negative.log"
-  },
-  "priorFullVerification": {
-    "snapshot": "4ad3999c",
-    "macos": {
-      "pass": 506,
-      "skip": 12,
-      "fail": 0,
-      "buildExitCode": 0
-    },
-    "linux": {
-      "pass": 515,
-      "skip": 3,
-      "fail": 0,
-      "buildExitCode": 0
-    },
-    "notRerunBecause": "Final patch is confined to malformed-usage error accounting and example configuration. Necessary partial/integration/type/package checks cover it. CI explicitly excluded by user."
-  },
-  "diffInspection": {
-    "semanticTaskOrPhraseBranchesAdded": false,
-    "unrelatedFilesModified": false,
-    "sourceFreezePreservedUntilAllCapturesAndAnalyses": true,
-    "scoringExpectationsWeakened": false
-  },
-  "CI": "not run at user request",
-  "hostIntegration": "not performed",
-  "environment": {
-    "bun": "1.4.4",
-    "platform": "darwin",
-    "arch": "arm64",
-    "python": "3.12.13",
-    "sympy": "1.14.0",
-    "mpmath": "1.3.0"
-  }
+	"at": "2026-11-05T13:40:12.158Z",
+	"snapshot": "c8ee93818db9ef11a3ead2bdb99e594692089985",
+	"sourceId": "afe4c2bdc6e33a14f3e7e478cde229a0dc8c8d6c3cdb35bfe01bf81290aa2919",
+	"matchedTestedStage": true,
+	"apiCaptureSnapshot": "4ad3999c4df2fb561e1faea98cffaab7d951b227",
+	"apiCaptureSourceId": "b3f6f4de5fc2b9f0bf81cf5bb93ae563cb7ec749525cc90bab901396e49e2e60",
+	"runtimeChangesSinceApiCapture": [
+		"config/settings.example.json",
+		"standalone/settings.ts",
+		"standalone/test/openai.test.ts"
+	],
+	"normalApiPathUnchanged": {
+		"requests": true,
+		"prompts": true,
+		"tools": true,
+		"acceptance": true,
+		"validUsagePriceCalculation": true,
+		"basis": "Full runtime diff inspected: shared recordUnknown body moved into reusable closure; malformed billable counts now save unknown before throwing. Other source change is verified tariff data in example config; live campaign tariff DB was already correct."
+	},
+	"partial": {
+		"command": "PURSUIT_LIVE=0 bun test ./standalone/test/openai.test.ts ./standalone/test/usage.test.ts ./standalone/test/budget.test.ts",
+		"pass": 38,
+		"fail": 0,
+		"exitCode": 0,
+		"log": "logs/invalid-usage-partial.log"
+	},
+	"integration": {
+		"where": "isolated tracked snapshot with identical runtime sourceId",
+		"command": "PURSUIT_LIVE=0 bun test ./standalone/test ./standalone/larm/test",
+		"pass": 76,
+		"skip": 3,
+		"fail": 0,
+		"exitCode": 0,
+		"skipReason": "live d1 only; not part of Claude/Luna plan",
+		"log": "logs/invalid-usage-staged-integration.log"
+	},
+	"typecheck": {
+		"command": "bun run typecheck",
+		"exitCode": 0,
+		"log": "logs/final-local-typecheck.log"
+	},
+	"targetedLint": {
+		"command": "oxlint --deny-warnings standalone/settings.ts standalone/test/openai.test.ts",
+		"exitCode": 0,
+		"log": "logs/final-local-lint.log"
+	},
+	"package": {
+		"command": "PURSUIT_LIVE=0 bun test ./test/scripts/package.test.ts",
+		"pass": 1,
+		"fail": 0,
+		"exitCode": 0,
+		"assertions": 265,
+		"log": "logs/final-package.log",
+		"scope": "actual final commit; complete core tgz, hash-tamper rejection, cold consumer install/migrate/start/finish"
+	},
+	"negativeControl": {
+		"oldSnapshot": "4ad3999c",
+		"exitCode": 1,
+		"failedRegressions": 6,
+		"log": "logs/invalid-usage-negative.log"
+	},
+	"priorFullVerification": {
+		"snapshot": "4ad3999c",
+		"macos": {
+			"pass": 506,
+			"skip": 12,
+			"fail": 0,
+			"buildExitCode": 0
+		},
+		"linux": {
+			"pass": 515,
+			"skip": 3,
+			"fail": 0,
+			"buildExitCode": 0
+		},
+		"notRerunBecause": "Final patch is confined to malformed-usage error accounting and example configuration. Necessary partial/integration/type/package checks cover it. CI explicitly excluded by user."
+	},
+	"diffInspection": {
+		"semanticTaskOrPhraseBranchesAdded": false,
+		"unrelatedFilesModified": false,
+		"sourceFreezePreservedUntilAllCapturesAndAnalyses": true,
+		"scoringExpectationsWeakened": false
+	},
+	"CI": "not run at user request",
+	"hostIntegration": "not performed",
+	"environment": {
+		"bun": "1.4.4",
+		"platform": "darwin",
+		"arch": "arm64",
+		"python": "3.12.13",
+		"sympy": "1.14.0",
+		"mpmath": "1.3.0"
+	}
 }

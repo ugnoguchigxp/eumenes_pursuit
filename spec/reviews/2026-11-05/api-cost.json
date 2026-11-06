@@ -1,296 +1,296 @@
 {
-  "at": "2026-11-05T13:39:28.972Z",
-  "snapshot": "c8ee93818db9ef11a3ead2bdb99e594692089985",
-  "sourceId": "afe4c2bdc6e33a14f3e7e478cde229a0dc8c8d6c3cdb35bfe01bf81290aa2919",
-  "campaign": "quality-20261105",
-  "totalCapUsd": 15,
-  "total": {
-    "calls": 2410,
-    "knownTariffCalls": 2410,
-    "estimatedCalls": 0,
-    "unknownCalls": 0,
-    "usd": 2.8448459050000023,
-    "uncachedInputTokens": 118261,
-    "cacheReadTokens": 244625,
-    "cacheWriteTokens": 9864696,
-    "chargedOutputTokens": 2360518,
-    "providerReportedReasoningTokens": 562745,
-    "statuses": {
-      "ok": 2404,
-      "invalid": 6
-    }
-  },
-  "byProvider": {
-    "claude": {
-      "calls": 1253,
-      "knownTariffCalls": 1253,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 1.9297077150000013,
-      "uncachedInputTokens": 5457,
-      "cacheReadTokens": 107871,
-      "cacheWriteTokens": 6108590,
-      "chargedOutputTokens": 1494564,
-      "providerReportedReasoningTokens": 0,
-      "statuses": {
-        "ok": 1250,
-        "invalid": 3
-      }
-    },
-    "openai": {
-      "calls": 1157,
-      "knownTariffCalls": 1157,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.9151381900000005,
-      "uncachedInputTokens": 112804,
-      "cacheReadTokens": 136754,
-      "cacheWriteTokens": 3756106,
-      "chargedOutputTokens": 865954,
-      "providerReportedReasoningTokens": 562745,
-      "statuses": {
-        "invalid": 3,
-        "ok": 1154
-      }
-    }
-  },
-  "byRun": {
-    "q80-crossgrades-v3": {
-      "calls": 16,
-      "knownTariffCalls": 16,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.21457055000000003,
-      "uncachedInputTokens": 56,
-      "cacheReadTokens": 3317,
-      "cacheWriteTokens": 45778,
-      "chargedOutputTokens": 28656,
-      "providerReportedReasoningTokens": 11922,
-      "statuses": {
-        "ok": 16
-      }
-    },
-    "q80-pilot-claude-v2": {
-      "calls": 180,
-      "knownTariffCalls": 180,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.1856098749999999,
-      "uncachedInputTokens": 720,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 798015,
-      "chargedOutputTokens": 171572,
-      "providerReportedReasoningTokens": 0,
-      "statuses": {
-        "ok": 180
-      }
-    },
-    "q80-pilot-openai-v2": {
-      "calls": 160,
-      "knownTariffCalls": 160,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.10041727500000001,
-      "uncachedInputTokens": 17479,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 430111,
-      "chargedOutputTokens": 89811,
-      "providerReportedReasoningTokens": 52710,
-      "statuses": {
-        "ok": 160
-      }
-    },
-    "q80-primary-claude-v3": {
-      "calls": 928,
-      "knownTariffCalls": 928,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.9283038649999996,
-      "uncachedInputTokens": 3712,
-      "cacheReadTokens": 104554,
-      "cacheWriteTokens": 4092261,
-      "chargedOutputTokens": 830709,
-      "providerReportedReasoningTokens": 0,
-      "statuses": {
-        "ok": 928
-      }
-    },
-    "q80-primary-openai-v3": {
-      "calls": 887,
-      "knownTariffCalls": 887,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.5538872650000006,
-      "uncachedInputTokens": 87656,
-      "cacheReadTokens": 136754,
-      "cacheWriteTokens": 2311689,
-      "chargedOutputTokens": 509586,
-      "providerReportedReasoningTokens": 307233,
-      "statuses": {
-        "ok": 887
-      }
-    },
-    "q80-proof-claude-v3": {
-      "calls": 125,
-      "knownTariffCalls": 125,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.4239226750000001,
-      "uncachedInputTokens": 500,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 1165054,
-      "chargedOutputTokens": 463075,
-      "providerReportedReasoningTokens": 0,
-      "statuses": {
-        "ok": 122,
-        "invalid": 3
-      }
-    },
-    "q80-proof-openai-v3": {
-      "calls": 99,
-      "knownTariffCalls": 99,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.43431100000000006,
-      "uncachedInputTokens": 3929,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 1016580,
-      "chargedOutputTokens": 261606,
-      "providerReportedReasoningTokens": 189162,
-      "statuses": {
-        "ok": 98,
-        "invalid": 1
-      }
-    },
-    "quality-schema": {
-      "calls": 8,
-      "knownTariffCalls": 8,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.0027245000000000004,
-      "uncachedInputTokens": 1405,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 5208,
-      "chargedOutputTokens": 3866,
-      "providerReportedReasoningTokens": 943,
-      "statuses": {
-        "ok": 6,
-        "invalid": 2
-      }
-    },
-    "quality-schema-diagnostic": {
-      "calls": 1,
-      "knownTariffCalls": 1,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.00007829999999999999,
-      "uncachedInputTokens": 78,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 0,
-      "chargedOutputTokens": 141,
-      "providerReportedReasoningTokens": 38,
-      "statuses": {
-        "ok": 1
-      }
-    },
-    "quality-schema-v2": {
-      "calls": 6,
-      "knownTariffCalls": 6,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.0010206,
-      "uncachedInputTokens": 2726,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 0,
-      "chargedOutputTokens": 1496,
-      "providerReportedReasoningTokens": 737,
-      "statuses": {
-        "ok": 6
-      }
-    }
-  },
-  "byRole": {
-    "crossgrader": {
-      "calls": 16,
-      "knownTariffCalls": 16,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.21457055000000003,
-      "uncachedInputTokens": 56,
-      "cacheReadTokens": 3317,
-      "cacheWriteTokens": 45778,
-      "chargedOutputTokens": 28656,
-      "providerReportedReasoningTokens": 11922,
-      "statuses": {
-        "ok": 16
-      }
-    },
-    "generator": {
-      "calls": 2288,
-      "knownTariffCalls": 2288,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 2.3294684800000023,
-      "uncachedInputTokens": 113644,
-      "cacheReadTokens": 241308,
-      "cacheWriteTokens": 9478168,
-      "chargedOutputTokens": 2261840,
-      "providerReportedReasoningTokens": 544425,
-      "statuses": {
-        "ok": 2284,
-        "invalid": 4
-      }
-    },
-    "grader": {
-      "calls": 9,
-      "knownTariffCalls": 9,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.2344695,
-      "uncachedInputTokens": 36,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 31259,
-      "chargedOutputTokens": 15625,
-      "providerReportedReasoningTokens": 0,
-      "statuses": {
-        "ok": 9
-      }
-    },
-    "reviewer": {
-      "calls": 82,
-      "knownTariffCalls": 82,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.06251397499999999,
-      "uncachedInputTokens": 316,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 304283,
-      "chargedOutputTokens": 48894,
-      "providerReportedReasoningTokens": 4680,
-      "statuses": {
-        "ok": 82
-      }
-    },
-    "schema-smoke": {
-      "calls": 15,
-      "knownTariffCalls": 15,
-      "estimatedCalls": 0,
-      "unknownCalls": 0,
-      "usd": 0.0038234000000000007,
-      "uncachedInputTokens": 4209,
-      "cacheReadTokens": 0,
-      "cacheWriteTokens": 5208,
-      "chargedOutputTokens": 5503,
-      "providerReportedReasoningTokens": 1718,
-      "statuses": {
-        "ok": 13,
-        "invalid": 2
-      }
-    }
-  },
-  "campaignExposureIncludingPendingUsd": 2.846105,
-  "pendingReservations": 0,
-  "calculation": "SDK usage x fixed verified tariff; includes failed smoke/diagnostic calls. Not an invoice audit. All old ledger costs and approved conservative historical reconciliations excluded from this new campaign and retained unchanged.",
-  "reasoningNote": "OpenAI reasoning is a reported subset of charged output; never added twice. Claude does not expose a separate reasoning count here; stored0 is not evidence of zero reasoning.",
-  "reserveRule": "Atomic SQLite reservations include full model input bound and maximum output/cache/long rates. Unknown liabilities block fresh requests until audited reconciliation. Approved cap change from10to15 is in budget-revision.json."
+	"at": "2026-11-05T13:39:28.972Z",
+	"snapshot": "c8ee93818db9ef11a3ead2bdb99e594692089985",
+	"sourceId": "afe4c2bdc6e33a14f3e7e478cde229a0dc8c8d6c3cdb35bfe01bf81290aa2919",
+	"campaign": "quality-20261105",
+	"totalCapUsd": 15,
+	"total": {
+		"calls": 2410,
+		"knownTariffCalls": 2410,
+		"estimatedCalls": 0,
+		"unknownCalls": 0,
+		"usd": 2.8448459050000023,
+		"uncachedInputTokens": 118261,
+		"cacheReadTokens": 244625,
+		"cacheWriteTokens": 9864696,
+		"chargedOutputTokens": 2360518,
+		"providerReportedReasoningTokens": 562745,
+		"statuses": {
+			"ok": 2404,
+			"invalid": 6
+		}
+	},
+	"byProvider": {
+		"claude": {
+			"calls": 1253,
+			"knownTariffCalls": 1253,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 1.9297077150000013,
+			"uncachedInputTokens": 5457,
+			"cacheReadTokens": 107871,
+			"cacheWriteTokens": 6108590,
+			"chargedOutputTokens": 1494564,
+			"providerReportedReasoningTokens": 0,
+			"statuses": {
+				"ok": 1250,
+				"invalid": 3
+			}
+		},
+		"openai": {
+			"calls": 1157,
+			"knownTariffCalls": 1157,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.9151381900000005,
+			"uncachedInputTokens": 112804,
+			"cacheReadTokens": 136754,
+			"cacheWriteTokens": 3756106,
+			"chargedOutputTokens": 865954,
+			"providerReportedReasoningTokens": 562745,
+			"statuses": {
+				"invalid": 3,
+				"ok": 1154
+			}
+		}
+	},
+	"byRun": {
+		"q80-crossgrades-v3": {
+			"calls": 16,
+			"knownTariffCalls": 16,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.21457055000000003,
+			"uncachedInputTokens": 56,
+			"cacheReadTokens": 3317,
+			"cacheWriteTokens": 45778,
+			"chargedOutputTokens": 28656,
+			"providerReportedReasoningTokens": 11922,
+			"statuses": {
+				"ok": 16
+			}
+		},
+		"q80-pilot-claude-v2": {
+			"calls": 180,
+			"knownTariffCalls": 180,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.1856098749999999,
+			"uncachedInputTokens": 720,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 798015,
+			"chargedOutputTokens": 171572,
+			"providerReportedReasoningTokens": 0,
+			"statuses": {
+				"ok": 180
+			}
+		},
+		"q80-pilot-openai-v2": {
+			"calls": 160,
+			"knownTariffCalls": 160,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.10041727500000001,
+			"uncachedInputTokens": 17479,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 430111,
+			"chargedOutputTokens": 89811,
+			"providerReportedReasoningTokens": 52710,
+			"statuses": {
+				"ok": 160
+			}
+		},
+		"q80-primary-claude-v3": {
+			"calls": 928,
+			"knownTariffCalls": 928,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.9283038649999996,
+			"uncachedInputTokens": 3712,
+			"cacheReadTokens": 104554,
+			"cacheWriteTokens": 4092261,
+			"chargedOutputTokens": 830709,
+			"providerReportedReasoningTokens": 0,
+			"statuses": {
+				"ok": 928
+			}
+		},
+		"q80-primary-openai-v3": {
+			"calls": 887,
+			"knownTariffCalls": 887,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.5538872650000006,
+			"uncachedInputTokens": 87656,
+			"cacheReadTokens": 136754,
+			"cacheWriteTokens": 2311689,
+			"chargedOutputTokens": 509586,
+			"providerReportedReasoningTokens": 307233,
+			"statuses": {
+				"ok": 887
+			}
+		},
+		"q80-proof-claude-v3": {
+			"calls": 125,
+			"knownTariffCalls": 125,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.4239226750000001,
+			"uncachedInputTokens": 500,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 1165054,
+			"chargedOutputTokens": 463075,
+			"providerReportedReasoningTokens": 0,
+			"statuses": {
+				"ok": 122,
+				"invalid": 3
+			}
+		},
+		"q80-proof-openai-v3": {
+			"calls": 99,
+			"knownTariffCalls": 99,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.43431100000000006,
+			"uncachedInputTokens": 3929,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 1016580,
+			"chargedOutputTokens": 261606,
+			"providerReportedReasoningTokens": 189162,
+			"statuses": {
+				"ok": 98,
+				"invalid": 1
+			}
+		},
+		"quality-schema": {
+			"calls": 8,
+			"knownTariffCalls": 8,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.0027245000000000004,
+			"uncachedInputTokens": 1405,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 5208,
+			"chargedOutputTokens": 3866,
+			"providerReportedReasoningTokens": 943,
+			"statuses": {
+				"ok": 6,
+				"invalid": 2
+			}
+		},
+		"quality-schema-diagnostic": {
+			"calls": 1,
+			"knownTariffCalls": 1,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.00007829999999999999,
+			"uncachedInputTokens": 78,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 0,
+			"chargedOutputTokens": 141,
+			"providerReportedReasoningTokens": 38,
+			"statuses": {
+				"ok": 1
+			}
+		},
+		"quality-schema-v2": {
+			"calls": 6,
+			"knownTariffCalls": 6,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.0010206,
+			"uncachedInputTokens": 2726,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 0,
+			"chargedOutputTokens": 1496,
+			"providerReportedReasoningTokens": 737,
+			"statuses": {
+				"ok": 6
+			}
+		}
+	},
+	"byRole": {
+		"crossgrader": {
+			"calls": 16,
+			"knownTariffCalls": 16,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.21457055000000003,
+			"uncachedInputTokens": 56,
+			"cacheReadTokens": 3317,
+			"cacheWriteTokens": 45778,
+			"chargedOutputTokens": 28656,
+			"providerReportedReasoningTokens": 11922,
+			"statuses": {
+				"ok": 16
+			}
+		},
+		"generator": {
+			"calls": 2288,
+			"knownTariffCalls": 2288,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 2.3294684800000023,
+			"uncachedInputTokens": 113644,
+			"cacheReadTokens": 241308,
+			"cacheWriteTokens": 9478168,
+			"chargedOutputTokens": 2261840,
+			"providerReportedReasoningTokens": 544425,
+			"statuses": {
+				"ok": 2284,
+				"invalid": 4
+			}
+		},
+		"grader": {
+			"calls": 9,
+			"knownTariffCalls": 9,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.2344695,
+			"uncachedInputTokens": 36,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 31259,
+			"chargedOutputTokens": 15625,
+			"providerReportedReasoningTokens": 0,
+			"statuses": {
+				"ok": 9
+			}
+		},
+		"reviewer": {
+			"calls": 82,
+			"knownTariffCalls": 82,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.06251397499999999,
+			"uncachedInputTokens": 316,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 304283,
+			"chargedOutputTokens": 48894,
+			"providerReportedReasoningTokens": 4680,
+			"statuses": {
+				"ok": 82
+			}
+		},
+		"schema-smoke": {
+			"calls": 15,
+			"knownTariffCalls": 15,
+			"estimatedCalls": 0,
+			"unknownCalls": 0,
+			"usd": 0.0038234000000000007,
+			"uncachedInputTokens": 4209,
+			"cacheReadTokens": 0,
+			"cacheWriteTokens": 5208,
+			"chargedOutputTokens": 5503,
+			"providerReportedReasoningTokens": 1718,
+			"statuses": {
+				"ok": 13,
+				"invalid": 2
+			}
+		}
+	},
+	"campaignExposureIncludingPendingUsd": 2.846105,
+	"pendingReservations": 0,
+	"calculation": "SDK usage x fixed verified tariff; includes failed smoke/diagnostic calls. Not an invoice audit. All old ledger costs and approved conservative historical reconciliations excluded from this new campaign and retained unchanged.",
+	"reasoningNote": "OpenAI reasoning is a reported subset of charged output; never added twice. Claude does not expose a separate reasoning count here; stored0 is not evidence of zero reasoning.",
+	"reserveRule": "Atomic SQLite reservations include full model input bound and maximum output/cache/long rates. Unknown liabilities block fresh requests until audited reconciliation. Approved cap change from10to15 is in budget-revision.json."
 }

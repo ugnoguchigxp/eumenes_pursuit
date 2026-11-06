@@ -1,1350 +1,1078 @@
 {
-  "rubric_version": "1.1.0",
-  "mode": "full",
-  "depth": "deep",
-  "technical_profile": "agent",
-  "assessment_kind": "re-evaluated",
-  "target": {
-    "locator": "/Users/y.noguchi/Code/eumenes_pursuit",
-    "snapshot": "c8ee93818db9ef11a3ead2bdb99e594692089985",
-    "reviewed_at": "2026-11-05",
-    "stage": "研究プロトタイプ（ホスト組込み前）",
-    "scope": "前回と同じagent profile/full/deep、ローカル研究、1追求のstepはホストが直列化。src/standalone/evalの契約・異常・安全境界・費用・配布物を再評価。証拠を追加したがルーブリック重み/適用30項目/成熟段階は維持。実API主比較は4ad3999c固定、最終版との差は不正usageの停止記録と設定例/報告のみで通常API入力/採点/価格計算は同一。部分→結合→Mac/Linux通し実行済み。最終差分は対象部分と型を再検証。CI検査はユーザー依頼により除外。本流/本体組込み、公開、他リポジトリ変更、真の数学的正解/人間一致、d1寄与、一晩運転は未検証。実API持続4runは適格な既存下見課題がなく計画§7に従い未了。将来性の前回台帳は参考として維持し未確認を得点化しない。Bun1.4.4/macOS26.6.2arm64、Python3.12.13/Sympy1.14/mpmath1.3。Linuxは使い捨て隔離環境、live d1以外515成功。技術点は本番認証でも優位性の証明でもない。"
-  },
-  "evidence": [
-    {
-      "id": "E01",
-      "kind": "code",
-      "locator": "src/contracts/{ports,pursuit,policy}.ts; src/index.ts; scripts/check-boundaries.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "ホストの時計・ID・ツール・照合・storeをportに分離。型はstrict、ZodのstrictObject、ASTでcoreの環境依存とdomain依存を検査。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E02",
-      "kind": "code",
-      "locator": "src/domains/loop/{engine,propose,attempt,review,transitions}.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "start→plan→hypothesize→propose→権限確認→started保存→invoke→観測保存→post判定→照合→規則→終了を追跡。rules onでは凍結条件を全件通すまで完了しない。E0の未照合完了は比較の仕様。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E03",
-      "kind": "code",
-      "locator": "src/domains/ledger/{schema,repository}.ts; standalone/{store,sqlite-shared}.ts; test/sqlite/ledger.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "同期transaction、revision競合、operationKey再送、受入条件変更/削除禁止trigger、WAL/busy_timeout、migration checksum、互換migrationを実装。単一追求への同時stepの排他はホストの責務。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E04",
-      "kind": "code",
-      "locator": "src/domains/loop/test/recovery.test.ts; test/scenario/engine.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "道具の副作用の有無が不明な中断、post判定中断、保存済照合の再利用、期限超過、照合不能、受入条件の欠落/重複/余分を検証。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E05",
-      "kind": "code",
-      "locator": "eval/tools/{code,sandbox,paths,tool-port}.ts; eval/tools/test/code.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "パス逸脱/シンボリックリンク拒否、入力検査、環境変数制限、OS隔離、隔離不能時拒否。字句フィルタを回避するコードでhome/外部書込/networkを検査するnegative controlがある。Linuxは資源制限と後処理も持つ。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E06",
-      "kind": "code",
-      "locator": "src/domains/generation/prompts.ts; src/domains/rules/{checks,refutation,parts}.ts; src/domains/judge/interpret.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "意味判断は生成/振り返り/判定モデルへ委ね、コードは予算、宣言した権限、構造的参照、明示した反証DSL、自己評価の必要項目を強制。判定器は規則を緩められない。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E07",
-      "kind": "code",
-      "locator": "standalone/{claude,deadline,metered-ports}.ts; standalone/larm/serial.ts; src/domains/loop/support.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "AbortSignal、期限、usageをparseより先に記録、judgeの直列化と限定retry、judge停止時は警告と台帳を残しfail-open。外部依存の完全な耐障害性を実測したものではない。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E08",
-      "kind": "code",
-      "locator": "standalone/settings.ts:100-111,221-242; standalone/claude.ts:45-78 @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "支出の上限検査は既存SUMのみを参照し、開始予定の費用を予約しない。応答後に実費を記録。費用不明のClaude呼出が1件でも残るとInfinity。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E09",
-      "kind": "code",
-      "locator": "standalone/settings.ts:290-309; standalone/cli.ts:20-49 @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "recordUnknownは追記、markStatusはstatusだけ変更。CLIは設定と総額表示のみで、根拠を残して不明課金を照合・解消するAPI/CLIは存在しない。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E10",
-      "kind": "code",
-      "locator": "eval/analyze.ts:36-54; eval/metrics.ts:486-544; eval/run-config.ts:21-44 @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "通常のrecordKeyはconfigIdを含む一方、--compareの読込みはtask/condition/generator/repeatのみで上書き。比較表もfamily/mode/budgetで異なるconfigIdを無条件で集約する。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E11",
-      "kind": "code",
-      "locator": "README.md:50-58; eval/tools/{math,discovery,counterexample}.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "必要環境はPython3と案内されるが、3つの子プロセス呼出はPython3.11以降で利用できる-Pを指定。Python依存の版や環境構築もlockされていない。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E12",
-      "kind": "code",
-      "locator": "eval/{main,metrics,analyze,run-config}.ts; eval/test/run-config.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "ソース内容、policy、役割のモデル/effort、実行環境、フラグ、非公開データ版をhash化。unknown課金、未了照合、exact/numeric/modelを区別。Wilson区間と利用量/時間の指標を実装。--compare例外はE10。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E13",
-      "kind": "code",
-      "locator": "eval/tasks/e/{grader,proof-grader,grading-contract}.ts; eval/tasks/e/test/grading-contract.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "採点対象を指示として扱わないsystem、採点IDの欠落/重複/未知IDをfail-closedにする契約、証明のモデル採点を明示。実際の数学的健全性を人間/証明支援系で保証した証拠ではない。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E14",
-      "kind": "primary_doc",
-      "locator": "spec/results.md:5-302; eval/results/{base-2,persist-1,completion-1,reflect-2}/{runs.jsonl,summary.md} @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "公開記録を再集計: base-2はE0 12/13,E1 12/13,E2 11/13,E3 12/13。completion-1のπ²は読み直しなし3/10、あり6/10。reflect-2のln2は2/8対5/8、Bertrandは2/4対1/4。小標本と限定課題、モデル採点、時間順の設定変更による限界あり。",
-      "scope": "過去の作者実験の保存済記録。今回liveを再実行せず、採点結果を独立に検証していない。"
-    },
-    {
-      "id": "E15",
-      "kind": "primary_doc",
-      "locator": "spec/{long-horizon-11,improvement-plan-2026-11-02,next-improvement-plan-2026-11-02}.md @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "文書にはablation-1が追求/直接とも42/42と記載。生記録は別環境で今回未確認。d1寄与と長い課題のHaiku比較は未完了、band-2は接続エラーと費用不明で中止。新機構を止めて測定復旧を優先する方針。",
-      "scope": "文書がそう報告しているという事実。42/42の追試や効率比較の一次記録確認ではない。"
-    },
-    {
-      "id": "E16",
-      "kind": "primary_doc",
-      "locator": "README.md:123-181; plan.md:28-45,342-354; spec/host-contract-v1.md @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "対象は自律試行の研究、ホストが独立に照合し、Eumenesへ後でtgz配布予定。ローカルLLM、一晩の持続、上位レビュー、ラベル一致率/閾値校正、本体統合は未完の範囲を明示。",
-      "scope": "一般ユーザー向け製品や売上/導入の実績を示すものではない。"
-    },
-    {
-      "id": "E17",
-      "kind": "execution",
-      "locator": "logs/partial.log; logs/integration.log（本レビューの検証フォルダ）",
-      "observed_at": "2026-11-05",
-      "observation": "クリーンな別clone、env -i/HOME隔離、PURSUIT_LIVE=0/Bun1.4.4。bun test ./src/domains/rules ./src/domains/judge ./standalone/test/usage.test.ts ./standalone/test/deadline.test.ts: exit0、46pass。続いて bun test ./test/sqlite ./test/scenario ./src/domains/loop/test: exit0、136pass。",
-      "scope": "模擬LLMと一時SQLiteによる決定的な部分/結合検証。"
-    },
-    {
-      "id": "E18",
-      "kind": "execution",
-      "locator": "logs/verify-python312.log; logs/build.log",
-      "observed_at": "2026-11-05",
-      "observation": "同じ隔離clone、env -i/HOME隔離/PURSUIT_LIVE=0、PATH先頭にPython3.12.13 venv（Sympy1.14.0/mpmath1.3.0）、Bun1.4.4、macOS arm64。bun run verify: exit0、464pass/12skip/0fail、4291assertions、33.81秒。format/lint/typecheck/境界/公開結果検査も成功。bun run build: exit0。",
-      "scope": "skip表示はlive LARMとLinux sandbox/長期環境の試験（suiteの無名表示を含む）。API品質、Linuxの実動、高負荷、実運用の耐久検証ではない。"
-    },
-    {
-      "id": "E19",
-      "kind": "execution",
-      "locator": "logs/verify.log; Python3.9.6 -P -c import実行",
-      "observed_at": "2026-11-05",
-      "observation": "同clone、Python3.9.6 venv/Sympy1.14.0/mpmath1.3.0でbun run verify: exit1、434pass/12skip/30fail。python3 -PがUnknown option:-Pでexit2となることを別途確認。Python3.12へ変更したE18では同じ製品コードで成功。",
-      "scope": "ライブラリ欠落の単なる環境エラーから区別。READMEが許すPython3.9での案内不足であり、数式検算の数学ロジックの失敗ではない。"
-    },
-    {
-      "id": "E20",
-      "kind": "execution",
-      "locator": "review-probe.ts; logs/probes.jsonl",
-      "observed_at": "2026-11-05",
-      "observation": "env -i、Bun1.4.4、SQLite memory、Anthropicのfetchをbarrier付き模擬応答に置換。上限$1、並列2要求の各usageを$0.75相当に設定: exit0、calls2/spentUsd1.5。ネットワーク/課金は0。次にunknownを1件記録し上限を$10000へ変更しても、assertWithinLimit拒否かつInfinityを確認。",
-      "scope": "実APIの請求額の予測ではなく、並列時の予約不在とunknown復旧不能の最小再現。"
-    },
-    {
-      "id": "E21",
-      "kind": "execution",
-      "locator": "logs/compare-probe.log（隔離cloneのeval/results/review-fixture）",
-      "observed_at": "2026-11-05",
-      "observation": "task/condition/generator/repeat/予算が同じでconfigIdだけ異なる失敗A/成功Bの2行をfixtureとして保存。bun eval/analyze.ts --compare review-fixture: exit0、n1・100%・○のみと表示。",
-      "scope": "実際の過去runを改変しない。異なる設定の記録が同一runにある条件で到達する。"
-    },
-    {
-      "id": "E22",
-      "kind": "execution",
-      "locator": "git status --porcelain; git log; git ls-files eval/results/*/runs.jsonl（元checkout）",
-      "observed_at": "2026-11-05",
-      "observation": "開始時git statusは空、snapshot固定。trackedの17 runs/607行を集計し、全てconfigIdとusageイベントがないlegacy、D0記録0行、falseCompletion1行。履歴は2026-10-20開始、直近11-02まで設計改善/回帰試験/整理が追跡できる。",
-      "scope": "現在の実行器は版識別を実装済み。過去の607行の再現性を現在の実装と混同しない。人物の人数/資金/利用者実績へ外挿しない。"
-    },
-    {
-      "id": "E23",
-      "kind": "code",
-      "locator": "package.json; bun.lock; tsconfig.build.json; LICENSE; node_modules/zod/{package.json,LICENSE} @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
-      "observed_at": "2026-11-05",
-      "observation": "実行依存はzod4.4.3の1つ、固定版とBun版とlockあり、buildの入口を分離、private package。自作部分とruntime依存ZodはMIT。定期脆弱性確認・署名配布・全開発依存の権利監査は未確認。",
-      "scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
-    },
-    {
-      "id": "E24",
-      "kind": "primary_doc",
-      "locator": "https://arxiv.org/abs/2303.11366（Reflexion v4,2023-10-10）; https://arxiv.org/abs/2310.04406（LATS v3,2024-06-06）",
-      "observed_at": "2026-11-05",
-      "observation": "Reflexionは外部/内部フィードバックと言語的振り返り・記憶、LATSは探索・計画・行動・評価/振り返りの統合を既に提案。振り返り一般や試行錯誤一般は本プロジェクト固有の発明ではない。",
-      "scope": "原論文の機構の比較。異なるモデル/課題の公表スコアを本プロジェクトと直接順位付けしない。"
-    },
-    {
-      "id": "E25",
-      "kind": "primary_doc",
-      "locator": "https://docs.langchain.com/oss/javascript/langgraph/persistence; https://docs.langchain.com/oss/javascript/langgraph/interrupts（2026-11-05取得）",
-      "observed_at": "2026-11-05",
-      "observation": "公式資料ではチェックポイントによる永続化、中断と外部入力を待って再開する機構を提供。台帳/停止/再開の一般機構だけで独自性や代替困難性は示せない。",
-      "scope": "公式資料上の機能。実装・導入費用・同一課題の勝敗は今回測っていない。"
-    },
-    {
-      "id": "E26",
-      "kind": "primary_doc",
-      "locator": "https://docs.python.org/3/using/cmdline.html#cmdoption-P",
-      "observed_at": "2026-11-05",
-      "observation": "Pythonの-Pは安全でないパスをsys.pathの先頭に入れないオプションで3.11で追加。機能を削除する提案ではなく最小版明示の根拠。",
-      "scope": "実際の3.9失敗と3.12成功はE19/E18。"
-    },
-    {
-      "id": "R01",
-      "kind": "code",
-      "locator": "src/contracts; src/domains; standalone/llm.ts,claude.ts,openai.ts,usage.ts,settings.ts,budget.ts; eval/experiment.ts,metrics.ts,main.ts @ c8ee93818db9ef11a3ead2bdb99e594692089985",
-      "observed_at": "2026-11-05",
-      "observation": "LlmPort/TaskInstance/AcceptancePortを再利用し、API通信をstandaloneへ限定。共通meterで全役割に予約・usage・照合を適用、configId識別と比較許可差分を強制。語句/課題別の意味判断分岐は追加していない。",
-      "scope": "baseline→target全差分と既存prompt/port/実消費者を照合。ホスト直列step/OS隔離は依然契約。"
-    },
-    {
-      "id": "R02",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/macos-verify-budget-final.log; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/linux-verify-budget-final.log; logs/*build-budget-final.log",
-      "observed_at": "2026-11-05",
-      "observation": "4ad3999c: Mac verify506pass12skip0fail/518tests、Linux515pass3skip0fail/518tests、両build exit0。部分39成功→結合211成功→通しの順。",
-      "scope": "ローカル実行、CIは未実行。Mac9件Linux限定+共通3件live d1skip。Linux3件live d1skip。最終差分はR11で別検証。"
-    },
-    {
-      "id": "R03",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/budget-four-processes.json; standalone/test/budget.test.ts; standalone/test/openai.test.ts",
-      "observed_at": "2026-11-05",
-      "observation": "4プロセス各$0.4、共有上限$1では2件だけ予約成功、再open後$0.8保持。未登録料金は通信前拒否、HTTP429/500は自動再送なし、不明は停止・照合まで保持。",
-      "scope": "SQLite即時transaction/整数microUSD、global/provider/run/job/campaign。capは予約含む。課金単価の外部変更は設定再確認が必要。"
-    },
-    {
-      "id": "R04",
-      "kind": "execution",
-      "locator": "test/scenario/process-recovery.test.ts; test/fixtures/crash-runner.ts; test/scenario/engine.test.ts; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/macos-verify-budget-final.log",
-      "observed_at": "2026-11-05",
-      "observation": "実プロセスの4窓(before/after/post/acceptance)で終了91〜94→同じDB再open→復旧、副作用0または1回を確認。reverifyは最後の照合のみ再開しstoppedを成功へ昇格しない。usage照合は原本を残し根拠付き追記。",
-      "scope": "電源断/ディスク破壊は未測定。曖昧な作用を自動再送せず人の確認を要求する契約。"
-    },
-    {
-      "id": "R05",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/permission-lifecycle.json; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/linux-boundaries-unmasked.log; eval/tools/test/code.test.ts; eval/tasks/e/test/horizon10e-env.test.ts",
-      "observed_at": "2026-11-05",
-      "observation": "計画後に権限要件を上げると実行前拒否、invoke0回。Mac/Linuxでパス・symlink・秘密環境・OSファイル/ネットワーク境界を攻撃。境界を無効にした負例は失敗。",
-      "scope": "研究用の能力境界。ホスト自体/OS脆弱性への防御、本番の多利用者認証ではない。"
-    },
-    {
-      "id": "R06",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/primary-analysis.json; experiment-manifest.json; analysis-implementation-freeze.json; eval/results/q80-primary-{claude,openai}-v3",
-      "observed_at": "2026-11-05",
-      "observation": "モデル2×方式2×12課題×5回=240予定を固定、別途48下見。全予定分母、error/missing/verificationIssueは不成功。12課題対bootstrap10000 seed20261105。実usage/費用/時間を役割・方式別収録。",
-      "scope": "実行ソース4ad3999c/sourceId b3f6f4de。繰返し数は費用のみで事前選択。小さな固定課題群の探索的比較、モデル全般の優劣/同等性は結論しない。"
-    },
-    {
-      "id": "R07",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/auxiliary-analysis.json; auxiliary-protocol.json; cross-grades.jsonl",
-      "observed_at": "2026-11-05",
-      "observation": "固定3証明課題の2モデル×2方式=12補助runと、同じ最終成果物のSonnet/Luna各1回=24交差チェック。生成元/方式/他採点は採点APIに渡さない。欠落も記録。",
-      "scope": "人間査読者なし。モデル一致は真の数学的正しさを意味しない。主比較の決定的/数値照合とは別集計。実績は成果物に記録。"
-    },
-    {
-      "id": "R08",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/benchmark-durable.json; billing-benchmark.json; runtime-memory-summary.json",
-      "observed_at": "2026-11-05",
-      "observation": "永続SQLiteの1/2/4追求×10/100/200試行: 外部待ち除くp95最大12.47ms、RSS最大61.2MiB。実13,713件の台帳コピーで30会計操作p95約2.36ms、RSS41.4MiB。API実行のusage/latencyとワーカーRSSも測定。",
-      "scope": "固定負荷で計画の250ms/512MiB内。APIワーカーRSSは途中からの標本で工具子プロセス/OSを除外、全実行の真の最大値とはしない。120分持続性は未了。"
-    },
-    {
-      "id": "R09",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/dependency-audit-final.json; dependency-inventory-all-platforms.json; python-advisory-scan.json; bun.lock",
-      "observed_at": "2026-11-05",
-      "observation": "Zod4.4.3→4.6.6、KaTex.16.22→.18.2へ更新後audit0。全57lock項目の由来/整合性/ライセンスを公式レジストリと照合、Python固定2依存のOSV照会0。",
-      "scope": "既知advisoryの時点確認、未知脆弱性の不在証明ではない。評価資産を公開配布しないcore-only利用範囲。"
-    },
-    {
-      "id": "R10",
-      "kind": "execution",
-      "locator": "test/scripts/package.test.ts; scripts/pack-core.ts; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/package-final-main.log",
-      "observed_at": "2026-11-05",
-      "observation": "coreだけをtgz化。76file、由来commit/source/file hashを保持。改ざんで検証拒否。独立consumerでinstall→migration→engine開始→完了を確認。SDK/eval/DB/秘密を含めない。",
-      "scope": "ローカル配布物の受入。署名/公開レジストリ/更新配信は未実施、package private。最終版の受入記録をR11に追加。"
-    },
-    {
-      "id": "R11",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/final-validation.json; logs/invalid-usage-partial.log; logs/final-local-typecheck.log; logs/final-package.log",
-      "observed_at": "2026-11-05",
-      "observation": "不正/空usageの両SDK HTTP200反例を現ソースで再現後、共有meterでunknown記録→予約uncertain→新規要求停止へ修正。対象試験と型検証、最終差分/配布物を確認。実APIの通常経路は4adと同一。",
-      "scope": "実課金なしのSDK fetch模擬。保存済み4ad API生記録を後付け最終版の実行にしない。具体的な件数/exitとhashはfinal-validation。"
-    },
-    {
-      "id": "R12",
-      "kind": "execution",
-      "locator": "test/scripts/negative-controls.test.ts; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/negative-budget.json; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/negative-budget-old-source.log",
-      "observed_at": "2026-11-05",
-      "observation": "無効化した受入判定・元の比較キー・ネットワーク分離を隔離コピーで戻すと対応試験が失敗。新会計回帰をa8旧ソースへ当てると7fail、現4adでは正常。",
-      "scope": "単なるテスト成功/件数ではなく、実際の違反検出を観察。不正usage修正も旧ソースで反例を保存。"
-    },
-    {
-      "id": "R13",
-      "kind": "primary_doc",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/user-ci-exclusion.json; user-scope-clarification.json; budget-revision.json; long-candidate-metadata.json; spec/improvement-plan-2026-11-05.md",
-      "observed_at": "2026-11-05",
-      "observation": "ユーザーはCI省略・本プロジェクト内先行を指定、API総額上限を$15へ明示的変更。主比較の元manifestは保持。下見は最大16tools/約2.57min、適格な持続課題なし。",
-      "scope": "本流未反映・pushなし。長時間性能/人間数学査読/d1寄与は未確認。余剰予算を理由に試験を増やさない。"
-    },
-    {
-      "id": "R14",
-      "kind": "code",
-      "locator": "README.md; requirements-eval.txt; scripts/check-python.ts; config/settings.example.json; standalone/cli.ts @ c8ee93818db9ef11a3ead2bdb99e594692089985",
-      "observed_at": "2026-11-05",
-      "observation": "Python>=3.11を起動時検出、固定依存と共通キー継承、モデルprovider設定、usage照合の手順・既存互換を整備。",
-      "scope": "GUIからのシェル環境継承は起動元の責務。製品からzprofile実行なし。一般ユーザビリティ観察ではなく研究者向けCLI/SDKを評価。"
-    },
-    {
-      "id": "R15",
-      "kind": "execution",
-      "locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/primary-decision.json; protected-touch-countercheck.json; eval/results/q80-primary-openai-v3/runs.jsonl",
-      "observed_at": "2026-11-05",
-      "observation": "Luna E1Rの不足情報3課題15回のうち13回は相談上限による強制停止。D0は15/15で適切な未完停止。E1R内の保護対象テスト変更8回は後続の復元decisionがすべて記録され、最終照合は別の非公開テストで成立。",
-      "scope": "同じ固定課題群に限定。ソースの決定的契約違反や一般モデル優劣へ一般化しない。"
-    }
-  ],
-  "claims": [
-    {
-      "id": "C01",
-      "type": "Fact",
-      "statement": "規則ありの完了はホスト照合の通過を要求する。",
-      "evidence_ids": [
-        "E02",
-        "E04",
-        "E18"
-      ],
-      "limitations": "照合器自体が誤れば、真の誤答を通す可能性は残る。"
-    },
-    {
-      "id": "C02",
-      "type": "Inference",
-      "statement": "偽の完了0は独立に確認した誤答0と同じではなく、照合契約を強制した結果を含む。",
-      "evidence_ids": [
-        "E02",
-        "E13",
-        "E14"
-      ],
-      "limitations": "人間ラベルや独立採点で照合器の感度/偽陽性は今回確定できない。"
-    },
-    {
-      "id": "C03",
-      "type": "Unknown",
-      "statement": "追加構造が直接解法より優れる条件、d1だけの寄与、長期作業の効果は未確定。",
-      "evidence_ids": [
-        "E14",
-        "E15",
-        "E22"
-      ],
-      "limitations": "保存済D0の比較生記録がこのcheckoutの公開記録にない。42/42は文書の報告。"
-    },
-    {
-      "id": "C04",
-      "type": "Assumption",
-      "statement": "主な評価対象利用者をEumenesの研究・統合担当者とする。",
-      "evidence_ids": [],
-      "limitations": "一般消費者向け製品・商業市場としての需要は仮定しない。"
-    },
-    {
-      "id": "C05",
-      "type": "Unknown",
-      "statement": "導入コスト、継続利用、到達チャネル、維持投資、広い展開時の費用は未確定。",
-      "evidence_ids": [],
-      "limitations": "コードやコミット数から利用者実績を推定しない。"
-    },
-    {
-      "id": "C06",
-      "type": "Inference",
-      "statement": "新機構を増やすより測定復旧と構造/d1の分離比較を優先する段階。",
-      "evidence_ids": [
-        "E14",
-        "E15",
-        "E20",
-        "E21"
-      ],
-      "limitations": "研究継続を否定する結論ではなく、次の投資の優先順位。"
-    },
-    {
-      "id": "RC01",
-      "type": "Unknown",
-      "statement": "持続実行、人間との数学的一致、本流組込み、d1寄与、CI実行は未確認。",
-      "limitations": "技術点80超をこれらの能力の達成や本番認定へ読み替えない。"
-    }
-  ],
-  "findings": [
-    {
-      "id": "F01",
-      "status": "withdrawn",
-      "severity": "Medium",
-      "priority": "P1",
-      "priority_reason": "次の測定・運用を信頼する前に対処。",
-      "confidence": "High",
-      "title": "比較レポートが別設定の記録を上書き/混合する",
-      "root_cause": "通常のrecordKey/recordVariantを比較CLIが再利用せず、configIdを除いて重複排除・集約する。",
-      "evidence_ids": [
-        "E10",
-        "E12",
-        "E21",
-        "R01",
-        "R02",
-        "R12"
-      ],
-      "condition": "同じrunに同一task/condition/generator/repeatで異なるconfigIdが存在、または別runの別設定を同じfamily/mode/budgetとして比較。",
-      "consequence": "一部記録の消失や非同等条件の混合により、結論となるn/成功率/効率が誤る。2行(失敗/成功)が1行100%になる再現あり。",
-      "counterevidence": "mainと通常analyzeはconfigIdを使う。コード凍結・runを分離すれば上書き条件を避けられるが、比較入口で強制しない。",
-      "fix": "既存recordKeyと設定別groupを使い、不一致は分割または明示的な統合指定を要求する。",
-      "verification": "A失敗/B成功を同run・別runで与え、2設定が保たれ、自動で1件100%や混合成功率にならないこと。",
-      "impacts": [
-        {
-          "track": "technical",
-          "dimension": "common_components",
-          "criterion": "duplication",
-          "reason": "共通識別契約の実行箇所による不整合。"
-        },
-        {
-          "track": "technical",
-          "dimension": "correctness",
-          "criterion": "contracts",
-          "reason": "評価レポートの観測可能な契約を損なう。"
-        }
-      ],
-      "withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
-    },
-    {
-      "id": "F02",
-      "status": "withdrawn",
-      "severity": "Medium",
-      "priority": "P1",
-      "priority_reason": "次の測定・運用を信頼する前に対処。",
-      "confidence": "High",
-      "title": "費用上限が並列要求の支出を予約しない",
-      "root_cause": "assertWithinLimitは確定済総額だけを検査。外部呼出の開始予定/進行中の費用を持たない。",
-      "evidence_ids": [
-        "E08",
-        "E20",
-        "R03",
-        "R11",
-        "R12"
-      ],
-      "condition": "残額を超え得る1要求、または残額確認を同時に通る複数要求。",
-      "consequence": "設定上限を越えてから次の要求が止まる。$1上限/各$0.75の並列2件で$1.5を記録。",
-      "counterevidence": "支出記録の二重計上防止とSQLite書込ロックは実装済み。呼出前の予約競合までは保護しない。",
-      "fix": "既存meter/SQLiteで呼出前に保守的費用を原子的予約し実績で精算。厳密上限でない仕様なら超過幅を定義して表示。",
-      "verification": "並列barrierと限界残額で、既知費用+予約が上限を越える呼出は開始せず、失敗時の予約/未知費用も監査可能に残る。",
-      "impacts": [
-        {
-          "track": "technical",
-          "dimension": "performance",
-          "criterion": "budget",
-          "reason": "宣言費用制約に適合しない。"
-        }
-      ],
-      "withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
-    },
-    {
-      "id": "F03",
-      "status": "withdrawn",
-      "severity": "Medium",
-      "priority": "P1",
-      "priority_reason": "次の測定・運用を信頼する前に対処。",
-      "confidence": "High",
-      "title": "費用不明で停止した後の正規の照合/復旧経路がない",
-      "root_cause": "安全なfail-closedはあるが、unknown課金を証拠付きで精算する操作を実装していない。",
-      "evidence_ids": [
-        "E08",
-        "E09",
-        "E15",
-        "E20",
-        "R03",
-        "R04",
-        "R11"
-      ],
-      "condition": "Claudeの接続エラーなどでusageが取得できずunknownが1件以上保存される。",
-      "consequence": "上限を増やしても全API実験を開始できない。11-02の計画書もこの状態を報告。今回も模擬で再現。",
-      "counterevidence": "停止自体は意図された安全措置であり不具合と扱わない。課金不明を外部確認できない限り停止継続は正当。欠けるのは解消後の正規操作。",
-      "fix": "不明を0円に変えず、呼出ID・提供元請求根拠・精算/保守的見積り・操作者を記録する復旧手続きを既存usage台帳に設ける。",
-      "verification": "エラー→停止→根拠付き照合→再開が同じ記録上で追跡でき、未照合のまま自動再開しない。",
-      "impacts": [
-        {
-          "track": "technical",
-          "dimension": "operability",
-          "criterion": "lifecycle",
-          "reason": "通常の接続障害から実験へ戻る操作が欠ける。"
-        }
-      ],
-      "withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
-    },
-    {
-      "id": "F04",
-      "status": "withdrawn",
-      "severity": "Medium",
-      "priority": "P2",
-      "priority_reason": "新規環境への導入と次の測定準備で対処。",
-      "confidence": "High",
-      "title": "Pythonの最低版が案内されず全体検証が失敗する",
-      "root_cause": "READMEはPython3を要求するが実行は-Pを無条件使用。最低版の起動時検査と依存環境の定義がない。",
-      "evidence_ids": [
-        "E11",
-        "E18",
-        "E19",
-        "E26",
-        "R02",
-        "R14"
-      ],
-      "condition": "PATH上のpython3が3.9等の-P未対応版で、必要ライブラリが入っている。",
-      "consequence": "数式/反例照合が失敗し、全体検証で30fail。3.12へ切替えると同コードで全件成功。",
-      "counterevidence": "Bun/TypeScriptと主要台帳/ループのテストは3.9環境でも成功。全体はPython3.12で成功し、コードの数学的欠陥を示していない。",
-      "fix": "Python3.11以上を宣言し起動時に検出する。検証用Python依存の環境定義を用意し、安全な-Pは維持する。",
-      "verification": "新規環境で必要版と依存を手順から再現できる。旧版は採点不能の大量失敗でなく準備段階に明確なエラー。",
-      "impacts": [
-        {
-          "track": "technical",
-          "dimension": "operability",
-          "criterion": "lifecycle",
-          "reason": "文書を満たす一般環境で導入が失敗。"
-        },
-        {
-          "track": "technical",
-          "dimension": "testing",
-          "criterion": "automation",
-          "reason": "全体検証の環境再現性を損なう。"
-        }
-      ],
-      "withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
-    },
-    {
-      "id": "F05",
-      "status": "confirmed",
-      "severity": "Medium",
-      "priority": "P2",
-      "priority_reason": "Luna E1Rを本流の情報不足対応へ使う前に共通指示/既回答の扱いを検証する。技術engineの安全停止は成立している。",
-      "confidence": "High",
-      "title": "Lunaの追求が情報不足の相談を反復して上限で止まる",
-      "root_cause": "追加情報なしの回答後も不足条件を解消する相談をLLMが再選択し、相談3回の共通上限で強制停止する。今回の固定条件では自発的な未完終了を選びにくい。具体的な指示/モデル特性の因果分離は未了。",
-      "evidence_ids": [
-        "R06",
-        "R15"
-      ],
-      "condition": "gpt-6-luna/medium/E1R/policyv3、既存A3課題、各5回。",
-      "consequence": "13/15で期待する適切な未完終了を満たさず、余分な要求/時間が発生。課金/相談の上限は守られ、虚偽完了は0。",
-      "counterevidence": "D0は15/15、E1Rの残り45の解ける課題は45/45。engineの入力/状態契約やOS境界の破れではない。小標本・固定課題で一般化しない。",
-      "fix": "共通LLM指示と既回答/残る選択肢の情報提供を見直し、課題名/語句の分岐を追加せず未見課題を含む別cohortで検証する。凍結済み240件は書換えず保持する。",
-      "verification": "同じ費用/道具/壁時計制約で相談反復・自発未完・虚偽完了・追加費用を全予定分母で比較。期待値や受入を弱めない。",
-      "impacts": [
-        {
-          "track": "technical",
-          "dimension": "operability",
-          "criterion": "interaction",
-          "reason": "情報不足時のやりとりで無駄な相談が残る。研究用CLIの主要復旧は検証済みで3だが一般利用の良さまで4にはしない。"
-        }
-      ]
-    }
-  ],
-  "tracks": {
-    "technical": {
-      "dimensions": {
-        "architecture": {
-          "criteria": {
-            "boundaries": {
-              "status": "assessed",
-              "value": 4,
-              "confidence": "High",
-              "evidence_ids": [
-                "E01",
-                "R01",
-                "R02",
-                "R10"
-              ],
-              "rationale": "二つの実APIと費用/復旧追加を既存portの内側に閉じた。AST境界検査と実consumerで依存方向を確認。",
-              "countercheck": "SDKをsrcへ入れていないこと、SQLite/時計/環境変数がhost実装へ閉じることを既存consumerから逆追跡。",
-              "anchor_support": "独立AST検査、4ad通し2OS、coreビルドとcold consumerで代表変更後も境界を強制。"
-            },
-            "flow": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R01",
-                "R03",
-                "R04"
-              ],
-              "rationale": "外部送出と精算/未確定、操作再送、比較識別までデータ流と整合条件が明示される。",
-              "countercheck": "開始前/作用後/照合中の4窓で記録と作用数を照合。複数hostの同一pursuit step並列は対象外。"
-            },
-            "fit": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E16",
-                "R01",
-                "R08"
-              ],
-              "rationale": "ローカルの小さいcoreとhost権限委譲を維持し、代表負荷で単純なSQLite設計が適合。",
-              "countercheck": "別providerとcore単独consumerを追加しても大きな汎用層を足さず成立。長時間/本体組込みの適合は保留。"
-            }
-          }
-        },
-        "correctness": {
-          "criteria": {
-            "contracts": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R01",
-                "R02",
-                "R06",
-                "R11"
-              ],
-              "rationale": "入出力/state/比較の主要契約を両API、同run別config、失敗/旧形式で確認。",
-              "countercheck": "F01再現と旧処理負例、返答schema/phase/refusal/incomplete/欠落usageを別経路から確認。数学的正解は受入契約と区別。"
-            },
-            "edge_cases": {
-              "status": "assessed",
-              "value": 4,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R03",
-                "R04",
-                "R11",
-                "R12"
-              ],
-              "rationale": "空/重複/欠落/未知ID、壊れた出力、費用上界・未登録価格、照合未了、権限変更の重要な不変条件を検証。",
-              "countercheck": "受入の防御を外したコピー、旧会計実装、空usageの両SDK HTTP200反例が失敗を検出。",
-              "anchor_support": "実SDK形式の独立fetch応答・プロセス境界・防御無効化による負例で代表的な不変条件違反を検出。"
-            },
-            "concurrency": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R03",
-                "R04"
-              ],
-              "rationale": "宣言した直列stepとSQLite即時transactionの範囲で順序、予約競合、再送の原子性を検証。",
-              "countercheck": "4プロセス予算競合、DB再open、同一callId精算を確認。分散multiwriterの同時stepは保証範囲外。"
-            }
-          }
-        },
-        "security": {
-          "criteria": {
-            "access": {
-              "status": "assessed",
-              "value": 4,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R05",
-                "R12"
-              ],
-              "rationale": "道具/OS/秘密の境界と、実行直前の権限変化をMac/Linuxで確認。",
-              "countercheck": "語句フィルタを回避したOS越境を阻止。ネットワーク分離を外す負例が失敗、動的権限要件上昇でinvoke0回。",
-              "anchor_support": "2OS実動、権限の生命周期、境界防御を無効化した負例で適用範囲内の能力制御を独立検証。"
-            },
-            "input_secrets": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R01",
-                "R02",
-                "R05"
-              ],
-              "rationale": "構造化入力・パス制約・環境非継承・全tool/acceptance outcome欄の伏せ字を確認。",
-              "countercheck": "OpenAI名/別名を含む秘密canary、symlink/traversal/隠し領域攻撃を試験。採点注入はモデルだけで完全防御したとはしない。"
-            },
-            "abuse": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R03",
-                "R05"
-              ],
-              "rationale": "tool/壁時計/LLM費用予算とOS分離を実動確認、誤申告をhost照合で止める。",
-              "countercheck": "上限$1並列予約、未知課金の再開禁止、ネットワーク境界の負例を確認。OS自体の侵害は保証外。"
-            }
-          }
-        },
-        "reliability": {
-          "criteria": {
-            "failure": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R04",
-                "R11"
-              ],
-              "rationale": "拒否/未完/壊れた出力/接続障害/費用不明/照合中断を区別し、必要状態を保存する。",
-              "countercheck": "HTTP429/500と空usageで次要求が送出されず、金額を0にしない。全service障害の網羅はしない。"
-            },
-            "recovery": {
-              "status": "assessed",
-              "value": 4,
-              "confidence": "High",
-              "evidence_ids": [
-                "R03",
-                "R04",
-                "R11",
-                "R12"
-              ],
-              "rationale": "作用前後・post・受入中の実プロセス終了から、同じ台帳で作用再送なく復旧。会計不明の追記照合と再開も実施。",
-              "countercheck": "副作用marker0/1回、二重請求/古い回答/未了照合、stoppedがreverifyで成功しないことを別assertで確認。",
-              "anchor_support": "実プロセスの4crash窓、SQLite再open、unknown→証拠付き照合→再開を同じ履歴で確認。電源断/ディスク破壊は未測定。"
-            },
-            "resilience": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R03",
-                "R06",
-                "R08"
-              ],
-              "rationale": "依存失敗を可視化して安全停止し、1/2/4負荷と実API2枠の範囲で資源制限が成立。",
-              "countercheck": "429/500/timeout、global/provider/campaign予約、13k行台帳で劣化を測定。120分持続/飽和容量全域は未検証で4にしない。"
-            }
-          }
-        },
-        "maintainability": {
-          "criteria": {
-            "clarity": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "R01",
-                "R14"
-              ],
-              "rationale": "契約、API変換、会計の責務と再開の説明が追跡可能。必要な専用処理の根拠はAPI仕様と反例へ限定。",
-              "countercheck": "旧Claude設定互換と新provider経路、設定例を照合。設定/CLIの長さは残る。"
-            },
-            "change": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R01",
-                "R02",
-                "R11",
-                "R12"
-              ],
-              "rationale": "providerと復旧追加の変更箇所が明確で、回帰検出を既存仕組みに接続。",
-              "countercheck": "coreへのSDK流入をASTで拒否、APIphase/空usageの実際の反例を回帰へ追加。大きな継続変更コストの追跡は未了。"
-            },
-            "debt": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E06",
-                "E22",
-                "R01"
-              ],
-              "rationale": "フラグ/長いprompt/CLI分岐/手動の実験運用という既知負担は残る。今回それを不必要に抽象化しなかった。",
-              "countercheck": "基本的に責務は分離されるが、持続的に低い変更費用の証拠がないため目標値3へは引き上げない。"
-            }
-          }
-        },
-        "common_components": {
-          "criteria": {
-            "duplication": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R01",
-                "R03",
-                "R12"
-              ],
-              "rationale": "比較のrecordKeyとvariant、provider/役割のUsageMeter契約を共有し、F01の不一致を解消。",
-              "countercheck": "同run/別run/別configと真の再送を区別、旧識別を戻すと負例が失敗。"
-            },
-            "reuse": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R01",
-                "R06",
-                "R07",
-                "R10"
-              ],
-              "rationale": "D0/E1Rの道具/照合、全6schema、SQLite/TaskInstanceを複数の実利用経路で再利用。",
-              "countercheck": "provider固有の通信以外の意味判断を共通prompt/LLMへ残す。依存が分かれたcold consumerも実行。"
-            },
-            "abstraction": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E01",
-                "R01",
-                "R10"
-              ],
-              "rationale": "既存portと必要最小限のAPI/会計境界で実consumerを支え、新規汎用基盤なし。",
-              "countercheck": "新providerが必要とするResponses形式は専用接続へ限定。ホスト本体での利便性は未確認。"
-            }
-          }
-        },
-        "testing": {
-          "criteria": {
-            "risk_coverage": {
-              "status": "assessed",
-              "value": 4,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R03",
-                "R04",
-                "R05",
-                "R11",
-                "R12"
-              ],
-              "rationale": "安全境界・会計・識別・復旧・構造化応答の重要リスクに、代表的相互作用まで実行証拠が揃う。",
-              "countercheck": "2OS/4プロセス/4crash窓に加えて、無効化した保護が失敗を起こすことを確認。人間数学/本流/CIは未実施と区別。",
-              "anchor_support": "単なる件数でなく、実バグ/不変条件違反を検出する負例と別経路観察を通し試験へ結合。"
-            },
-            "quality": {
-              "status": "assessed",
-              "value": 4,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R11",
-                "R12"
-              ],
-              "rationale": "契約に基づく状態/作用回数/請求不明/設定保持のassertが実装への写像だけで終わらない。",
-              "countercheck": "受入・比較・OS分離を壊したコピーと旧会計で現試験が失敗。不正usageも修正前に両SDKで再現。",
-              "anchor_support": "独立した観測(marker/DB/ネットワーク要求回数)、保護無効化、実際の回帰で検出能力を確認。"
-            },
-            "automation": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R11",
-                "R14"
-              ],
-              "rationale": "固定Python依存、開始前版検査、ローカルverifyと2OS再現で環境起因のF04を解消。",
-              "countercheck": "新規Linux環境とcore利用側で導入から実行。CIを動かしたという加点はせず、継続CI実績が必要な4にはしない。"
-            }
-          }
-        },
-        "supply_chain": {
-          "criteria": {
-            "dependencies": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "R02",
-                "R09"
-              ],
-              "rationale": "版/由来と既知脆弱性を点検し、該当更新と互換検証を実施。",
-              "countercheck": "Zod/KaTexの固定更新後の通し検証とaudit0、Python advisory照会を併用。未知脆弱性を否定しない。"
-            },
-            "build_release": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R02",
-                "R10",
-                "R11"
-              ],
-              "rationale": "ソース由来/ファイルhashを持つcore配布物を生成し、汚染混入を拒否。",
-              "countercheck": "hash改ざんを拒否、別consumerがtgzから移行/開始/完了。公開配信/署名の強い保証までは未実施。"
-            },
-            "license": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E23",
-                "R09",
-                "R10"
-              ],
-              "rationale": "core MITと全57lock項目の利用条件/由来、配布境界の責任を一覧化。",
-              "countercheck": "公式registryのlicense/integrity/sourceを照合、評価データ/外部SDKは配布から除外。法務上の保証とはしない。"
-            }
-          }
-        },
-        "performance": {
-          "criteria": {
-            "budget": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R03",
-                "R06",
-                "R08",
-                "R11"
-              ],
-              "rationale": "代表負荷は宣言250ms/512MiB内、API費用は課金前予約を含めた共有上限で制御。",
-              "countercheck": "4プロセス競合と未登録/不正usageを拒否。モデル最大入力による保守予約で小額残高は利用不能になり得る。"
-            },
-            "hot_path": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R08"
-              ],
-              "rationale": "永続台帳で1/2/4追求×10/100/200試行、13,713件の会計履歴で主要I/Oの適合を測定。",
-              "countercheck": "小さい空DBだけでなく実履歴コピーを使用。集計は履歴量に依存し、大規模や一晩の増大は未検証。"
-            },
-            "measurement": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R06",
-                "R08"
-              ],
-              "rationale": "条件固定の実API費用/tokens/要求数/latencyと模擬負荷のp95/RSSを分離して保存。",
-              "countercheck": "事前の解析凍結、全予定分母、設定差分検査で有利な欠落を防止。RSS標本の範囲と持続未了を明示。"
-            }
-          }
-        },
-        "operability": {
-          "criteria": {
-            "signals": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R03",
-                "R04",
-                "R06",
-                "R11"
-              ],
-              "rationale": "run/job/config/callId、送出状態、未知費用、未了照合を追跡し原因を切り分ける。",
-              "countercheck": "異常応答→unknown停止、crash→再開、欠落jobも予定manifestから追跡。秘密を生ログへ入れない試験も確認。"
-            },
-            "lifecycle": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "High",
-              "evidence_ids": [
-                "R03",
-                "R04",
-                "R10",
-                "R14"
-              ],
-              "rationale": "新規導入/共通キー/provider設定、台帳原本維持の照合/再開、配布物の別consumerを実施。",
-              "countercheck": "旧Pythonは準備段階で拒否、旧設定互換と元の不明3件の保守的根拠付き復旧を確認。全host導入/廃棄は未実施。"
-            },
-            "interaction": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E16",
-                "R06",
-                "R14"
-              ],
-              "rationale": "研究者向けCLI/SDKで主作業・失敗理由・照合復旧を実タスクで確認。",
-              "countercheck": "config混在拒否、予算/価格不足の明示、unknown照合のCLIを追跡。一般利用者の観察/アクセシビリティ試験ではない。"
-            }
-          }
-        }
-      }
-    },
-    "project": {
-      "dimensions": {
-        "problem": {
-          "criteria": {
-            "need": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E14",
-                "E15",
-                "E16"
-              ],
-              "rationale": "試行中のすり替え・過剰停止・申告漏れという研究者の具体的課題を定義し複数実験で観測。",
-              "countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
-            },
-            "impact": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E14",
-                "E16"
-              ],
-              "rationale": "未完/過剰試行/費用という損失は実験内で確認。組織全体への影響や削減額の基準線は未測定。"
-            },
-            "validation": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E14",
-                "E15"
-              ],
-              "rationale": "作者の運用と保存された失敗/回復記録で問題を支持。独立利用者の需要検証ではない。"
-            }
-          }
-        },
-        "solution": {
-          "criteria": {
-            "mechanism": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E02",
-                "E04",
-                "E05",
-                "E18"
-              ],
-              "rationale": "モデル判断と外部規則/照合が分かれ、誤申告の差戻しと異常時状態保存を実装/検証。",
-              "countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
-            },
-            "experience": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E14",
-                "E16",
-                "E18"
-              ],
-              "rationale": "研究担当者が設定し実験・分析へ進める経路と過去記録あり。復旧/環境要件に負担が残る。"
-            },
-            "outcomes": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E14",
-                "E22"
-              ],
-              "rationale": "限定課題で申告漏れ減少や通過結果を保存。構造全体の因果効果、独立採点、広い転移は未確定。"
-            }
-          }
-        },
-        "differentiation": {
-          "criteria": {
-            "alternatives": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E01",
-                "E16",
-                "E24",
-                "E25"
-              ],
-              "rationale": "Reflexion/LATS/汎用持続実行と比較し、ホスト検証・不変条件・予算・台帳を小coreにまとめる選択肢として実体あり。"
-            },
-            "advantage": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "D0との同条件の優位性を裏付ける現在閲覧可能な一次比較記録がない。42/42という文書記載は差を示さず、d1のみの寄与も未測定。"
-            },
-            "tradeoffs": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E01",
-                "E07",
-                "E14",
-                "E16",
-                "E25"
-              ],
-              "rationale": "ホストへの小規模組込みと監査性が選択理由。追加要求数/判定の誤停止/採点依存と汎用基盤の既存機能を比較。"
-            }
-          }
-        },
-        "novelty": {
-          "criteria": {
-            "prior_art": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E01",
-                "E06",
-                "E16",
-                "E24",
-                "E25"
-              ],
-              "rationale": "振り返り自体は既知。明示的反証・固定照合・別判定層を組合せた研究構成として限定的増分。新規アルゴリズムの証明ではない。"
-            },
-            "substance": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E02",
-                "E04",
-                "E14"
-              ],
-              "rationale": "構造化した照合/読み直し/再開に実際の効用と実装を確認。独自部分が他手法を上回るという意味ではない。"
-            },
-            "verification": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "比較可能な先行手法/構造除去に対する独自寄与の再現結果なし。"
-            }
-          }
-        },
-        "adoption": {
-          "criteria": {
-            "entry": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "統合/移行/教育/支援の負担を含む実導入コスト未測定。開発者本人の実験だけでは満たさない。"
-            },
-            "reach": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "動機のある利用者への実到達チャネルと転換/社内展開の証拠なし。"
-            },
-            "retention": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "実利用者による継続利用と得られた便益は未確認。"
-            }
-          }
-        },
-        "defensibility": {
-          "criteria": {
-            "assets": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E04",
-                "E12",
-                "E14",
-                "E22"
-              ],
-              "rationale": "課題・失敗例・台帳契約・回帰試験と実験履歴は継続蓄積できる実資産。",
-              "countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
-            },
-            "substitution": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E01",
-                "E16",
-                "E23",
-                "E25"
-              ],
-              "rationale": "Eumenesの同期store契約へ合わせた小coreと特化した検証台帳は選択理由を持つ。汎用基盤への置換不能性や独占性はない。"
-            },
-            "incentives": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "持続的な資源配分/協力の実績は未確認。"
-            }
-          }
-        },
-        "execution": {
-          "criteria": {
-            "delivery": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E02",
-                "E04",
-                "E14",
-                "E18"
-              ],
-              "rationale": "動くcoreとhost/evalを納品し複数実験を記録。研究の主比較と統合は未完。",
-              "countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
-            },
-            "focus": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E15",
-                "E16"
-              ],
-              "rationale": "新機構を凍結し測定へ戻す順序と費用上限を設定。環境依存で停止しており遂行の実証は部分的。"
-            },
-            "feedback": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E04",
-                "E14",
-                "E15",
-                "E22"
-              ],
-              "rationale": "実験で見つかった申告漏れ等を設計→変更→回帰試験へ接続した履歴。改善しない結果も保存。",
-              "countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
-            }
-          }
-        },
-        "timing": {
-          "criteria": {
-            "drivers": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E14",
-                "E16",
-                "E24",
-                "E25"
-              ],
-              "rationale": "長期エージェントの停止/復旧という既存研究と運用課題があり、必要なLLM/持続実行基盤は利用可能。市場成長率は推測しない。"
-            },
-            "readiness": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E14",
-                "E15",
-                "E18"
-              ],
-              "rationale": "過去liveと現在のローカル検証で必要条件が実現可能。ただしLARM/他環境/課金復旧を現に阻害要因として記録。"
-            },
-            "window": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "12か月程度の展開時期と変化への応答を裏付ける資源・計画の確証なし。"
-            }
-          }
-        },
-        "health": {
-          "criteria": {
-            "ownership": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E15",
-                "E16",
-                "E22"
-              ],
-              "rationale": "計画・判断・契約・履歴から保守責任と知識の所在を辿れる。複数人への移管と長期継続は未検証。"
-            },
-            "activity": {
-              "status": "assessed",
-              "value": 3,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E04",
-                "E15",
-                "E18",
-                "E22"
-              ],
-              "rationale": "不具合を回帰試験化し直近の分割を検証する保守実績。コミット件数そのものでは採点しない。",
-              "countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
-            },
-            "governance": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E15",
-                "E16"
-              ],
-              "rationale": "実験費用と停止条件、変更範囲、次の判断者を明示。長期の資金/体制は未確定。"
-            }
-          }
-        },
-        "expansion": {
-          "criteria": {
-            "adjacency": {
-              "status": "assessed",
-              "value": 2,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E01",
-                "E04",
-                "E14",
-                "E16"
-              ],
-              "rationale": "同じcoreが数学/調査/小コード課題と複数host portで使われる。隣接用途の核は動く。"
-            },
-            "scalability": {
-              "status": "unknown",
-              "value": null,
-              "unknown_reason": "複数環境/長期/広範囲への展開に要する費用と運用負担の計測なし。"
-            },
-            "path": {
-              "status": "assessed",
-              "value": 1,
-              "confidence": "Medium",
-              "evidence_ids": [
-                "E15",
-                "E16"
-              ],
-              "rationale": "一晩/ローカルLLM/本体統合は狙いがあるが、環境と測定が止まり、検証済の段階展開や確保された体制はない。"
-            }
-          }
-        }
-      }
-    }
-  },
-  "review_process": {
-    "context_compile_calls": 1,
-    "compile_eval_calls": 1,
-    "independent_agent_review": false,
-    "validation": "同一担当が実装後、既存呼出元/契約/別防御層/負例/旧ソースによる反証確認を実施。採点は変更件数の加点ではなく30項目アンカーから生成。",
-    "baseline_ledger_preserved": "/Users/y.noguchi/.codex/visualizations/2026/11/05/01a1aae0-6dfe-70b1-8055-25a39960265f/project-review/review.json",
-    "project_track": "前回の台帳を参考のまま維持。今回新しい市場/利用者検証はしておらず正式総合点は保留。",
-    "api_source_commit": "4ad3999c4df2fb561e1faea98cffaab7d951b227"
-  },
-  "baseline_snapshot": "6f40e9507a846ba20f119cb485f9baf72d481b88"
+	"rubric_version": "1.1.0",
+	"mode": "full",
+	"depth": "deep",
+	"technical_profile": "agent",
+	"assessment_kind": "re-evaluated",
+	"target": {
+		"locator": "/Users/y.noguchi/Code/eumenes_pursuit",
+		"snapshot": "c8ee93818db9ef11a3ead2bdb99e594692089985",
+		"reviewed_at": "2026-11-05",
+		"stage": "研究プロトタイプ（ホスト組込み前）",
+		"scope": "前回と同じagent profile/full/deep、ローカル研究、1追求のstepはホストが直列化。src/standalone/evalの契約・異常・安全境界・費用・配布物を再評価。証拠を追加したがルーブリック重み/適用30項目/成熟段階は維持。実API主比較は4ad3999c固定、最終版との差は不正usageの停止記録と設定例/報告のみで通常API入力/採点/価格計算は同一。部分→結合→Mac/Linux通し実行済み。最終差分は対象部分と型を再検証。CI検査はユーザー依頼により除外。本流/本体組込み、公開、他リポジトリ変更、真の数学的正解/人間一致、d1寄与、一晩運転は未検証。実API持続4runは適格な既存下見課題がなく計画§7に従い未了。将来性の前回台帳は参考として維持し未確認を得点化しない。Bun1.4.4/macOS26.6.2arm64、Python3.12.13/Sympy1.14/mpmath1.3。Linuxは使い捨て隔離環境、live d1以外515成功。技術点は本番認証でも優位性の証明でもない。"
+	},
+	"evidence": [
+		{
+			"id": "E01",
+			"kind": "code",
+			"locator": "src/contracts/{ports,pursuit,policy}.ts; src/index.ts; scripts/check-boundaries.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "ホストの時計・ID・ツール・照合・storeをportに分離。型はstrict、ZodのstrictObject、ASTでcoreの環境依存とdomain依存を検査。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E02",
+			"kind": "code",
+			"locator": "src/domains/loop/{engine,propose,attempt,review,transitions}.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "start→plan→hypothesize→propose→権限確認→started保存→invoke→観測保存→post判定→照合→規則→終了を追跡。rules onでは凍結条件を全件通すまで完了しない。E0の未照合完了は比較の仕様。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E03",
+			"kind": "code",
+			"locator": "src/domains/ledger/{schema,repository}.ts; standalone/{store,sqlite-shared}.ts; test/sqlite/ledger.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "同期transaction、revision競合、operationKey再送、受入条件変更/削除禁止trigger、WAL/busy_timeout、migration checksum、互換migrationを実装。単一追求への同時stepの排他はホストの責務。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E04",
+			"kind": "code",
+			"locator": "src/domains/loop/test/recovery.test.ts; test/scenario/engine.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "道具の副作用の有無が不明な中断、post判定中断、保存済照合の再利用、期限超過、照合不能、受入条件の欠落/重複/余分を検証。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E05",
+			"kind": "code",
+			"locator": "eval/tools/{code,sandbox,paths,tool-port}.ts; eval/tools/test/code.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "パス逸脱/シンボリックリンク拒否、入力検査、環境変数制限、OS隔離、隔離不能時拒否。字句フィルタを回避するコードでhome/外部書込/networkを検査するnegative controlがある。Linuxは資源制限と後処理も持つ。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E06",
+			"kind": "code",
+			"locator": "src/domains/generation/prompts.ts; src/domains/rules/{checks,refutation,parts}.ts; src/domains/judge/interpret.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "意味判断は生成/振り返り/判定モデルへ委ね、コードは予算、宣言した権限、構造的参照、明示した反証DSL、自己評価の必要項目を強制。判定器は規則を緩められない。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E07",
+			"kind": "code",
+			"locator": "standalone/{claude,deadline,metered-ports}.ts; standalone/larm/serial.ts; src/domains/loop/support.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "AbortSignal、期限、usageをparseより先に記録、judgeの直列化と限定retry、judge停止時は警告と台帳を残しfail-open。外部依存の完全な耐障害性を実測したものではない。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E08",
+			"kind": "code",
+			"locator": "standalone/settings.ts:100-111,221-242; standalone/claude.ts:45-78 @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "支出の上限検査は既存SUMのみを参照し、開始予定の費用を予約しない。応答後に実費を記録。費用不明のClaude呼出が1件でも残るとInfinity。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E09",
+			"kind": "code",
+			"locator": "standalone/settings.ts:290-309; standalone/cli.ts:20-49 @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "recordUnknownは追記、markStatusはstatusだけ変更。CLIは設定と総額表示のみで、根拠を残して不明課金を照合・解消するAPI/CLIは存在しない。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E10",
+			"kind": "code",
+			"locator": "eval/analyze.ts:36-54; eval/metrics.ts:486-544; eval/run-config.ts:21-44 @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "通常のrecordKeyはconfigIdを含む一方、--compareの読込みはtask/condition/generator/repeatのみで上書き。比較表もfamily/mode/budgetで異なるconfigIdを無条件で集約する。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E11",
+			"kind": "code",
+			"locator": "README.md:50-58; eval/tools/{math,discovery,counterexample}.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "必要環境はPython3と案内されるが、3つの子プロセス呼出はPython3.11以降で利用できる-Pを指定。Python依存の版や環境構築もlockされていない。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E12",
+			"kind": "code",
+			"locator": "eval/{main,metrics,analyze,run-config}.ts; eval/test/run-config.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "ソース内容、policy、役割のモデル/effort、実行環境、フラグ、非公開データ版をhash化。unknown課金、未了照合、exact/numeric/modelを区別。Wilson区間と利用量/時間の指標を実装。--compare例外はE10。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E13",
+			"kind": "code",
+			"locator": "eval/tasks/e/{grader,proof-grader,grading-contract}.ts; eval/tasks/e/test/grading-contract.test.ts @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "採点対象を指示として扱わないsystem、採点IDの欠落/重複/未知IDをfail-closedにする契約、証明のモデル採点を明示。実際の数学的健全性を人間/証明支援系で保証した証拠ではない。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E14",
+			"kind": "primary_doc",
+			"locator": "spec/results.md:5-302; eval/results/{base-2,persist-1,completion-1,reflect-2}/{runs.jsonl,summary.md} @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "公開記録を再集計: base-2はE0 12/13,E1 12/13,E2 11/13,E3 12/13。completion-1のπ²は読み直しなし3/10、あり6/10。reflect-2のln2は2/8対5/8、Bertrandは2/4対1/4。小標本と限定課題、モデル採点、時間順の設定変更による限界あり。",
+			"scope": "過去の作者実験の保存済記録。今回liveを再実行せず、採点結果を独立に検証していない。"
+		},
+		{
+			"id": "E15",
+			"kind": "primary_doc",
+			"locator": "spec/{long-horizon-11,improvement-plan-2026-11-02,next-improvement-plan-2026-11-02}.md @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "文書にはablation-1が追求/直接とも42/42と記載。生記録は別環境で今回未確認。d1寄与と長い課題のHaiku比較は未完了、band-2は接続エラーと費用不明で中止。新機構を止めて測定復旧を優先する方針。",
+			"scope": "文書がそう報告しているという事実。42/42の追試や効率比較の一次記録確認ではない。"
+		},
+		{
+			"id": "E16",
+			"kind": "primary_doc",
+			"locator": "README.md:123-181; plan.md:28-45,342-354; spec/host-contract-v1.md @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "対象は自律試行の研究、ホストが独立に照合し、Eumenesへ後でtgz配布予定。ローカルLLM、一晩の持続、上位レビュー、ラベル一致率/閾値校正、本体統合は未完の範囲を明示。",
+			"scope": "一般ユーザー向け製品や売上/導入の実績を示すものではない。"
+		},
+		{
+			"id": "E17",
+			"kind": "execution",
+			"locator": "logs/partial.log; logs/integration.log（本レビューの検証フォルダ）",
+			"observed_at": "2026-11-05",
+			"observation": "クリーンな別clone、env -i/HOME隔離、PURSUIT_LIVE=0/Bun1.4.4。bun test ./src/domains/rules ./src/domains/judge ./standalone/test/usage.test.ts ./standalone/test/deadline.test.ts: exit0、46pass。続いて bun test ./test/sqlite ./test/scenario ./src/domains/loop/test: exit0、136pass。",
+			"scope": "模擬LLMと一時SQLiteによる決定的な部分/結合検証。"
+		},
+		{
+			"id": "E18",
+			"kind": "execution",
+			"locator": "logs/verify-python312.log; logs/build.log",
+			"observed_at": "2026-11-05",
+			"observation": "同じ隔離clone、env -i/HOME隔離/PURSUIT_LIVE=0、PATH先頭にPython3.12.13 venv（Sympy1.14.0/mpmath1.3.0）、Bun1.4.4、macOS arm64。bun run verify: exit0、464pass/12skip/0fail、4291assertions、33.81秒。format/lint/typecheck/境界/公開結果検査も成功。bun run build: exit0。",
+			"scope": "skip表示はlive LARMとLinux sandbox/長期環境の試験（suiteの無名表示を含む）。API品質、Linuxの実動、高負荷、実運用の耐久検証ではない。"
+		},
+		{
+			"id": "E19",
+			"kind": "execution",
+			"locator": "logs/verify.log; Python3.9.6 -P -c import実行",
+			"observed_at": "2026-11-05",
+			"observation": "同clone、Python3.9.6 venv/Sympy1.14.0/mpmath1.3.0でbun run verify: exit1、434pass/12skip/30fail。python3 -PがUnknown option:-Pでexit2となることを別途確認。Python3.12へ変更したE18では同じ製品コードで成功。",
+			"scope": "ライブラリ欠落の単なる環境エラーから区別。READMEが許すPython3.9での案内不足であり、数式検算の数学ロジックの失敗ではない。"
+		},
+		{
+			"id": "E20",
+			"kind": "execution",
+			"locator": "review-probe.ts; logs/probes.jsonl",
+			"observed_at": "2026-11-05",
+			"observation": "env -i、Bun1.4.4、SQLite memory、Anthropicのfetchをbarrier付き模擬応答に置換。上限$1、並列2要求の各usageを$0.75相当に設定: exit0、calls2/spentUsd1.5。ネットワーク/課金は0。次にunknownを1件記録し上限を$10000へ変更しても、assertWithinLimit拒否かつInfinityを確認。",
+			"scope": "実APIの請求額の予測ではなく、並列時の予約不在とunknown復旧不能の最小再現。"
+		},
+		{
+			"id": "E21",
+			"kind": "execution",
+			"locator": "logs/compare-probe.log（隔離cloneのeval/results/review-fixture）",
+			"observed_at": "2026-11-05",
+			"observation": "task/condition/generator/repeat/予算が同じでconfigIdだけ異なる失敗A/成功Bの2行をfixtureとして保存。bun eval/analyze.ts --compare review-fixture: exit0、n1・100%・○のみと表示。",
+			"scope": "実際の過去runを改変しない。異なる設定の記録が同一runにある条件で到達する。"
+		},
+		{
+			"id": "E22",
+			"kind": "execution",
+			"locator": "git status --porcelain; git log; git ls-files eval/results/*/runs.jsonl（元checkout）",
+			"observed_at": "2026-11-05",
+			"observation": "開始時git statusは空、snapshot固定。trackedの17 runs/607行を集計し、全てconfigIdとusageイベントがないlegacy、D0記録0行、falseCompletion1行。履歴は2026-10-20開始、直近11-02まで設計改善/回帰試験/整理が追跡できる。",
+			"scope": "現在の実行器は版識別を実装済み。過去の607行の再現性を現在の実装と混同しない。人物の人数/資金/利用者実績へ外挿しない。"
+		},
+		{
+			"id": "E23",
+			"kind": "code",
+			"locator": "package.json; bun.lock; tsconfig.build.json; LICENSE; node_modules/zod/{package.json,LICENSE} @ 6f40e9507a846ba20f119cb485f9baf72d481b88",
+			"observed_at": "2026-11-05",
+			"observation": "実行依存はzod4.4.3の1つ、固定版とBun版とlockあり、buildの入口を分離、private package。自作部分とruntime依存ZodはMIT。定期脆弱性確認・署名配布・全開発依存の権利監査は未確認。",
+			"scope": "現在のコミットの対象経路。全実装・本番環境への一般化はしない。"
+		},
+		{
+			"id": "E24",
+			"kind": "primary_doc",
+			"locator": "https://arxiv.org/abs/2303.11366（Reflexion v4,2023-10-10）; https://arxiv.org/abs/2310.04406（LATS v3,2024-06-06）",
+			"observed_at": "2026-11-05",
+			"observation": "Reflexionは外部/内部フィードバックと言語的振り返り・記憶、LATSは探索・計画・行動・評価/振り返りの統合を既に提案。振り返り一般や試行錯誤一般は本プロジェクト固有の発明ではない。",
+			"scope": "原論文の機構の比較。異なるモデル/課題の公表スコアを本プロジェクトと直接順位付けしない。"
+		},
+		{
+			"id": "E25",
+			"kind": "primary_doc",
+			"locator": "https://docs.langchain.com/oss/javascript/langgraph/persistence; https://docs.langchain.com/oss/javascript/langgraph/interrupts（2026-11-05取得）",
+			"observed_at": "2026-11-05",
+			"observation": "公式資料ではチェックポイントによる永続化、中断と外部入力を待って再開する機構を提供。台帳/停止/再開の一般機構だけで独自性や代替困難性は示せない。",
+			"scope": "公式資料上の機能。実装・導入費用・同一課題の勝敗は今回測っていない。"
+		},
+		{
+			"id": "E26",
+			"kind": "primary_doc",
+			"locator": "https://docs.python.org/3/using/cmdline.html#cmdoption-P",
+			"observed_at": "2026-11-05",
+			"observation": "Pythonの-Pは安全でないパスをsys.pathの先頭に入れないオプションで3.11で追加。機能を削除する提案ではなく最小版明示の根拠。",
+			"scope": "実際の3.9失敗と3.12成功はE19/E18。"
+		},
+		{
+			"id": "R01",
+			"kind": "code",
+			"locator": "src/contracts; src/domains; standalone/llm.ts,claude.ts,openai.ts,usage.ts,settings.ts,budget.ts; eval/experiment.ts,metrics.ts,main.ts @ c8ee93818db9ef11a3ead2bdb99e594692089985",
+			"observed_at": "2026-11-05",
+			"observation": "LlmPort/TaskInstance/AcceptancePortを再利用し、API通信をstandaloneへ限定。共通meterで全役割に予約・usage・照合を適用、configId識別と比較許可差分を強制。語句/課題別の意味判断分岐は追加していない。",
+			"scope": "baseline→target全差分と既存prompt/port/実消費者を照合。ホスト直列step/OS隔離は依然契約。"
+		},
+		{
+			"id": "R02",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/macos-verify-budget-final.log; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/linux-verify-budget-final.log; logs/*build-budget-final.log",
+			"observed_at": "2026-11-05",
+			"observation": "4ad3999c: Mac verify506pass12skip0fail/518tests、Linux515pass3skip0fail/518tests、両build exit0。部分39成功→結合211成功→通しの順。",
+			"scope": "ローカル実行、CIは未実行。Mac9件Linux限定+共通3件live d1skip。Linux3件live d1skip。最終差分はR11で別検証。"
+		},
+		{
+			"id": "R03",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/budget-four-processes.json; standalone/test/budget.test.ts; standalone/test/openai.test.ts",
+			"observed_at": "2026-11-05",
+			"observation": "4プロセス各$0.4、共有上限$1では2件だけ予約成功、再open後$0.8保持。未登録料金は通信前拒否、HTTP429/500は自動再送なし、不明は停止・照合まで保持。",
+			"scope": "SQLite即時transaction/整数microUSD、global/provider/run/job/campaign。capは予約含む。課金単価の外部変更は設定再確認が必要。"
+		},
+		{
+			"id": "R04",
+			"kind": "execution",
+			"locator": "test/scenario/process-recovery.test.ts; test/fixtures/crash-runner.ts; test/scenario/engine.test.ts; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/macos-verify-budget-final.log",
+			"observed_at": "2026-11-05",
+			"observation": "実プロセスの4窓(before/after/post/acceptance)で終了91〜94→同じDB再open→復旧、副作用0または1回を確認。reverifyは最後の照合のみ再開しstoppedを成功へ昇格しない。usage照合は原本を残し根拠付き追記。",
+			"scope": "電源断/ディスク破壊は未測定。曖昧な作用を自動再送せず人の確認を要求する契約。"
+		},
+		{
+			"id": "R05",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/permission-lifecycle.json; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/linux-boundaries-unmasked.log; eval/tools/test/code.test.ts; eval/tasks/e/test/horizon10e-env.test.ts",
+			"observed_at": "2026-11-05",
+			"observation": "計画後に権限要件を上げると実行前拒否、invoke0回。Mac/Linuxでパス・symlink・秘密環境・OSファイル/ネットワーク境界を攻撃。境界を無効にした負例は失敗。",
+			"scope": "研究用の能力境界。ホスト自体/OS脆弱性への防御、本番の多利用者認証ではない。"
+		},
+		{
+			"id": "R06",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/primary-analysis.json; experiment-manifest.json; analysis-implementation-freeze.json; eval/results/q80-primary-{claude,openai}-v3",
+			"observed_at": "2026-11-05",
+			"observation": "モデル2×方式2×12課題×5回=240予定を固定、別途48下見。全予定分母、error/missing/verificationIssueは不成功。12課題対bootstrap10000 seed20261105。実usage/費用/時間を役割・方式別収録。",
+			"scope": "実行ソース4ad3999c/sourceId b3f6f4de。繰返し数は費用のみで事前選択。小さな固定課題群の探索的比較、モデル全般の優劣/同等性は結論しない。"
+		},
+		{
+			"id": "R07",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/auxiliary-analysis.json; auxiliary-protocol.json; cross-grades.jsonl",
+			"observed_at": "2026-11-05",
+			"observation": "固定3証明課題の2モデル×2方式=12補助runと、同じ最終成果物のSonnet/Luna各1回=24交差チェック。生成元/方式/他採点は採点APIに渡さない。欠落も記録。",
+			"scope": "人間査読者なし。モデル一致は真の数学的正しさを意味しない。主比較の決定的/数値照合とは別集計。実績は成果物に記録。"
+		},
+		{
+			"id": "R08",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/benchmark-durable.json; billing-benchmark.json; runtime-memory-summary.json",
+			"observed_at": "2026-11-05",
+			"observation": "永続SQLiteの1/2/4追求×10/100/200試行: 外部待ち除くp95最大12.47ms、RSS最大61.2MiB。実13,713件の台帳コピーで30会計操作p95約2.36ms、RSS41.4MiB。API実行のusage/latencyとワーカーRSSも測定。",
+			"scope": "固定負荷で計画の250ms/512MiB内。APIワーカーRSSは途中からの標本で工具子プロセス/OSを除外、全実行の真の最大値とはしない。120分持続性は未了。"
+		},
+		{
+			"id": "R09",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/dependency-audit-final.json; dependency-inventory-all-platforms.json; python-advisory-scan.json; bun.lock",
+			"observed_at": "2026-11-05",
+			"observation": "Zod4.4.3→4.6.6、KaTex.16.22→.18.2へ更新後audit0。全57lock項目の由来/整合性/ライセンスを公式レジストリと照合、Python固定2依存のOSV照会0。",
+			"scope": "既知advisoryの時点確認、未知脆弱性の不在証明ではない。評価資産を公開配布しないcore-only利用範囲。"
+		},
+		{
+			"id": "R10",
+			"kind": "execution",
+			"locator": "test/scripts/package.test.ts; scripts/pack-core.ts; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/package-final-main.log",
+			"observed_at": "2026-11-05",
+			"observation": "coreだけをtgz化。76file、由来commit/source/file hashを保持。改ざんで検証拒否。独立consumerでinstall→migration→engine開始→完了を確認。SDK/eval/DB/秘密を含めない。",
+			"scope": "ローカル配布物の受入。署名/公開レジストリ/更新配信は未実施、package private。最終版の受入記録をR11に追加。"
+		},
+		{
+			"id": "R11",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/final-validation.json; logs/invalid-usage-partial.log; logs/final-local-typecheck.log; logs/final-package.log",
+			"observed_at": "2026-11-05",
+			"observation": "不正/空usageの両SDK HTTP200反例を現ソースで再現後、共有meterでunknown記録→予約uncertain→新規要求停止へ修正。対象試験と型検証、最終差分/配布物を確認。実APIの通常経路は4adと同一。",
+			"scope": "実課金なしのSDK fetch模擬。保存済み4ad API生記録を後付け最終版の実行にしない。具体的な件数/exitとhashはfinal-validation。"
+		},
+		{
+			"id": "R12",
+			"kind": "execution",
+			"locator": "test/scripts/negative-controls.test.ts; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/negative-budget.json; /Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/logs/negative-budget-old-source.log",
+			"observed_at": "2026-11-05",
+			"observation": "無効化した受入判定・元の比較キー・ネットワーク分離を隔離コピーで戻すと対応試験が失敗。新会計回帰をa8旧ソースへ当てると7fail、現4adでは正常。",
+			"scope": "単なるテスト成功/件数ではなく、実際の違反検出を観察。不正usage修正も旧ソースで反例を保存。"
+		},
+		{
+			"id": "R13",
+			"kind": "primary_doc",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/user-ci-exclusion.json; user-scope-clarification.json; budget-revision.json; long-candidate-metadata.json; spec/improvement-plan-2026-11-05.md",
+			"observed_at": "2026-11-05",
+			"observation": "ユーザーはCI省略・本プロジェクト内先行を指定、API総額上限を$15へ明示的変更。主比較の元manifestは保持。下見は最大16tools/約2.57min、適格な持続課題なし。",
+			"scope": "本流未反映・pushなし。長時間性能/人間数学査読/d1寄与は未確認。余剰予算を理由に試験を増やさない。"
+		},
+		{
+			"id": "R14",
+			"kind": "code",
+			"locator": "README.md; requirements-eval.txt; scripts/check-python.ts; config/settings.example.json; standalone/cli.ts @ c8ee93818db9ef11a3ead2bdb99e594692089985",
+			"observed_at": "2026-11-05",
+			"observation": "Python>=3.11を起動時検出、固定依存と共通キー継承、モデルprovider設定、usage照合の手順・既存互換を整備。",
+			"scope": "GUIからのシェル環境継承は起動元の責務。製品からzprofile実行なし。一般ユーザビリティ観察ではなく研究者向けCLI/SDKを評価。"
+		},
+		{
+			"id": "R15",
+			"kind": "execution",
+			"locator": "/Users/y.noguchi/Code/eumenes_pursuit/artifacts/quality-20261105/primary-decision.json; protected-touch-countercheck.json; eval/results/q80-primary-openai-v3/runs.jsonl",
+			"observed_at": "2026-11-05",
+			"observation": "Luna E1Rの不足情報3課題15回のうち13回は相談上限による強制停止。D0は15/15で適切な未完停止。E1R内の保護対象テスト変更8回は後続の復元decisionがすべて記録され、最終照合は別の非公開テストで成立。",
+			"scope": "同じ固定課題群に限定。ソースの決定的契約違反や一般モデル優劣へ一般化しない。"
+		}
+	],
+	"claims": [
+		{
+			"id": "C01",
+			"type": "Fact",
+			"statement": "規則ありの完了はホスト照合の通過を要求する。",
+			"evidence_ids": ["E02", "E04", "E18"],
+			"limitations": "照合器自体が誤れば、真の誤答を通す可能性は残る。"
+		},
+		{
+			"id": "C02",
+			"type": "Inference",
+			"statement": "偽の完了0は独立に確認した誤答0と同じではなく、照合契約を強制した結果を含む。",
+			"evidence_ids": ["E02", "E13", "E14"],
+			"limitations": "人間ラベルや独立採点で照合器の感度/偽陽性は今回確定できない。"
+		},
+		{
+			"id": "C03",
+			"type": "Unknown",
+			"statement": "追加構造が直接解法より優れる条件、d1だけの寄与、長期作業の効果は未確定。",
+			"evidence_ids": ["E14", "E15", "E22"],
+			"limitations": "保存済D0の比較生記録がこのcheckoutの公開記録にない。42/42は文書の報告。"
+		},
+		{
+			"id": "C04",
+			"type": "Assumption",
+			"statement": "主な評価対象利用者をEumenesの研究・統合担当者とする。",
+			"evidence_ids": [],
+			"limitations": "一般消費者向け製品・商業市場としての需要は仮定しない。"
+		},
+		{
+			"id": "C05",
+			"type": "Unknown",
+			"statement": "導入コスト、継続利用、到達チャネル、維持投資、広い展開時の費用は未確定。",
+			"evidence_ids": [],
+			"limitations": "コードやコミット数から利用者実績を推定しない。"
+		},
+		{
+			"id": "C06",
+			"type": "Inference",
+			"statement": "新機構を増やすより測定復旧と構造/d1の分離比較を優先する段階。",
+			"evidence_ids": ["E14", "E15", "E20", "E21"],
+			"limitations": "研究継続を否定する結論ではなく、次の投資の優先順位。"
+		},
+		{
+			"id": "RC01",
+			"type": "Unknown",
+			"statement": "持続実行、人間との数学的一致、本流組込み、d1寄与、CI実行は未確認。",
+			"limitations": "技術点80超をこれらの能力の達成や本番認定へ読み替えない。"
+		}
+	],
+	"findings": [
+		{
+			"id": "F01",
+			"status": "withdrawn",
+			"severity": "Medium",
+			"priority": "P1",
+			"priority_reason": "次の測定・運用を信頼する前に対処。",
+			"confidence": "High",
+			"title": "比較レポートが別設定の記録を上書き/混合する",
+			"root_cause": "通常のrecordKey/recordVariantを比較CLIが再利用せず、configIdを除いて重複排除・集約する。",
+			"evidence_ids": ["E10", "E12", "E21", "R01", "R02", "R12"],
+			"condition": "同じrunに同一task/condition/generator/repeatで異なるconfigIdが存在、または別runの別設定を同じfamily/mode/budgetとして比較。",
+			"consequence": "一部記録の消失や非同等条件の混合により、結論となるn/成功率/効率が誤る。2行(失敗/成功)が1行100%になる再現あり。",
+			"counterevidence": "mainと通常analyzeはconfigIdを使う。コード凍結・runを分離すれば上書き条件を避けられるが、比較入口で強制しない。",
+			"fix": "既存recordKeyと設定別groupを使い、不一致は分割または明示的な統合指定を要求する。",
+			"verification": "A失敗/B成功を同run・別runで与え、2設定が保たれ、自動で1件100%や混合成功率にならないこと。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "common_components",
+					"criterion": "duplication",
+					"reason": "共通識別契約の実行箇所による不整合。"
+				},
+				{
+					"track": "technical",
+					"dimension": "correctness",
+					"criterion": "contracts",
+					"reason": "評価レポートの観測可能な契約を損なう。"
+				}
+			],
+			"withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
+		},
+		{
+			"id": "F02",
+			"status": "withdrawn",
+			"severity": "Medium",
+			"priority": "P1",
+			"priority_reason": "次の測定・運用を信頼する前に対処。",
+			"confidence": "High",
+			"title": "費用上限が並列要求の支出を予約しない",
+			"root_cause": "assertWithinLimitは確定済総額だけを検査。外部呼出の開始予定/進行中の費用を持たない。",
+			"evidence_ids": ["E08", "E20", "R03", "R11", "R12"],
+			"condition": "残額を超え得る1要求、または残額確認を同時に通る複数要求。",
+			"consequence": "設定上限を越えてから次の要求が止まる。$1上限/各$0.75の並列2件で$1.5を記録。",
+			"counterevidence": "支出記録の二重計上防止とSQLite書込ロックは実装済み。呼出前の予約競合までは保護しない。",
+			"fix": "既存meter/SQLiteで呼出前に保守的費用を原子的予約し実績で精算。厳密上限でない仕様なら超過幅を定義して表示。",
+			"verification": "並列barrierと限界残額で、既知費用+予約が上限を越える呼出は開始せず、失敗時の予約/未知費用も監査可能に残る。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "performance",
+					"criterion": "budget",
+					"reason": "宣言費用制約に適合しない。"
+				}
+			],
+			"withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
+		},
+		{
+			"id": "F03",
+			"status": "withdrawn",
+			"severity": "Medium",
+			"priority": "P1",
+			"priority_reason": "次の測定・運用を信頼する前に対処。",
+			"confidence": "High",
+			"title": "費用不明で停止した後の正規の照合/復旧経路がない",
+			"root_cause": "安全なfail-closedはあるが、unknown課金を証拠付きで精算する操作を実装していない。",
+			"evidence_ids": ["E08", "E09", "E15", "E20", "R03", "R04", "R11"],
+			"condition": "Claudeの接続エラーなどでusageが取得できずunknownが1件以上保存される。",
+			"consequence": "上限を増やしても全API実験を開始できない。11-02の計画書もこの状態を報告。今回も模擬で再現。",
+			"counterevidence": "停止自体は意図された安全措置であり不具合と扱わない。課金不明を外部確認できない限り停止継続は正当。欠けるのは解消後の正規操作。",
+			"fix": "不明を0円に変えず、呼出ID・提供元請求根拠・精算/保守的見積り・操作者を記録する復旧手続きを既存usage台帳に設ける。",
+			"verification": "エラー→停止→根拠付き照合→再開が同じ記録上で追跡でき、未照合のまま自動再開しない。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "operability",
+					"criterion": "lifecycle",
+					"reason": "通常の接続障害から実験へ戻る操作が欠ける。"
+				}
+			],
+			"withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
+		},
+		{
+			"id": "F04",
+			"status": "withdrawn",
+			"severity": "Medium",
+			"priority": "P2",
+			"priority_reason": "新規環境への導入と次の測定準備で対処。",
+			"confidence": "High",
+			"title": "Pythonの最低版が案内されず全体検証が失敗する",
+			"root_cause": "READMEはPython3を要求するが実行は-Pを無条件使用。最低版の起動時検査と依存環境の定義がない。",
+			"evidence_ids": ["E11", "E18", "E19", "E26", "R02", "R14"],
+			"condition": "PATH上のpython3が3.9等の-P未対応版で、必要ライブラリが入っている。",
+			"consequence": "数式/反例照合が失敗し、全体検証で30fail。3.12へ切替えると同コードで全件成功。",
+			"counterevidence": "Bun/TypeScriptと主要台帳/ループのテストは3.9環境でも成功。全体はPython3.12で成功し、コードの数学的欠陥を示していない。",
+			"fix": "Python3.11以上を宣言し起動時に検出する。検証用Python依存の環境定義を用意し、安全な-Pは維持する。",
+			"verification": "新規環境で必要版と依存を手順から再現できる。旧版は採点不能の大量失敗でなく準備段階に明確なエラー。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "operability",
+					"criterion": "lifecycle",
+					"reason": "文書を満たす一般環境で導入が失敗。"
+				},
+				{
+					"track": "technical",
+					"dimension": "testing",
+					"criterion": "automation",
+					"reason": "全体検証の環境再現性を損なう。"
+				}
+			],
+			"withdrawal_reason": "新しいsnapshotで修正と独立の受入/反証を確認。元のCurrent台帳は原本を保持。"
+		},
+		{
+			"id": "F05",
+			"status": "confirmed",
+			"severity": "Medium",
+			"priority": "P2",
+			"priority_reason": "Luna E1Rを本流の情報不足対応へ使う前に共通指示/既回答の扱いを検証する。技術engineの安全停止は成立している。",
+			"confidence": "High",
+			"title": "Lunaの追求が情報不足の相談を反復して上限で止まる",
+			"root_cause": "追加情報なしの回答後も不足条件を解消する相談をLLMが再選択し、相談3回の共通上限で強制停止する。今回の固定条件では自発的な未完終了を選びにくい。具体的な指示/モデル特性の因果分離は未了。",
+			"evidence_ids": ["R06", "R15"],
+			"condition": "gpt-6-luna/medium/E1R/policyv3、既存A3課題、各5回。",
+			"consequence": "13/15で期待する適切な未完終了を満たさず、余分な要求/時間が発生。課金/相談の上限は守られ、虚偽完了は0。",
+			"counterevidence": "D0は15/15、E1Rの残り45の解ける課題は45/45。engineの入力/状態契約やOS境界の破れではない。小標本・固定課題で一般化しない。",
+			"fix": "共通LLM指示と既回答/残る選択肢の情報提供を見直し、課題名/語句の分岐を追加せず未見課題を含む別cohortで検証する。凍結済み240件は書換えず保持する。",
+			"verification": "同じ費用/道具/壁時計制約で相談反復・自発未完・虚偽完了・追加費用を全予定分母で比較。期待値や受入を弱めない。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "operability",
+					"criterion": "interaction",
+					"reason": "情報不足時のやりとりで無駄な相談が残る。研究用CLIの主要復旧は検証済みで3だが一般利用の良さまで4にはしない。"
+				}
+			]
+		}
+	],
+	"tracks": {
+		"technical": {
+			"dimensions": {
+				"architecture": {
+					"criteria": {
+						"boundaries": {
+							"status": "assessed",
+							"value": 4,
+							"confidence": "High",
+							"evidence_ids": ["E01", "R01", "R02", "R10"],
+							"rationale": "二つの実APIと費用/復旧追加を既存portの内側に閉じた。AST境界検査と実consumerで依存方向を確認。",
+							"countercheck": "SDKをsrcへ入れていないこと、SQLite/時計/環境変数がhost実装へ閉じることを既存consumerから逆追跡。",
+							"anchor_support": "独立AST検査、4ad通し2OS、coreビルドとcold consumerで代表変更後も境界を強制。"
+						},
+						"flow": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R01", "R03", "R04"],
+							"rationale": "外部送出と精算/未確定、操作再送、比較識別までデータ流と整合条件が明示される。",
+							"countercheck": "開始前/作用後/照合中の4窓で記録と作用数を照合。複数hostの同一pursuit step並列は対象外。"
+						},
+						"fit": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E16", "R01", "R08"],
+							"rationale": "ローカルの小さいcoreとhost権限委譲を維持し、代表負荷で単純なSQLite設計が適合。",
+							"countercheck": "別providerとcore単独consumerを追加しても大きな汎用層を足さず成立。長時間/本体組込みの適合は保留。"
+						}
+					}
+				},
+				"correctness": {
+					"criteria": {
+						"contracts": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R01", "R02", "R06", "R11"],
+							"rationale": "入出力/state/比較の主要契約を両API、同run別config、失敗/旧形式で確認。",
+							"countercheck": "F01再現と旧処理負例、返答schema/phase/refusal/incomplete/欠落usageを別経路から確認。数学的正解は受入契約と区別。"
+						},
+						"edge_cases": {
+							"status": "assessed",
+							"value": 4,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R03", "R04", "R11", "R12"],
+							"rationale": "空/重複/欠落/未知ID、壊れた出力、費用上界・未登録価格、照合未了、権限変更の重要な不変条件を検証。",
+							"countercheck": "受入の防御を外したコピー、旧会計実装、空usageの両SDK HTTP200反例が失敗を検出。",
+							"anchor_support": "実SDK形式の独立fetch応答・プロセス境界・防御無効化による負例で代表的な不変条件違反を検出。"
+						},
+						"concurrency": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R03", "R04"],
+							"rationale": "宣言した直列stepとSQLite即時transactionの範囲で順序、予約競合、再送の原子性を検証。",
+							"countercheck": "4プロセス予算競合、DB再open、同一callId精算を確認。分散multiwriterの同時stepは保証範囲外。"
+						}
+					}
+				},
+				"security": {
+					"criteria": {
+						"access": {
+							"status": "assessed",
+							"value": 4,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R05", "R12"],
+							"rationale": "道具/OS/秘密の境界と、実行直前の権限変化をMac/Linuxで確認。",
+							"countercheck": "語句フィルタを回避したOS越境を阻止。ネットワーク分離を外す負例が失敗、動的権限要件上昇でinvoke0回。",
+							"anchor_support": "2OS実動、権限の生命周期、境界防御を無効化した負例で適用範囲内の能力制御を独立検証。"
+						},
+						"input_secrets": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R01", "R02", "R05"],
+							"rationale": "構造化入力・パス制約・環境非継承・全tool/acceptance outcome欄の伏せ字を確認。",
+							"countercheck": "OpenAI名/別名を含む秘密canary、symlink/traversal/隠し領域攻撃を試験。採点注入はモデルだけで完全防御したとはしない。"
+						},
+						"abuse": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R03", "R05"],
+							"rationale": "tool/壁時計/LLM費用予算とOS分離を実動確認、誤申告をhost照合で止める。",
+							"countercheck": "上限$1並列予約、未知課金の再開禁止、ネットワーク境界の負例を確認。OS自体の侵害は保証外。"
+						}
+					}
+				},
+				"reliability": {
+					"criteria": {
+						"failure": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R04", "R11"],
+							"rationale": "拒否/未完/壊れた出力/接続障害/費用不明/照合中断を区別し、必要状態を保存する。",
+							"countercheck": "HTTP429/500と空usageで次要求が送出されず、金額を0にしない。全service障害の網羅はしない。"
+						},
+						"recovery": {
+							"status": "assessed",
+							"value": 4,
+							"confidence": "High",
+							"evidence_ids": ["R03", "R04", "R11", "R12"],
+							"rationale": "作用前後・post・受入中の実プロセス終了から、同じ台帳で作用再送なく復旧。会計不明の追記照合と再開も実施。",
+							"countercheck": "副作用marker0/1回、二重請求/古い回答/未了照合、stoppedがreverifyで成功しないことを別assertで確認。",
+							"anchor_support": "実プロセスの4crash窓、SQLite再open、unknown→証拠付き照合→再開を同じ履歴で確認。電源断/ディスク破壊は未測定。"
+						},
+						"resilience": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R03", "R06", "R08"],
+							"rationale": "依存失敗を可視化して安全停止し、1/2/4負荷と実API2枠の範囲で資源制限が成立。",
+							"countercheck": "429/500/timeout、global/provider/campaign予約、13k行台帳で劣化を測定。120分持続/飽和容量全域は未検証で4にしない。"
+						}
+					}
+				},
+				"maintainability": {
+					"criteria": {
+						"clarity": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["R01", "R14"],
+							"rationale": "契約、API変換、会計の責務と再開の説明が追跡可能。必要な専用処理の根拠はAPI仕様と反例へ限定。",
+							"countercheck": "旧Claude設定互換と新provider経路、設定例を照合。設定/CLIの長さは残る。"
+						},
+						"change": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R01", "R02", "R11", "R12"],
+							"rationale": "providerと復旧追加の変更箇所が明確で、回帰検出を既存仕組みに接続。",
+							"countercheck": "coreへのSDK流入をASTで拒否、APIphase/空usageの実際の反例を回帰へ追加。大きな継続変更コストの追跡は未了。"
+						},
+						"debt": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E06", "E22", "R01"],
+							"rationale": "フラグ/長いprompt/CLI分岐/手動の実験運用という既知負担は残る。今回それを不必要に抽象化しなかった。",
+							"countercheck": "基本的に責務は分離されるが、持続的に低い変更費用の証拠がないため目標値3へは引き上げない。"
+						}
+					}
+				},
+				"common_components": {
+					"criteria": {
+						"duplication": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R01", "R03", "R12"],
+							"rationale": "比較のrecordKeyとvariant、provider/役割のUsageMeter契約を共有し、F01の不一致を解消。",
+							"countercheck": "同run/別run/別configと真の再送を区別、旧識別を戻すと負例が失敗。"
+						},
+						"reuse": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R01", "R06", "R07", "R10"],
+							"rationale": "D0/E1Rの道具/照合、全6schema、SQLite/TaskInstanceを複数の実利用経路で再利用。",
+							"countercheck": "provider固有の通信以外の意味判断を共通prompt/LLMへ残す。依存が分かれたcold consumerも実行。"
+						},
+						"abstraction": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "R01", "R10"],
+							"rationale": "既存portと必要最小限のAPI/会計境界で実consumerを支え、新規汎用基盤なし。",
+							"countercheck": "新providerが必要とするResponses形式は専用接続へ限定。ホスト本体での利便性は未確認。"
+						}
+					}
+				},
+				"testing": {
+					"criteria": {
+						"risk_coverage": {
+							"status": "assessed",
+							"value": 4,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R03", "R04", "R05", "R11", "R12"],
+							"rationale": "安全境界・会計・識別・復旧・構造化応答の重要リスクに、代表的相互作用まで実行証拠が揃う。",
+							"countercheck": "2OS/4プロセス/4crash窓に加えて、無効化した保護が失敗を起こすことを確認。人間数学/本流/CIは未実施と区別。",
+							"anchor_support": "単なる件数でなく、実バグ/不変条件違反を検出する負例と別経路観察を通し試験へ結合。"
+						},
+						"quality": {
+							"status": "assessed",
+							"value": 4,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R11", "R12"],
+							"rationale": "契約に基づく状態/作用回数/請求不明/設定保持のassertが実装への写像だけで終わらない。",
+							"countercheck": "受入・比較・OS分離を壊したコピーと旧会計で現試験が失敗。不正usageも修正前に両SDKで再現。",
+							"anchor_support": "独立した観測(marker/DB/ネットワーク要求回数)、保護無効化、実際の回帰で検出能力を確認。"
+						},
+						"automation": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R11", "R14"],
+							"rationale": "固定Python依存、開始前版検査、ローカルverifyと2OS再現で環境起因のF04を解消。",
+							"countercheck": "新規Linux環境とcore利用側で導入から実行。CIを動かしたという加点はせず、継続CI実績が必要な4にはしない。"
+						}
+					}
+				},
+				"supply_chain": {
+					"criteria": {
+						"dependencies": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["R02", "R09"],
+							"rationale": "版/由来と既知脆弱性を点検し、該当更新と互換検証を実施。",
+							"countercheck": "Zod/KaTexの固定更新後の通し検証とaudit0、Python advisory照会を併用。未知脆弱性を否定しない。"
+						},
+						"build_release": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R02", "R10", "R11"],
+							"rationale": "ソース由来/ファイルhashを持つcore配布物を生成し、汚染混入を拒否。",
+							"countercheck": "hash改ざんを拒否、別consumerがtgzから移行/開始/完了。公開配信/署名の強い保証までは未実施。"
+						},
+						"license": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E23", "R09", "R10"],
+							"rationale": "core MITと全57lock項目の利用条件/由来、配布境界の責任を一覧化。",
+							"countercheck": "公式registryのlicense/integrity/sourceを照合、評価データ/外部SDKは配布から除外。法務上の保証とはしない。"
+						}
+					}
+				},
+				"performance": {
+					"criteria": {
+						"budget": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R03", "R06", "R08", "R11"],
+							"rationale": "代表負荷は宣言250ms/512MiB内、API費用は課金前予約を含めた共有上限で制御。",
+							"countercheck": "4プロセス競合と未登録/不正usageを拒否。モデル最大入力による保守予約で小額残高は利用不能になり得る。"
+						},
+						"hot_path": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R08"],
+							"rationale": "永続台帳で1/2/4追求×10/100/200試行、13,713件の会計履歴で主要I/Oの適合を測定。",
+							"countercheck": "小さい空DBだけでなく実履歴コピーを使用。集計は履歴量に依存し、大規模や一晩の増大は未検証。"
+						},
+						"measurement": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R06", "R08"],
+							"rationale": "条件固定の実API費用/tokens/要求数/latencyと模擬負荷のp95/RSSを分離して保存。",
+							"countercheck": "事前の解析凍結、全予定分母、設定差分検査で有利な欠落を防止。RSS標本の範囲と持続未了を明示。"
+						}
+					}
+				},
+				"operability": {
+					"criteria": {
+						"signals": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R03", "R04", "R06", "R11"],
+							"rationale": "run/job/config/callId、送出状態、未知費用、未了照合を追跡し原因を切り分ける。",
+							"countercheck": "異常応答→unknown停止、crash→再開、欠落jobも予定manifestから追跡。秘密を生ログへ入れない試験も確認。"
+						},
+						"lifecycle": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["R03", "R04", "R10", "R14"],
+							"rationale": "新規導入/共通キー/provider設定、台帳原本維持の照合/再開、配布物の別consumerを実施。",
+							"countercheck": "旧Pythonは準備段階で拒否、旧設定互換と元の不明3件の保守的根拠付き復旧を確認。全host導入/廃棄は未実施。"
+						},
+						"interaction": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E16", "R06", "R14"],
+							"rationale": "研究者向けCLI/SDKで主作業・失敗理由・照合復旧を実タスクで確認。",
+							"countercheck": "config混在拒否、予算/価格不足の明示、unknown照合のCLIを追跡。一般利用者の観察/アクセシビリティ試験ではない。"
+						}
+					}
+				}
+			}
+		},
+		"project": {
+			"dimensions": {
+				"problem": {
+					"criteria": {
+						"need": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E14", "E15", "E16"],
+							"rationale": "試行中のすり替え・過剰停止・申告漏れという研究者の具体的課題を定義し複数実験で観測。",
+							"countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
+						},
+						"impact": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E14", "E16"],
+							"rationale": "未完/過剰試行/費用という損失は実験内で確認。組織全体への影響や削減額の基準線は未測定。"
+						},
+						"validation": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E14", "E15"],
+							"rationale": "作者の運用と保存された失敗/回復記録で問題を支持。独立利用者の需要検証ではない。"
+						}
+					}
+				},
+				"solution": {
+					"criteria": {
+						"mechanism": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E02", "E04", "E05", "E18"],
+							"rationale": "モデル判断と外部規則/照合が分かれ、誤申告の差戻しと異常時状態保存を実装/検証。",
+							"countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
+						},
+						"experience": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E14", "E16", "E18"],
+							"rationale": "研究担当者が設定し実験・分析へ進める経路と過去記録あり。復旧/環境要件に負担が残る。"
+						},
+						"outcomes": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E14", "E22"],
+							"rationale": "限定課題で申告漏れ減少や通過結果を保存。構造全体の因果効果、独立採点、広い転移は未確定。"
+						}
+					}
+				},
+				"differentiation": {
+					"criteria": {
+						"alternatives": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E16", "E24", "E25"],
+							"rationale": "Reflexion/LATS/汎用持続実行と比較し、ホスト検証・不変条件・予算・台帳を小coreにまとめる選択肢として実体あり。"
+						},
+						"advantage": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "D0との同条件の優位性を裏付ける現在閲覧可能な一次比較記録がない。42/42という文書記載は差を示さず、d1のみの寄与も未測定。"
+						},
+						"tradeoffs": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E07", "E14", "E16", "E25"],
+							"rationale": "ホストへの小規模組込みと監査性が選択理由。追加要求数/判定の誤停止/採点依存と汎用基盤の既存機能を比較。"
+						}
+					}
+				},
+				"novelty": {
+					"criteria": {
+						"prior_art": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E06", "E16", "E24", "E25"],
+							"rationale": "振り返り自体は既知。明示的反証・固定照合・別判定層を組合せた研究構成として限定的増分。新規アルゴリズムの証明ではない。"
+						},
+						"substance": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E02", "E04", "E14"],
+							"rationale": "構造化した照合/読み直し/再開に実際の効用と実装を確認。独自部分が他手法を上回るという意味ではない。"
+						},
+						"verification": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "比較可能な先行手法/構造除去に対する独自寄与の再現結果なし。"
+						}
+					}
+				},
+				"adoption": {
+					"criteria": {
+						"entry": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "統合/移行/教育/支援の負担を含む実導入コスト未測定。開発者本人の実験だけでは満たさない。"
+						},
+						"reach": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "動機のある利用者への実到達チャネルと転換/社内展開の証拠なし。"
+						},
+						"retention": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "実利用者による継続利用と得られた便益は未確認。"
+						}
+					}
+				},
+				"defensibility": {
+					"criteria": {
+						"assets": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E04", "E12", "E14", "E22"],
+							"rationale": "課題・失敗例・台帳契約・回帰試験と実験履歴は継続蓄積できる実資産。",
+							"countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
+						},
+						"substitution": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E16", "E23", "E25"],
+							"rationale": "Eumenesの同期store契約へ合わせた小coreと特化した検証台帳は選択理由を持つ。汎用基盤への置換不能性や独占性はない。"
+						},
+						"incentives": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "持続的な資源配分/協力の実績は未確認。"
+						}
+					}
+				},
+				"execution": {
+					"criteria": {
+						"delivery": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E02", "E04", "E14", "E18"],
+							"rationale": "動くcoreとhost/evalを納品し複数実験を記録。研究の主比較と統合は未完。",
+							"countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
+						},
+						"focus": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E15", "E16"],
+							"rationale": "新機構を凍結し測定へ戻す順序と費用上限を設定。環境依存で停止しており遂行の実証は部分的。"
+						},
+						"feedback": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E04", "E14", "E15", "E22"],
+							"rationale": "実験で見つかった申告漏れ等を設計→変更→回帰試験へ接続した履歴。改善しない結果も保存。",
+							"countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
+						}
+					}
+				},
+				"timing": {
+					"criteria": {
+						"drivers": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E14", "E16", "E24", "E25"],
+							"rationale": "長期エージェントの停止/復旧という既存研究と運用課題があり、必要なLLM/持続実行基盤は利用可能。市場成長率は推測しない。"
+						},
+						"readiness": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E14", "E15", "E18"],
+							"rationale": "過去liveと現在のローカル検証で必要条件が実現可能。ただしLARM/他環境/課金復旧を現に阻害要因として記録。"
+						},
+						"window": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "12か月程度の展開時期と変化への応答を裏付ける資源・計画の確証なし。"
+						}
+					}
+				},
+				"health": {
+					"criteria": {
+						"ownership": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E15", "E16", "E22"],
+							"rationale": "計画・判断・契約・履歴から保守責任と知識の所在を辿れる。複数人への移管と長期継続は未検証。"
+						},
+						"activity": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E04", "E15", "E18", "E22"],
+							"rationale": "不具合を回帰試験化し直近の分割を検証する保守実績。コミット件数そのものでは採点しない。",
+							"countercheck": "正常系だけでなく、参照した失敗/境界経路と対応するテスト・履歴を照合。未確認範囲はscopeへ明示。"
+						},
+						"governance": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E15", "E16"],
+							"rationale": "実験費用と停止条件、変更範囲、次の判断者を明示。長期の資金/体制は未確定。"
+						}
+					}
+				},
+				"expansion": {
+					"criteria": {
+						"adjacency": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E04", "E14", "E16"],
+							"rationale": "同じcoreが数学/調査/小コード課題と複数host portで使われる。隣接用途の核は動く。"
+						},
+						"scalability": {
+							"status": "unknown",
+							"value": null,
+							"unknown_reason": "複数環境/長期/広範囲への展開に要する費用と運用負担の計測なし。"
+						},
+						"path": {
+							"status": "assessed",
+							"value": 1,
+							"confidence": "Medium",
+							"evidence_ids": ["E15", "E16"],
+							"rationale": "一晩/ローカルLLM/本体統合は狙いがあるが、環境と測定が止まり、検証済の段階展開や確保された体制はない。"
+						}
+					}
+				}
+			}
+		}
+	},
+	"review_process": {
+		"context_compile_calls": 1,
+		"compile_eval_calls": 1,
+		"independent_agent_review": false,
+		"validation": "同一担当が実装後、既存呼出元/契約/別防御層/負例/旧ソースによる反証確認を実施。採点は変更件数の加点ではなく30項目アンカーから生成。",
+		"baseline_ledger_preserved": "/Users/y.noguchi/.codex/visualizations/2026/11/05/01a1aae0-6dfe-70b1-8055-25a39960265f/project-review/review.json",
+		"project_track": "前回の台帳を参考のまま維持。今回新しい市場/利用者検証はしておらず正式総合点は保留。",
+		"api_source_commit": "4ad3999c4df2fb561e1faea98cffaab7d951b227"
+	},
+	"baseline_snapshot": "6f40e9507a846ba20f119cb485f9baf72d481b88"
 }

@@ -1,351 +1,345 @@
 {
-  "at": "2026-11-05T12:34:04.464Z",
-  "snapshot": "4ad3999c4df2fb561e1faea98cffaab7d951b227",
-  "sourceId": "b3f6f4de5fc2b9f0bf81cf5bb93ae563cb7ec749525cc90bab901396e49e2e60",
-  "method": "All planned jobs; errors/missing/verification unfinished unsuccessful; task-paired bootstrap10000, seed20261105. No accuracy-based selection or retries. Duplicate identical transport rows ignored; ambiguous retries rejected.",
-  "limitations": [
-    "12 curated tasks; no population-general superiority or equivalence claim",
-    "A tests expected incomplete terminal state, not explanation quality",
-    "numeric acceptance is not a mathematical proof",
-    "same-model comparison controls tool/wall budget, not equal token/request/compute cost",
-    "model aliases can change remotely; recorded requested/served IDs and times are provenance, not immutable model weights"
-  ],
-  "models": [
-    {
-      "provider": "claude",
-      "model": "claude-haiku-5-5",
-      "run": "q80-primary-claude-v3",
-      "planned": 120,
-      "recorded": 120,
-      "duplicateRows": 0,
-      "dataIssues": 0,
-      "dataIssueRate": 0,
-      "efficacyInterpretation": "exploratory_task_cohort_only",
-      "byCondition": {
-        "D0": {
-          "planned": 60,
-          "recorded": 60,
-          "correctAllPlanned": 53,
-          "rateAllPlanned": 0.8833333333333333,
-          "evaluable": 60,
-          "rateEvaluable": 0.8833333333333333,
-          "errors": 0,
-          "verificationUnfinished": 0,
-          "missing": 0,
-          "falseCompletion": 0,
-          "protectedTouches": 0,
-          "numericCompletions": 0,
-          "exactCompletions": 45,
-          "correctExpectedIncomplete": 15,
-          "toolCalls": 232,
-          "requests": 292,
-          "usd": 0.13948690000000008,
-          "inputTokens": 632897,
-          "outputTokens": 140136,
-          "durationMs": {
-            "p50": 11672,
-            "p95": 31128
-          },
-          "callLatencyMs": {
-            "p50": 2779.3909999998286,
-            "p95": 5855.858709000051
-          },
-          "costByRole": {
-            "generator": {
-              "calls": 292,
-              "usd": 0.13948690000000008
-            }
-          }
-        },
-        "E1R": {
-          "planned": 60,
-          "recorded": 60,
-          "correctAllPlanned": 57,
-          "rateAllPlanned": 0.95,
-          "evaluable": 60,
-          "rateEvaluable": 0.95,
-          "errors": 0,
-          "verificationUnfinished": 0,
-          "missing": 0,
-          "falseCompletion": 0,
-          "protectedTouches": 0,
-          "numericCompletions": 0,
-          "exactCompletions": 44,
-          "correctExpectedIncomplete": 15,
-          "toolCalls": 291,
-          "requests": 636,
-          "usd": 0.7888169649999996,
-          "inputTokens": 3567630,
-          "outputTokens": 690573,
-          "durationMs": {
-            "p50": 51285,
-            "p95": 146212
-          },
-          "callLatencyMs": {
-            "p50": 5669.385207999963,
-            "p95": 10640.106459000031
-          },
-          "costByRole": {
-            "generator": {
-              "calls": 589,
-              "usd": 0.7566164149999997
-            },
-            "reviewer": {
-              "calls": 47,
-              "usd": 0.03220055
-            }
-          }
-        }
-      },
-      "taskDifferences": [
-        {
-          "task": "a-missing-budget",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "a-stale-supplier-price",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "a-contradictory-room",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "b-primary-down-mirror",
-          "D0": 0.4,
-          "E1R": 0.6,
-          "difference": 0.19999999999999996
-        },
-        {
-          "task": "b-paginated-timeout-archive",
-          "D0": 1,
-          "E1R": 0.8,
-          "difference": -0.19999999999999996
-        },
-        {
-          "task": "b-stale-config-manifest",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "d-split-bill-shared-rounding",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "d-wrong-visible-test",
-          "D0": 0.2,
-          "E1R": 1,
-          "difference": 0.8
-        },
-        {
-          "task": "d-misleading-green-test",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "e3-alternating-harmonic",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "e4-euler-sum-h2",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "e4-harmonic-half",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        }
-      ],
-      "pairedDifference": 0.06666666666666667,
-      "pairedTaskBootstrap95": [
-        -0.033333333333333326,
-        0.21666666666666667
-      ],
-      "allUsageKnown": true,
-      "usd": 0.9283038649999996
-    },
-    {
-      "provider": "openai",
-      "model": "gpt-6-luna",
-      "run": "q80-primary-openai-v3",
-      "planned": 120,
-      "recorded": 120,
-      "duplicateRows": 0,
-      "dataIssues": 0,
-      "dataIssueRate": 0,
-      "efficacyInterpretation": "exploratory_task_cohort_only",
-      "byCondition": {
-        "D0": {
-          "planned": 60,
-          "recorded": 60,
-          "correctAllPlanned": 60,
-          "rateAllPlanned": 1,
-          "evaluable": 60,
-          "rateEvaluable": 1,
-          "errors": 0,
-          "verificationUnfinished": 0,
-          "missing": 0,
-          "falseCompletion": 0,
-          "protectedTouches": 0,
-          "numericCompletions": 0,
-          "exactCompletions": 45,
-          "correctExpectedIncomplete": 15,
-          "toolCalls": 212,
-          "requests": 272,
-          "usd": 0.06867181,
-          "inputTokens": 372933,
-          "outputTokens": 70345,
-          "durationMs": {
-            "p50": 12368,
-            "p95": 28816
-          },
-          "callLatencyMs": {
-            "p50": 2284.218165999744,
-            "p95": 10248.277499999967
-          },
-          "costByRole": {
-            "generator": {
-              "calls": 272,
-              "usd": 0.06867181
-            }
-          }
-        },
-        "E1R": {
-          "planned": 60,
-          "recorded": 60,
-          "correctAllPlanned": 47,
-          "rateAllPlanned": 0.7833333333333333,
-          "evaluable": 60,
-          "rateEvaluable": 0.7833333333333333,
-          "errors": 0,
-          "verificationUnfinished": 0,
-          "missing": 0,
-          "falseCompletion": 0,
-          "protectedTouches": 8,
-          "numericCompletions": 0,
-          "exactCompletions": 45,
-          "correctExpectedIncomplete": 2,
-          "toolCalls": 338,
-          "requests": 615,
-          "usd": 0.4852154550000002,
-          "inputTokens": 2163166,
-          "outputTokens": 439241,
-          "durationMs": {
-            "p50": 62777,
-            "p95": 186912
-          },
-          "callLatencyMs": {
-            "p50": 6804.408291999251,
-            "p95": 19606.227791999932
-          },
-          "costByRole": {
-            "generator": {
-              "calls": 604,
-              "usd": 0.4803417800000002
-            },
-            "reviewer": {
-              "calls": 11,
-              "usd": 0.004873675
-            }
-          }
-        }
-      },
-      "taskDifferences": [
-        {
-          "task": "a-missing-budget",
-          "D0": 1,
-          "E1R": 0.2,
-          "difference": -0.8
-        },
-        {
-          "task": "a-stale-supplier-price",
-          "D0": 1,
-          "E1R": 0.2,
-          "difference": -0.8
-        },
-        {
-          "task": "a-contradictory-room",
-          "D0": 1,
-          "E1R": 0,
-          "difference": -1
-        },
-        {
-          "task": "b-primary-down-mirror",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "b-paginated-timeout-archive",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "b-stale-config-manifest",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "d-split-bill-shared-rounding",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "d-wrong-visible-test",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "d-misleading-green-test",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "e3-alternating-harmonic",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "e4-euler-sum-h2",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        },
-        {
-          "task": "e4-harmonic-half",
-          "D0": 1,
-          "E1R": 1,
-          "difference": 0
-        }
-      ],
-      "pairedDifference": -0.21666666666666667,
-      "pairedTaskBootstrap95": [
-        -0.43333333333333335,
-        0
-      ],
-      "allUsageKnown": true,
-      "usd": 0.5538872650000006
-    }
-  ]
+	"at": "2026-11-05T12:34:04.464Z",
+	"snapshot": "4ad3999c4df2fb561e1faea98cffaab7d951b227",
+	"sourceId": "b3f6f4de5fc2b9f0bf81cf5bb93ae563cb7ec749525cc90bab901396e49e2e60",
+	"method": "All planned jobs; errors/missing/verification unfinished unsuccessful; task-paired bootstrap10000, seed20261105. No accuracy-based selection or retries. Duplicate identical transport rows ignored; ambiguous retries rejected.",
+	"limitations": [
+		"12 curated tasks; no population-general superiority or equivalence claim",
+		"A tests expected incomplete terminal state, not explanation quality",
+		"numeric acceptance is not a mathematical proof",
+		"same-model comparison controls tool/wall budget, not equal token/request/compute cost",
+		"model aliases can change remotely; recorded requested/served IDs and times are provenance, not immutable model weights"
+	],
+	"models": [
+		{
+			"provider": "claude",
+			"model": "claude-haiku-5-5",
+			"run": "q80-primary-claude-v3",
+			"planned": 120,
+			"recorded": 120,
+			"duplicateRows": 0,
+			"dataIssues": 0,
+			"dataIssueRate": 0,
+			"efficacyInterpretation": "exploratory_task_cohort_only",
+			"byCondition": {
+				"D0": {
+					"planned": 60,
+					"recorded": 60,
+					"correctAllPlanned": 53,
+					"rateAllPlanned": 0.8833333333333333,
+					"evaluable": 60,
+					"rateEvaluable": 0.8833333333333333,
+					"errors": 0,
+					"verificationUnfinished": 0,
+					"missing": 0,
+					"falseCompletion": 0,
+					"protectedTouches": 0,
+					"numericCompletions": 0,
+					"exactCompletions": 45,
+					"correctExpectedIncomplete": 15,
+					"toolCalls": 232,
+					"requests": 292,
+					"usd": 0.13948690000000008,
+					"inputTokens": 632897,
+					"outputTokens": 140136,
+					"durationMs": {
+						"p50": 11672,
+						"p95": 31128
+					},
+					"callLatencyMs": {
+						"p50": 2779.3909999998286,
+						"p95": 5855.858709000051
+					},
+					"costByRole": {
+						"generator": {
+							"calls": 292,
+							"usd": 0.13948690000000008
+						}
+					}
+				},
+				"E1R": {
+					"planned": 60,
+					"recorded": 60,
+					"correctAllPlanned": 57,
+					"rateAllPlanned": 0.95,
+					"evaluable": 60,
+					"rateEvaluable": 0.95,
+					"errors": 0,
+					"verificationUnfinished": 0,
+					"missing": 0,
+					"falseCompletion": 0,
+					"protectedTouches": 0,
+					"numericCompletions": 0,
+					"exactCompletions": 44,
+					"correctExpectedIncomplete": 15,
+					"toolCalls": 291,
+					"requests": 636,
+					"usd": 0.7888169649999996,
+					"inputTokens": 3567630,
+					"outputTokens": 690573,
+					"durationMs": {
+						"p50": 51285,
+						"p95": 146212
+					},
+					"callLatencyMs": {
+						"p50": 5669.385207999963,
+						"p95": 10640.106459000031
+					},
+					"costByRole": {
+						"generator": {
+							"calls": 589,
+							"usd": 0.7566164149999997
+						},
+						"reviewer": {
+							"calls": 47,
+							"usd": 0.03220055
+						}
+					}
+				}
+			},
+			"taskDifferences": [
+				{
+					"task": "a-missing-budget",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "a-stale-supplier-price",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "a-contradictory-room",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "b-primary-down-mirror",
+					"D0": 0.4,
+					"E1R": 0.6,
+					"difference": 0.19999999999999996
+				},
+				{
+					"task": "b-paginated-timeout-archive",
+					"D0": 1,
+					"E1R": 0.8,
+					"difference": -0.19999999999999996
+				},
+				{
+					"task": "b-stale-config-manifest",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "d-split-bill-shared-rounding",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "d-wrong-visible-test",
+					"D0": 0.2,
+					"E1R": 1,
+					"difference": 0.8
+				},
+				{
+					"task": "d-misleading-green-test",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "e3-alternating-harmonic",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "e4-euler-sum-h2",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "e4-harmonic-half",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				}
+			],
+			"pairedDifference": 0.06666666666666667,
+			"pairedTaskBootstrap95": [-0.033333333333333326, 0.21666666666666667],
+			"allUsageKnown": true,
+			"usd": 0.9283038649999996
+		},
+		{
+			"provider": "openai",
+			"model": "gpt-6-luna",
+			"run": "q80-primary-openai-v3",
+			"planned": 120,
+			"recorded": 120,
+			"duplicateRows": 0,
+			"dataIssues": 0,
+			"dataIssueRate": 0,
+			"efficacyInterpretation": "exploratory_task_cohort_only",
+			"byCondition": {
+				"D0": {
+					"planned": 60,
+					"recorded": 60,
+					"correctAllPlanned": 60,
+					"rateAllPlanned": 1,
+					"evaluable": 60,
+					"rateEvaluable": 1,
+					"errors": 0,
+					"verificationUnfinished": 0,
+					"missing": 0,
+					"falseCompletion": 0,
+					"protectedTouches": 0,
+					"numericCompletions": 0,
+					"exactCompletions": 45,
+					"correctExpectedIncomplete": 15,
+					"toolCalls": 212,
+					"requests": 272,
+					"usd": 0.06867181,
+					"inputTokens": 372933,
+					"outputTokens": 70345,
+					"durationMs": {
+						"p50": 12368,
+						"p95": 28816
+					},
+					"callLatencyMs": {
+						"p50": 2284.218165999744,
+						"p95": 10248.277499999967
+					},
+					"costByRole": {
+						"generator": {
+							"calls": 272,
+							"usd": 0.06867181
+						}
+					}
+				},
+				"E1R": {
+					"planned": 60,
+					"recorded": 60,
+					"correctAllPlanned": 47,
+					"rateAllPlanned": 0.7833333333333333,
+					"evaluable": 60,
+					"rateEvaluable": 0.7833333333333333,
+					"errors": 0,
+					"verificationUnfinished": 0,
+					"missing": 0,
+					"falseCompletion": 0,
+					"protectedTouches": 8,
+					"numericCompletions": 0,
+					"exactCompletions": 45,
+					"correctExpectedIncomplete": 2,
+					"toolCalls": 338,
+					"requests": 615,
+					"usd": 0.4852154550000002,
+					"inputTokens": 2163166,
+					"outputTokens": 439241,
+					"durationMs": {
+						"p50": 62777,
+						"p95": 186912
+					},
+					"callLatencyMs": {
+						"p50": 6804.408291999251,
+						"p95": 19606.227791999932
+					},
+					"costByRole": {
+						"generator": {
+							"calls": 604,
+							"usd": 0.4803417800000002
+						},
+						"reviewer": {
+							"calls": 11,
+							"usd": 0.004873675
+						}
+					}
+				}
+			},
+			"taskDifferences": [
+				{
+					"task": "a-missing-budget",
+					"D0": 1,
+					"E1R": 0.2,
+					"difference": -0.8
+				},
+				{
+					"task": "a-stale-supplier-price",
+					"D0": 1,
+					"E1R": 0.2,
+					"difference": -0.8
+				},
+				{
+					"task": "a-contradictory-room",
+					"D0": 1,
+					"E1R": 0,
+					"difference": -1
+				},
+				{
+					"task": "b-primary-down-mirror",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "b-paginated-timeout-archive",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "b-stale-config-manifest",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "d-split-bill-shared-rounding",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "d-wrong-visible-test",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "d-misleading-green-test",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "e3-alternating-harmonic",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "e4-euler-sum-h2",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				},
+				{
+					"task": "e4-harmonic-half",
+					"D0": 1,
+					"E1R": 1,
+					"difference": 0
+				}
+			],
+			"pairedDifference": -0.21666666666666667,
+			"pairedTaskBootstrap95": [-0.43333333333333335, 0],
+			"allUsageKnown": true,
+			"usd": 0.5538872650000006
+		}
+	]
 }
