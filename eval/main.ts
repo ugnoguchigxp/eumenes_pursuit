@@ -1,5 +1,5 @@
 import { meterJudge } from "../standalone/metered-ports.ts";
-import { totalUsage, type UsageScope } from "../standalone/usage.ts";
+import type { UsageScope } from "../standalone/usage.ts";
 import {
 	configIdentity,
 	jobKey,
@@ -9,10 +9,6 @@ import {
 	sourceIdentity,
 	type EffectiveRunConfig,
 } from "./run-config.ts";
-import {
-	stepWithDeadline,
-	cancelWithDeadline,
-} from "../standalone/deadline.ts";
 /**
  * Live evaluation: Claude (generator/reviewer) and d1 on LARM (judge), real tools.
  *
@@ -24,23 +20,10 @@ import {
  * Results (gitignored): eval/results/<run>/{ledger.sqlite, runs.jsonl, summary.md}.
  * Task workspaces live in the OS temp directory (path printed per run).
  */
-import {
-	appendFileSync,
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	renameSync,
-	writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import {
-	createPursuitEngine,
-	policySchema,
-	terminalStatuses,
-} from "../src/index.ts";
+import { createPursuitEngine, policySchema } from "../src/index.ts";
 import { migrations } from "../src/sqlite.ts";
 import { createRoleLlm } from "../standalone/llm.ts";
 import { createFileLlm } from "../standalone/file-llm.ts";
@@ -54,39 +37,24 @@ import {
 	conditionsFor,
 	type ConditionName,
 } from "./conditions.ts";
-import { endNoticeText, runDirect, type DirectEntry } from "./direct.ts";
 import type { EvalTask, ToolTier } from "./contracts.ts";
 import type { LlmPort } from "../src/index.ts";
 import {
 	compare,
 	detection,
-	withDiagnostics,
-	withOutcomeFacts,
-	isCorrect,
-	measure,
-	measureDirect,
 	summarize,
 	summarizePlanned,
 	type RunRecord,
 } from "./metrics.ts";
+import { redactError, secretValues } from "./redact.ts";
 import {
-	redactAcceptance,
-	redactError,
-	redactTools,
-	secretValues,
-} from "./redact.ts";
-import {
-	claimLimitReached,
-	claimLimitReason,
-	failedClaims,
 	isDefaultOracle,
-	oracleAcceptance,
-	oracleGoal,
 	oracleTag,
 	parseClaimOracle,
 } from "./claim-oracle.ts";
 import { loadSecret } from "./tasks/e/discovery.ts";
 import { loadRubric } from "./tasks/e/proof-grader.ts";
+import { executeJobs } from "./run-jobs.ts";
 import { tasks } from "./tasks/index.ts";
 
 const { values, positionals } = parseArgs({
@@ -757,355 +725,38 @@ console.log(
 	`jobs: ${jobs.length} (skipping ${done.size} already recorded); spent so far $${meter.spentUsd().toFixed(3)}`,
 );
 
-/** --claim-feedback verdict with --llm file: end-of-task notices for the generator's responder (show.sh prints them). */
-let noticeSeq = 0;
-function notifyEnd(
-	goal: string,
-	lastClaim: Parameters<typeof endNoticeText>[1],
-	ending: Parameters<typeof endNoticeText>[2] = null,
-) {
-	if (claimFeedback !== "verdict" || !useFile) return;
-	const dir = resolve(values["llm-dir"]!, "notices");
-	mkdirSync(dir, { recursive: true });
-	// Written whole, then renamed, so show.sh never prints a half-written notice (§5).
-	const name = `${process.pid}-${String(++noticeSeq).padStart(4, "0")}.txt`;
-	writeFileSync(
-		resolve(dir, `.${name}.tmp`),
-		`${endNoticeText(goal, lastClaim, ending)}\n`,
-	);
-	renameSync(resolve(dir, `.${name}.tmp`), resolve(dir, name));
-}
-
-/** A give_up or a host stop, for the end notice (spec/fixes-2026-10-22-d.md §3.6). */
-function directEnding(
-	result: Awaited<ReturnType<typeof runDirect>> | null,
-): Parameters<typeof endNoticeText>[2] {
-	if (!result) return null;
-	const last = result.entries.at(-1);
-	if (last?.kind === "give_up")
-		return { kind: "give_up", reason: last.message ?? result.reason };
-	return result.outcome === "stopped"
-		? { kind: "stop", reason: result.reason }
-		: null;
-}
-
-function pursuitEnding(view: {
-	decisions: readonly { kind: string; reason: string }[];
-}): Parameters<typeof endNoticeText>[2] {
-	const last = view.decisions.at(-1);
-	if (last?.kind === "give_up") return { kind: "give_up", reason: last.reason };
-	if (last?.kind === "stop") return { kind: "stop", reason: last.reason };
-	return null;
-}
-
-/** D0 transcripts (the direct baseline has no ledger): results/<run>/direct/<label>.jsonl. */
-const directDir = resolve(root, "direct");
-
-async function runOne(job: (typeof jobs)[number]) {
-	const { task, condition, repeat } = job;
-	const variant = variantOf(condition);
-	const configId = effectiveConfigs.get(condition)!.id;
-	const scope: UsageScope = {
-		runId: values.name!,
-		configId,
-		jobId: crypto.randomUUID(),
-		pursuitId: null,
-		...(values["budget-id"] ? { budgetId: values["budget-id"] } : {}),
-	};
-	const label = `${task.id}/${condition}/${variant}/#${repeat}`;
-	const started = Date.now();
-	const goal = oracleGoal(task.goalFor?.(toolTier) ?? task.goal, claimOracle);
-	// Outside the project, so task code cannot reach .env by a relative path.
-	const directory = mkdtempSync(
-		join(tmpdir(), `eumenes-pursuit-${task.id}-${condition}-${repeat}-`),
-	);
-	console.log(`[start] ${label} workspace ${directory}`);
-	const instance = await task.create(directory, {
-		grader: graderFor(scope),
-		toolTier,
-		critic: values.critic ? reviewerFor(scope, "critic") : null,
-		rubricDir,
-		secretDir,
-		corpus,
-	});
-	const controller = new AbortController();
-	const common = {
-		run: values.name!,
-		task: task.id,
-		group: task.group,
-		condition,
-		generator: variant,
-		level: task.level ?? null,
-		repeat,
-		expected: task.expected,
-		budgetTag,
-		...(task.needsCorpus && corpus ? { corpus } : {}),
-	};
-	const finishRecord = async (
-		measured: ReturnType<typeof measure>,
-		error: string | null,
-	) => {
-		const facts = instance.outcomeFacts
-			? await instance.outcomeFacts().catch(() => null)
-			: null;
-		const folded = withDiagnostics(
-			withOutcomeFacts(measured, facts),
-			instance.diagnostics?.() ?? null,
-		);
-		const usage = totalUsage(meter.events(scope.jobId));
-		const record: RunRecord = {
-			...folded,
-			llmCalls: usage.calls,
-			inputTokens: usage.inputTokens,
-			outputTokens: usage.outputTokens,
-			usd: usage.usd,
-			usage,
-			...common,
-			configId,
-			jobKey: jobKey(task.id, condition, configId, repeat),
-			correct: isCorrect(task.expected, { ...folded, error }),
-			durationMs: Date.now() - started,
-			error,
-		};
-		appendFileSync(runsPath, `${JSON.stringify(record)}\n`);
-		if (!values["keep-work"]) await instance.dispose();
-		console.log(
-			`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""}${record.verificationIssue ? ` (final verification ${record.verificationIssue}: not judged)` : ""} correct=${record.correct} tools=${record.toolCalls} requests=${record.responderRequests} stepBacks=${record.stepBacks} $${record.usd === null ? "unknown" : record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
-		);
-	};
-	if (condition === "D0") {
-		const id = `direct_${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
-		mkdirSync(directDir, { recursive: true });
-		const transcript = resolve(directDir, `${task.id}-r${repeat}-${id}.jsonl`);
-		let error: string | null = null;
-		let result: Awaited<ReturnType<typeof runDirect>> | null = null;
-		try {
-			result = await runDirect({
-				goal,
-				acceptance: task.acceptance,
-				grant: task.grant,
-				tools: redactTools(instance.tools, secrets),
-				workspace: instance.workspace,
-				acceptancePort: oracleAcceptance(
-					redactAcceptance(instance.acceptance, secrets),
-					claimOracle,
-				),
-				claimLimit: claimOracle.limit,
-				llm: generatorFor(scope),
-				budget: {
-					toolCalls: policy.budget.attempts,
-					wallMs: policy.budget.wallMs,
-					requests: Math.min(policy.budget.transitions, maxSteps),
-				},
-				fullEntries: directFull,
-				observation: policy.observation,
-				signal: controller.signal,
-				onEntry: (entry: DirectEntry) =>
-					appendFileSync(transcript, `${JSON.stringify(entry)}\n`),
-			});
-		} catch (e) {
-			error = errorText(e);
-			console.error(`[error] ${label}`, error);
-		}
-		if (!result) {
-			if (!values["keep-work"]) await instance.dispose();
-			return;
-		}
-		const last = [...result.entries].reverse().find((e) => e.kind === "claim");
-		notifyEnd(
-			goal,
-			last
-				? {
-						passed: last.passed === true,
-						criteria: result.claimCriteria.at(-1) ?? [],
-					}
-				: null,
-			directEnding(result),
-		);
-		await finishRecord(
-			measureDirect(result, id, (model) => pricing[model]),
-			error,
-		);
-		return;
-	}
-	const engine = engineFor(scope);
-	let pursuitId = "";
-	let error: string | null = null;
-	try {
-		const startedPursuit = await engine.start(
-			{
-				goal,
-				acceptance: task.acceptance,
-				grant: task.grant,
-				policy,
-				conditions: conditionsFor(condition, conditionFlags),
-				goalRef: null,
-				label: task.id,
-				...(experience.length ? { experience } : {}),
-			},
-			// Every execution is a new pursuit; a rerun never resumes an old ledger entry.
-			`${values.name}:${label}:${crypto.randomUUID()}`,
-		);
-		if (startedPursuit.replayed) throw new Error("unexpected_replay");
-		pursuitId = startedPursuit.pursuitId;
-		scope.pursuitId = pursuitId;
-		const runtime = {
-			tools: redactTools(instance.tools, secrets),
-			workspace: instance.workspace,
-			acceptance: oracleAcceptance(
-				redactAcceptance(instance.acceptance, secrets),
-				claimOracle,
-			),
-		};
-		for (let i = 0; i < maxSteps; i++) {
-			const step = await stepWithDeadline(
-				engine,
-				pursuitId,
-				runtime,
-				controller.signal,
-			);
-			if (step.done) break;
-			if (claimOracle.limit !== null) {
-				const failed = failedClaims((await engine.view(pursuitId))!);
-				if (claimLimitReached(failed, claimOracle)) {
-					await cancelWithDeadline(
-						engine,
-						pursuitId,
-						claimLimitReason,
-						runtime,
-						controller.signal,
-					);
-					break;
-				}
-			}
-			if (step.status === "awaiting_consultation") {
-				const view = (await engine.view(pursuitId))!;
-				const open = view.consultations.find((c) => c.answer === null)!;
-				if (view.consultations.length > 3) {
-					await cancelWithDeadline(
-						engine,
-						pursuitId,
-						"相談が3回を超えました",
-						runtime,
-						controller.signal,
-					);
-					break;
-				}
-				await engine.answer(pursuitId, open.id, task.consultAnswer);
-			}
-		}
-		const view = (await engine.view(pursuitId))!;
-		if (!terminalStatuses.includes(view.status))
-			await cancelWithDeadline(
-				engine,
-				pursuitId,
-				"評価の手順数の上限",
-				runtime,
-				controller.signal,
-			);
-	} catch (e) {
-		error = errorText(e);
-		console.error(`[error] ${label}`, error);
-	}
-	const view = pursuitId ? await engine.view(pursuitId) : null;
-	if (!view) return;
-	const lastClaim = view.verifications
-		.filter((v) => v.trigger === "claim")
-		.at(-1);
-	notifyEnd(
-		goal,
-		lastClaim
-			? { passed: lastClaim.passed, criteria: lastClaim.criteria }
-			: null,
-		pursuitEnding(view),
-	);
-	await finishRecord(
-		measure(view, (model) => pricing[model]),
-		error,
-	);
-}
-
-let runFailure: Error | null = null;
-try {
-	const queue = [...jobs];
-	const workers = await Promise.allSettled(
-		Array.from({ length: concurrency }, async () => {
-			for (let job = queue.shift(); job; job = queue.shift()) {
-				try {
-					meter.assertWithinLimit();
-				} catch (e) {
-					console.error(errorText(e));
-					queue.length = 0;
-					return;
-				}
-				const identity = {
-					task: job.task.id,
-					condition: job.condition,
-					repeat: job.repeat,
-					configId: effectiveConfigs.get(job.condition)!.id,
-				};
-				appendFileSync(
-					join(root, "job-events.jsonl"),
-					JSON.stringify({
-						...identity,
-						status: "started",
-						at: new Date().toISOString(),
-					}) + "\n",
-				);
-				let jobError: string | null = null;
-				try {
-					await runOne(job);
-				} catch (error) {
-					jobError = errorText(error);
-					queue.length = 0;
-					throw error;
-				} finally {
-					const record = readRecords().find(
-						(r) =>
-							recordKey(r) ===
-							jobKey(
-								identity.task,
-								identity.condition,
-								identity.configId,
-								identity.repeat,
-							),
-					);
-					appendFileSync(
-						join(root, "job-events.jsonl"),
-						JSON.stringify({
-							...identity,
-							status: record ? "recorded" : "record_missing",
-							error: record?.error ?? jobError,
-							at: new Date().toISOString(),
-						}) + "\n",
-					);
-				}
-			}
-		}),
-	);
-	const failure = workers.find((worker) => worker.status === "rejected");
-	if (failure?.status === "rejected")
-		throw redactError(failure.reason, secrets);
-} catch (error) {
-	runFailure = redactError(error, secrets);
-} finally {
-	const failures: Error[] = [];
-	// Keep cleanup ordered and attempt every step, even if the remote lease cannot be released.
-	for (const cleanup of [
-		() => lease?.release(),
-		() => store.close(),
-		() => console.log(`spent so far $${meter.spentUsd().toFixed(3)}`),
-		() => settings.close(),
-		() => writeSummary(),
-	]) {
-		try {
-			await cleanup();
-		} catch (error) {
-			failures.push(redactError(error, secrets));
-		}
-	}
-	for (const failure of runFailure ? failures : failures.slice(1))
-		console.error(`[cleanup] ${failure.name}: ${failure.message}`);
-	runFailure ??= failures[0] ?? null;
-}
-if (runFailure) throw runFailure;
+await executeJobs({
+	jobs,
+	concurrency,
+	root,
+	runsPath,
+	claimFeedback,
+	useFile,
+	values,
+	variantOf,
+	effectiveConfigs,
+	toolTier,
+	claimOracle,
+	graderFor,
+	reviewerFor,
+	rubricDir,
+	secretDir,
+	corpus,
+	meter,
+	pricing,
+	secrets,
+	policy,
+	maxSteps,
+	directFull,
+	generatorFor,
+	errorText,
+	engineFor,
+	conditionFlags,
+	experience,
+	budgetTag,
+	readRecords,
+	lease,
+	store,
+	settings,
+	writeSummary,
+});

@@ -309,14 +309,17 @@ export function settleAttempt(
 		refs: AttemptRow["refs"];
 		features: AttemptFeatures;
 		settlement?: Settlement;
+		/** Set only when this settlement adopts an external tool result. */
+		pendingResultDigest?: string;
 		now: number;
 	},
 ): void {
 	requireTransaction(db);
+	const digest = input.pendingResultDigest ? input.pendingResultDigest : "";
 	expectChanges(
 		db
 			.query(
-				`UPDATE pursuit_attempt SET state = 'settled', observation_json = ?, outcome = ?, refs_json = ?, features_json = ?, settled_at = ?, settlement_json = ?
+				`UPDATE pursuit_attempt SET state = 'settled', observation_json = ?, outcome = ?, refs_json = ?, features_json = ?, settled_at = ?, settlement_json = ?${digest ? ", pending_result_digest = ?" : ""}
 				 WHERE id = ? AND state = 'started'`,
 			)
 			.run(
@@ -328,6 +331,7 @@ export function settleAttempt(
 				json(
 					input.settlement ?? { stage: "done", digest: null, effects: null },
 				),
+				...(digest ? [digest] : []),
 				input.id,
 			),
 		1,

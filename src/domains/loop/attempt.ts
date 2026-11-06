@@ -308,12 +308,9 @@ export function makeAttempt(
 					digest: awaitDigest,
 					effects: null,
 				},
+				...(pendingDigest ? { pendingResultDigest: pendingDigest } : {}),
 				now: clock.now(),
 			});
-			if (pendingDigest)
-				db.query(
-					"UPDATE pursuit_attempt SET pending_result_digest=? WHERE id=?",
-				).run(pendingDigest, attemptId);
 			recordFindings(
 				db,
 				current,

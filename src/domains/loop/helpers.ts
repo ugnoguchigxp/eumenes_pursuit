@@ -1,4 +1,5 @@
 import type {
+	CriterionResult,
 	DecidedBy,
 	DecisionKind,
 	JsonObject,
@@ -104,6 +105,34 @@ export const reviewKinds: Readonly<Record<Review["decision"], DecisionKind>> = {
 };
 
 export class WallTimeExpired extends Error {}
+
+/**
+ * Wait for one host acceptance call beside abort. Criteria already produced are kept when the
+ * signal aborts after they arrive. The listener is removed before this function returns.
+ */
+export async function raceAcceptance(
+	signal: AbortSignal,
+	verify: () => Promise<readonly CriterionResult[]>,
+): Promise<{
+	criteria: readonly CriterionResult[];
+	issue: "aborted" | "failed" | null;
+}> {
+	let onAbort = () => {};
+	let criteria: readonly CriterionResult[] = [];
+	try {
+		const aborted = new Promise<never>((_, reject) => {
+			onAbort = () => reject(signal.reason);
+			signal.addEventListener("abort", onAbort, { once: true });
+		});
+		criteria = await Promise.race([verify(), aborted]);
+		signal.throwIfAborted();
+		return { criteria, issue: null };
+	} catch {
+		return { criteria, issue: signal.aborted ? "aborted" : "failed" };
+	} finally {
+		signal.removeEventListener("abort", onAbort);
+	}
+}
 
 /** F numbers cited in a text, by the same pattern as the citation check (checks.ts). */
 /**

@@ -23,7 +23,7 @@ import { pursuitBudgetExceeded, remainingWallMs } from "../rules/checks.ts";
 import { digestJson } from "../rules/fingerprint.ts";
 import { makeAttempt } from "./attempt.ts";
 import { makeBase, type EngineCtx } from "./context.ts";
-import { budgetReasons, WallTimeExpired } from "./helpers.ts";
+import { budgetReasons, raceAcceptance, WallTimeExpired } from "./helpers.ts";
 import { makePropose } from "./propose.ts";
 import { makeReview } from "./review.ts";
 import { makeSupport } from "./support.ts";
@@ -284,24 +284,11 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			if (!view.report.verificationIssue)
 				return result(view, view.revision, view.status, "finished");
 			signal.throwIfAborted();
-			let onAbort = () => {};
-			let criteria: Awaited<ReturnType<typeof runtime.acceptance.verify>> = [];
-			let issue: "aborted" | "failed" | undefined;
-			try {
-				const aborted = new Promise<never>((_, reject) => {
-					onAbort = () => reject(signal.reason);
-					signal.addEventListener("abort", onAbort, { once: true });
-				});
-				criteria = await Promise.race([
-					runtime.acceptance.verify(signal),
-					aborted,
-				]);
-				signal.throwIfAborted();
-			} catch {
-				issue = signal.aborted ? "aborted" : "failed";
-			} finally {
-				signal.removeEventListener("abort", onAbort);
-			}
+			const raced = await raceAcceptance(signal, () =>
+				runtime.acceptance.verify(signal),
+			);
+			const criteria = raced.criteria;
+			const issue = raced.issue;
 			const { verificationIssue: _previous, ...previous } = view.report;
 			const report = {
 				...previous,

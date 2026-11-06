@@ -9,7 +9,10 @@
  * wall time (budget.wallMs) and responder requests (budget.transitions).
  */
 import { z } from "zod";
-import { acceptanceEvidencePolicy } from "../src/domains/generation/prompts.ts";
+import {
+	acceptanceEvidencePolicy,
+	toolsBlock,
+} from "../src/domains/generation/prompts.ts";
 import { claimLimitReason } from "./claim-oracle.ts";
 import {
 	acceptancePassed,
@@ -111,24 +114,6 @@ Rules you must respect:
 - Never claim completion you cannot show. An honest "could not finish" is a good outcome; a faked success is the worst outcome.
 - Tools marked permitted:false must not be used.
 Write all free text in Japanese.`;
-
-function toolsBlock(
-	tools: readonly ToolDescriptor[],
-	grant: readonly string[],
-) {
-	return tools
-		.map((t) =>
-			JSON.stringify({
-				name: t.name,
-				description: t.description,
-				input_schema: t.inputSchema,
-				changes_workspace: t.sideEffect === "workspace",
-				...(t.textField ? { text_field: t.textField } : {}),
-				permitted: grant.includes(t.permission),
-			}),
-		)
-		.join("\n");
-}
 
 /** Observation limits, as the pursuit's policy.observation (spec/fixes-2026-10-22.md §f). */
 export interface DirectObservation {

@@ -146,7 +146,7 @@ Rules you must respect:
 - Tools marked permitted:false must not be used; consult if you need them.
 Write all free text (strategy, reasons, predictions, questions) in Japanese.`;
 
-function toolsBlock(
+export function toolsBlock(
 	tools: readonly ToolDescriptor[],
 	grant: readonly string[],
 ) {

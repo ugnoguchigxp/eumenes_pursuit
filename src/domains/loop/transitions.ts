@@ -16,7 +16,7 @@ import { acceptancePassed } from "../rules/acceptance.ts";
 import { executed } from "../rules/checks.ts";
 import type { EngineCtx, EngineSteps } from "./context.ts";
 import type { PursuitRuntime } from "./engine.ts";
-import { normalPath } from "./helpers.ts";
+import { normalPath, raceAcceptance } from "./helpers.ts";
 
 export function makeTransitions(
 	ctx: EngineCtx,
@@ -143,28 +143,36 @@ export function makeTransitions(
 		// Save terminal state before calling a fallible external verifier. Abort also
 		// ends our wait when a host verifier fails to honor its signal.
 		let finalReport: Report;
-		let onAbort = () => {};
 		try {
 			signal.throwIfAborted();
-			const aborted = new Promise<never>((_, reject) => {
-				onAbort = () => reject(signal.reason);
-				signal.addEventListener("abort", onAbort, { once: true });
-			});
-			const finalCriteria =
-				known ??
-				(await Promise.race([runtime.acceptance.verify(signal), aborted]));
-			signal.throwIfAborted();
-			finalReport = {
-				...report,
-				criteria: finalCriteria,
-				verified: acceptancePassed(view.acceptance, finalCriteria),
-			};
+			if (known) {
+				finalReport = {
+					...report,
+					criteria: known,
+					verified: acceptancePassed(view.acceptance, known),
+				};
+			} else {
+				const raced = await raceAcceptance(signal, () =>
+					runtime.acceptance.verify(signal),
+				);
+				if (raced.issue) {
+					finalReport = { ...report, verificationIssue: raced.issue };
+					warn("final_verification_unavailable", {
+						pursuitId: view.id,
+						issue: raced.issue,
+					});
+				} else {
+					finalReport = {
+						...report,
+						criteria: raced.criteria,
+						verified: acceptancePassed(view.acceptance, raced.criteria),
+					};
+				}
+			}
 		} catch {
 			const issue = signal.aborted ? "aborted" : "failed";
 			finalReport = { ...report, verificationIssue: issue };
 			warn("final_verification_unavailable", { pursuitId: view.id, issue });
-		} finally {
-			signal.removeEventListener("abort", onAbort);
 		}
 		const finalRevision = await store.write((db) => {
 			ledger.insertVerification(db, {
