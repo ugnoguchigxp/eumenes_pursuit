@@ -58,7 +58,7 @@ bun install
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-eval.txt
-bun run verify          # 整形・lint・型・境界・決定的な試験
+bun run verify          # 整形・lint・型・境界・決定的な試験・性能
 ```
 
 live の評価には次が要ります。
@@ -104,7 +104,17 @@ bun standalone/cli.ts spend reconcile <call-id> <USD> <operator> upper_bound '<d
 
 通常の `bun run verify` はAPIキーを使わない試験です。Linuxの使い捨て検証は `scripts/verify-linux.sh`、coreだけの配布物の作成は `bun run pack:core` で行います。CIはmacOS/Linuxを対象に同じ検証とビルドを実行します。パッケージは公開しません。
 
+`bun run check:performance` は `verify` にも含まれます。固定の模擬応答と永続SQLiteを使い、10・100・200試行 × 1・2・4追求で、stepのp95 250ms以下、測定時RSS 512MiB以下、読み戻し5秒以下を検査します。環境・負荷別の実測値と閾値をJSONで出力します。APIの待ち時間は含まず、実測値を新しい閾値として自動採用しません。
+
 ## live の評価
+
+`--conditions D0,E1R,AUTO` で、直接解法・追求・LLMによる方式選択を比較できます。AUTOは開始時に目標・道具・モデル・予算を見てD0/E1Rを選び、判断理由を記録します。選択の費用・時間・要求数も予算に含みます。`--selection-evidence <file>` は比較の観測記録を選択役へ渡す任意の資料です。課題名やモデル名による選択規則はありません。
+
+`--advisor` は設定の `llm.strong` を上位レビューの道具として貸します。呼ぶかどうかはLLMが判断します。直接解法にも同じ道具を貸し、費用はadvisorとして計測します。追求では既存の保留道具の仕組みで予約・結果を永続化します。`--pause-on-advice` または `--pause-after-tools N` で対応課題を保留し、同じ実行引数に `--resume` を加えると、追求ID・作業領域・費用scopeを維持して再開します。設定・ソースが違う場合は再開を拒否します。送出済みで結果不明のレビューは自動再送しません。直接解法の途中再開には対応していません。
+
+`hz12-study-cache` と `hz12-study-scheduler` は唯一の正解を持たない調査課題です。実験から費用・処理量・公平性のトレードオフを調べ、未確定の結論も報告できます。受入検査は引用した実験の出典と数値を照合し、自由記述の品質や最適性は保証しません。2題の小規模比較の範囲は [検証計画](spec/adaptive-study-2026-11-07.md) を参照してください。
+
+集計には失敗分と選択・レビューを含む総費用・総時間、および正しい結末1件あたりの総費用・時間を追加しました。未知費用・欠落はunknownと表示します。「偽の完了」はホスト照合との整合性であり、検証器自身の誤合格率ではありません。
 
 ```sh
 # 条件 E0〜E3 × 全課題

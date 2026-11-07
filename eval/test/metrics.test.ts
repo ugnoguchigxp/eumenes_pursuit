@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { PursuitView } from "../../src/index.ts";
 import { ending } from "../horizon.ts";
+import { totalUsage } from "../../standalone/usage.ts";
+import { openSettings } from "../../standalone/settings.ts";
+import { runDirect } from "../direct.ts";
 import {
 	detection,
 	isCorrect,
 	measure,
+	measureDirect,
 	type RunRecord,
 	summarize,
 	summarizePlanned,
@@ -92,6 +96,120 @@ const view = (report: PursuitView["report"]) =>
 		judgements: [],
 	}) as unknown as PursuitView;
 
+for (const scenario of [
+	{
+		name: "cache writes",
+		price: { input: 2, output: 10 },
+		input: 1000,
+		written: 50,
+		expected: 0.004145,
+	},
+	{
+		name: "custom cache read tariff",
+		price: { input: 2, output: 10, cacheRead: 1 },
+		input: 1000,
+		written: 0,
+		expected: 0.0041,
+	},
+	{
+		name: "long context tariff",
+		price: {
+			input: 2,
+			output: 10,
+			inputLong: 4,
+			outputLong: 20,
+			longThreshold: 1000,
+		},
+		input: 2000,
+		written: 50,
+		expected: 0.01229,
+	},
+])
+	test(`pursuit and direct metrics use host billing for ${scenario.name}, including unknown costs`, async () => {
+		const settings = openSettings(":memory:");
+		try {
+			settings.set("spend.pricing", { m: scenario.price });
+			const meter = settings.meter();
+			meter.record("m", {
+				input_tokens: scenario.input,
+				output_tokens: 200,
+				cache_read_input_tokens: 100,
+				cache_creation_input_tokens: scenario.written,
+			});
+			const tokens = {
+				model: "m",
+				inputTokens: scenario.input + scenario.written,
+				outputTokens: 200,
+				cacheReadTokens: 100,
+				latencyMs: 1,
+			};
+			const direct = await runDirect({
+				goal: "fixture",
+				acceptance: [{ id: "a", text: "fixture" }],
+				grant: [],
+				workspace: null,
+				tools: {
+					list: () => [],
+					invoke: async () => {
+						throw new Error("unused");
+					},
+				},
+				acceptancePort: {
+					verify: async () => [{ id: "a", passed: false, evidence: "fixture" }],
+				},
+				llm: {
+					complete: async (r) => ({
+						...tokens,
+						value: r.schema.parse({
+							kind: "give_up",
+							tool: null,
+							inputJson: null,
+							text: null,
+							message: "fixture",
+						}),
+					}),
+				},
+				budget: { toolCalls: 1, requests: 1, wallMs: 1000 },
+				signal: new AbortController().signal,
+			});
+			const ledger = {
+				...view(null),
+				inference: [{ purpose: "plan", ...tokens }],
+			};
+			const usage = totalUsage(meter.events());
+			expect(usage.usd).toBeCloseTo(scenario.expected, 10);
+			for (const measured of [
+				measure(ledger, usage),
+				measureDirect(direct, "d", usage),
+			]) {
+				expect(measured).toMatchObject({
+					usd: usage.usd,
+					llmCalls: usage.calls,
+					inputTokens: scenario.input + scenario.written + 100,
+					outputTokens: 200,
+				});
+				expect(measured.usage).toBe(usage);
+			}
+			meter.recordUnknown!({
+				callId: "unknown",
+				requestedModel: "m",
+				status: "error",
+				latencyMs: 0,
+			});
+			const unknown = totalUsage(meter.events());
+			for (const measured of [
+				measure(ledger, unknown),
+				measureDirect(direct, "d", unknown),
+			]) {
+				expect(measured.usd).toBeNull();
+				expect(measured.usage?.costStatus).toBe("unknown");
+				expect(measured.llmCalls).toBe(2);
+			}
+		} finally {
+			settings.close();
+		}
+	});
+
 describe("unfinished final verification (spec/fixes-2026-10-22.md §h)", () => {
 	const report = {
 		outcome: "stopped" as const,
@@ -103,12 +221,10 @@ describe("unfinished final verification (spec/fixes-2026-10-22.md §h)", () => {
 
 	test("measure carries Report.verificationIssue only when present", () => {
 		expect(
-			measure(
-				view({ ...report, verificationIssue: "aborted" }),
-				() => undefined,
-			).verificationIssue,
+			measure(view({ ...report, verificationIssue: "aborted" }), totalUsage([]))
+				.verificationIssue,
 		).toBe("aborted");
-		expect("verificationIssue" in measure(view(report), () => undefined)).toBe(
+		expect("verificationIssue" in measure(view(report), totalUsage([]))).toBe(
 			false,
 		);
 	});

@@ -14,6 +14,8 @@ export type TaskGroup = "A" | "B" | "C" | "D" | "E";
 export type ToolTier = 0 | 1 | 2 | 3;
 
 export interface TaskContext {
+	/** Reopen an existing workspace without resetting artifacts. Only resumable tasks accept this. */
+	readonly resume?: boolean;
 	/** Hidden grader for proofs (a strong model in its own context); null when not needed. */
 	readonly grader: LlmPort | null;
 	readonly toolTier: ToolTier;
@@ -73,6 +75,7 @@ export interface OutcomeFacts {
 }
 
 export interface EvalTask {
+	readonly resumable?: boolean;
 	/** Stable id; the unit of train/calibration/eval splits. */
 	readonly id: string;
 	readonly group: TaskGroup;

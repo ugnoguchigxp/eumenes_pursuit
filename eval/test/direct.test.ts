@@ -6,6 +6,7 @@ import {
 	type ToolPort,
 } from "../../src/index.ts";
 import { directStopReasons, endNoticeText, runDirect } from "../direct.ts";
+import { totalUsage } from "../../standalone/usage.ts";
 import {
 	compare,
 	isCorrect,
@@ -190,7 +191,7 @@ describe("direct baseline (D0)", () => {
 			llm: scripted([use("read"), step("done")]).llm,
 			budget,
 		});
-		const measured = measureDirect(r, "direct_x", () => undefined);
+		const measured = measureDirect(r, "direct_x", totalUsage([]));
 		expect(measured.mode).toBe("direct");
 		expect(measured.stepBacks).toBe(0);
 		// An answer on an unsolvable task is a false completion even when the check passed.

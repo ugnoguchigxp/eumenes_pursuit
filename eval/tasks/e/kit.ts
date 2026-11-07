@@ -218,6 +218,7 @@ export function defineReasoningTask(spec: ReasoningSpec): EvalTask {
 	};
 	return {
 		...meta,
+		resumable: true,
 		goal: goal(spec, 0),
 		goalFor: (tier) => goal(spec, tier),
 		grant: ["doc.write", "doc.read", "math.calc", "reference.read"],

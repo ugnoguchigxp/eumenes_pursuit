@@ -1,3 +1,5 @@
+import { selectMode } from "./adaptive.ts";
+import { efficiencyTable } from "./efficiency.ts";
 import { meterJudge } from "../standalone/metered-ports.ts";
 import type { UsageScope } from "../standalone/usage.ts";
 import {
@@ -61,6 +63,11 @@ const { values, positionals } = parseArgs({
 	allowPositionals: true,
 	options: {
 		name: { type: "string" },
+		resume: { type: "boolean", default: false },
+		advisor: { type: "boolean", default: false },
+		"pause-on-advice": { type: "boolean", default: false },
+		"pause-after-tools": { type: "string" },
+		"selection-evidence": { type: "string" },
 		conditions: { type: "string", default: "E0,E1,E2,E3" },
 		groups: { type: "string", default: "A,B,C,D,E" },
 		tasks: { type: "string" },
@@ -177,7 +184,7 @@ function describeLive(records: RunRecord[]): string {
 		),
 	);
 	const judged = records.some(
-		(r) => !["E0", "E1", "E1R", "D0"].includes(r.condition),
+		(r) => !["E0", "E1", "E1R", "D0", "AUTO"].includes(r.condition),
 	);
 	const conditions = [...new Set(records.map((r) => r.condition))].join("・");
 	return [
@@ -207,6 +214,10 @@ function writeSummary() {
 		"",
 		compare(records),
 		"",
+		"## 結末あたりの総費用・時間",
+		"",
+		efficiencyTable(records, readPlannedJobs(join(root, "planned-jobs.json"))),
+		"",
 	].join("\n");
 	writeFileSync(resolve(root, "summary.md"), text);
 	console.log(text);
@@ -227,6 +238,12 @@ function positiveInteger(value: string | undefined, option: string): number {
 const repeatCount = positiveInteger(values.repeat, "--repeat");
 const concurrency = positiveInteger(values.concurrency, "--concurrency");
 const maxSteps = positiveInteger(values["max-steps"], "--max-steps");
+const pauseAfterTools = values["pause-after-tools"]
+	? positiveInteger(values["pause-after-tools"], "--pause-after-tools")
+	: null;
+const selectionEvidence = values["selection-evidence"]
+	? readFileSync(values["selection-evidence"], "utf8")
+	: undefined;
 const conditionNames = values.conditions!.split(",") as ConditionName[];
 if (new Set(conditionNames).size !== conditionNames.length)
 	throw new Error("--conditions must not contain duplicates");
@@ -235,7 +252,7 @@ for (const c of conditionNames)
 const pursuitConditions = conditionNames.filter((c) => c !== "D0");
 const settings = openSettings();
 const meter = settings.meter();
-const pricing = settings.require("spend.pricing");
+settings.require("spend.pricing");
 const configuredGeneratorRole = settings.require(
 	values.generator === "strong" ? "llm.strong" : "llm.generator",
 );
@@ -254,10 +271,11 @@ const reviewerRole = {
 			? values.llm
 			: settings.require("llm.reviewer").provider,
 };
+const advisorRole = values.advisor ? settings.require("llm.strong") : null;
 if (!["api", "claude", "openai", "file"].includes(values.llm!))
 	throw new Error("--llm must be api, claude, openai or file");
-function generatorFor(scope: UsageScope) {
-	const usage = settings.meter(scope, "generator");
+function generatorFor(scope: UsageScope, role = "generator") {
+	const usage = settings.meter(scope, role);
 	return useFile
 		? createFileLlm({
 				dir: values["llm-dir"]!,
@@ -454,7 +472,7 @@ function errorText(error: unknown): string {
 }
 // E0, E1 and E1R never ask the judge, so they run without LARM.
 const needsJudge = conditionNames.some(
-	(c) => !["E0", "E1", "E1R", "D0"].includes(c),
+	(c) => !["E0", "E1", "E1R", "D0", "AUTO"].includes(c),
 );
 const token = process.env.LARM_API_TOKEN;
 if (needsJudge && !token) throw new Error("LARM_API_TOKEN is required");
@@ -616,6 +634,19 @@ for (const condition of conditionNames) {
 								responder: values["file-responder-id"] ?? null,
 							}
 						: { ...reviewerRole },
+			...(advisorRole ? { advisor: advisorRole } : {}),
+			...(condition === "AUTO"
+				? {
+						selector: useFile
+							? {
+									provider: "file",
+									directory: resolve(values["llm-dir"]!),
+									responder: values["file-responder-id"] ?? null,
+									role: values.generator!,
+								}
+							: generatorRole,
+					}
+				: {}),
 			grader:
 				graderMode === "file"
 					? { provider: "file", directory: resolve(values["grader-dir"]!) }
@@ -649,6 +680,12 @@ for (const condition of conditionNames) {
 							limit: claimOracle.limit,
 						},
 					}) as Record<string, import("../src/index.ts").JsonValue>),
+			...(values.advisor ? { advisor: true } : {}),
+			...(condition === "AUTO"
+				? {
+						selectionEvidence: selectionEvidence ?? null,
+					}
+				: {}),
 			toolTier,
 			critic: values.critic!,
 			maxSteps,
@@ -726,6 +763,30 @@ console.log(
 );
 
 await executeJobs({
+	resume: values.resume!,
+	pauseOnAdvice: values["pause-on-advice"]!,
+	pauseAfterTools,
+	selectFor: conditionNames.includes("AUTO")
+		? (scope, goal, tools, signal) =>
+				selectMode({
+					llm: generatorFor(scope, "selector"),
+					goal,
+					tools,
+					model: generatorRole.model,
+					budget: {
+						toolCalls: policy.budget.attempts,
+						requests: Math.min(maxSteps, policy.budget.transitions),
+						wallMs: policy.budget.wallMs,
+					},
+					...(selectionEvidence === undefined
+						? {}
+						: { evidence: selectionEvidence }),
+					signal,
+				})
+		: undefined,
+	advisorFor: advisorRole
+		? (scope) => createRoleLlm(advisorRole, settings.meter(scope, "advisor"))
+		: undefined,
 	jobs,
 	concurrency,
 	root,
@@ -743,7 +804,6 @@ await executeJobs({
 	secretDir,
 	corpus,
 	meter,
-	pricing,
 	secrets,
 	policy,
 	maxSteps,

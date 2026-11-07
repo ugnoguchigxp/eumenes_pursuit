@@ -16,6 +16,11 @@ export interface RunRecord {
 	readonly task: string;
 	readonly group: EvalTask["group"];
 	readonly condition: string;
+	readonly selectedCondition?: string;
+	readonly selection?: import("./adaptive.ts").ModeSelection;
+	readonly verificationEvidence?: ReturnType<
+		typeof import("./efficiency.ts").verificationEvidence
+	>;
 	readonly generator: string;
 	readonly level: number | null;
 	readonly repeat: number;
@@ -66,6 +71,8 @@ export interface RunRecord {
 	readonly usd: number | null;
 	readonly usage?: UsageTotals;
 	readonly durationMs: number;
+	readonly activeDurationMs?: number;
+	readonly restarts?: number;
 	readonly error: string | null;
 	/** Tasks that may be unsolvable as stated (horizon-10u): host-only facts. */
 	readonly solvable?: boolean;
@@ -143,10 +150,10 @@ const count = (items: readonly string[]) =>
 		return acc;
 	}, {});
 
-/** Facts from the ledger only; never from the generator's own report. */
+/** Outcome facts from the ledger; billing comes only from the host's meter. */
 export function measure(
 	view: PursuitView,
-	price: (model: string) => { input: number; output: number } | undefined,
+	usage: UsageTotals,
 ): Omit<
 	RunRecord,
 	| "run"
@@ -173,27 +180,6 @@ export function measure(
 		failedBefore.add(a.fingerprint);
 	}
 	const llm = view.inference.filter((i) => !i.purpose.startsWith("judge:"));
-	const usd = llm.some(
-		(i) =>
-			!price(i.model) ||
-			i.inputTokens === null ||
-			i.outputTokens === null ||
-			i.cacheReadTokens === null,
-	)
-		? null
-		: llm.reduce((sum, i) => {
-				const p = price(i.model);
-				return p &&
-					i.inputTokens !== null &&
-					i.outputTokens !== null &&
-					i.cacheReadTokens !== null
-					? sum +
-							(i.inputTokens * p.input +
-								i.cacheReadTokens * p.input * 0.1 +
-								i.outputTokens * p.output) /
-								1_000_000
-					: sum;
-			}, 0);
 	// Count a protected touch once, on the attempt where it first appears.
 	let protectedTouches = 0;
 	const seen = new Map<string, number>();
@@ -271,14 +257,11 @@ export function measure(
 		judgeFired: view.judgements.filter(
 			(j) => j.fired && j.usable && j.stage !== "review",
 		).length,
-		llmCalls: llm.length,
-		inputTokens: llm.some((i) => i.inputTokens === null)
-			? null
-			: llm.reduce((s, i) => s + (i.inputTokens ?? 0), 0),
-		outputTokens: llm.some((i) => i.outputTokens === null)
-			? null
-			: llm.reduce((s, i) => s + (i.outputTokens ?? 0), 0),
-		usd,
+		llmCalls: usage.calls,
+		inputTokens: usage.inputTokens,
+		outputTokens: usage.outputTokens,
+		usd: usage.usd,
+		usage,
 	};
 }
 
@@ -286,18 +269,8 @@ export function measure(
 export function measureDirect(
 	result: DirectResult,
 	id: string,
-	price: (model: string) => { input: number; output: number } | undefined,
+	usage: UsageTotals,
 ): ReturnType<typeof measure> {
-	const usd = result.usage.reduce((sum, u) => {
-		const p = price(u.model);
-		return p
-			? sum +
-					(u.inputTokens * p.input +
-						u.cacheReadTokens * p.input * 0.1 +
-						u.outputTokens * p.output) /
-						1_000_000
-			: sum;
-	}, 0);
 	return {
 		pursuitId: id,
 		outcome: result.outcome,
@@ -327,10 +300,11 @@ export function measureDirect(
 		judgeCalls: 0,
 		judgeFailures: 0,
 		judgeFired: 0,
-		llmCalls: result.usage.length,
-		inputTokens: result.inputTokens,
-		outputTokens: result.outputTokens,
-		usd,
+		llmCalls: usage.calls,
+		inputTokens: usage.inputTokens,
+		outputTokens: usage.outputTokens,
+		usd: usage.usd,
+		usage,
 	};
 }
 

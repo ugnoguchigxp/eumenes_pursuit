@@ -1,14 +1,29 @@
-import { totalUsage, type UsageScope } from "../standalone/usage.ts";
+import { verificationEvidence } from "./efficiency.ts";
+import { remainingWallMs } from "../src/domains/rules/checks.ts";
+import { deadlineSignal } from "../standalone/deadline.ts";
+import { createAdvisor } from "../standalone/advisor.ts";
+import {
+	readCheckpoint,
+	writeCheckpoint,
+	type JobCheckpoint,
+} from "./job-checkpoint.ts";
+import type { ModeSelection } from "./adaptive.ts";
+import {
+	totalUsage,
+	type UsageScope,
+	type UsageTotals,
+} from "../standalone/usage.ts";
 import { jobKey, recordKey } from "./run-config.ts";
 import {
 	cancelWithDeadline,
 	stepWithDeadline,
 } from "../standalone/deadline.ts";
 import type { DecisionLease } from "../standalone/larm/connection.ts";
-import type { Settings, SettingValue } from "../standalone/settings.ts";
+import type { Settings } from "../standalone/settings.ts";
 import type { StandaloneStore } from "../standalone/store.ts";
 import {
 	appendFileSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	renameSync,
@@ -51,6 +66,18 @@ export interface EvalJob {
 
 /** One already-opened evaluation. This module does not parse arguments or open the host. */
 export interface JobSession {
+	readonly resume?: boolean;
+	readonly pauseOnAdvice?: boolean;
+	readonly pauseAfterTools?: number | null;
+	readonly selectFor?:
+		| ((
+				scope: UsageScope,
+				goal: string,
+				tools: import("../src/index.ts").ToolDescriptor[],
+				signal: AbortSignal,
+		  ) => Promise<ModeSelection>)
+		| undefined;
+	readonly advisorFor?: ((scope: UsageScope) => LlmPort) | undefined;
 	readonly jobs: readonly EvalJob[];
 	readonly concurrency: number;
 	readonly root: string;
@@ -77,7 +104,6 @@ export interface JobSession {
 	readonly secretDir: string | null;
 	readonly corpus: { readonly url: string; readonly log: string } | null;
 	readonly meter: ReturnType<Settings["meter"]>;
-	readonly pricing: SettingValue<"spend.pricing">;
 	readonly secrets: readonly string[];
 	readonly policy: Policy;
 	readonly maxSteps: number;
@@ -118,7 +144,6 @@ export async function executeJobs(session: JobSession): Promise<void> {
 		secretDir,
 		corpus,
 		meter,
-		pricing,
 		secrets,
 		policy,
 		maxSteps,
@@ -185,7 +210,22 @@ export async function executeJobs(session: JobSession): Promise<void> {
 		const { task, condition, repeat } = job;
 		const variant = variantOf(condition);
 		const configId = effectiveConfigs.get(condition)!.id;
-		const scope: UsageScope = {
+		const checkpointPath = join(
+			root,
+			"checkpoints",
+			new Bun.CryptoHasher("sha256")
+				.update(JSON.stringify([task.id, condition, repeat]))
+				.digest("hex") + ".json",
+		);
+		const checkpointKey = jobKey(task.id, condition, configId, repeat);
+		const saved = session.resume
+			? readCheckpoint(checkpointPath, checkpointKey, configId)
+			: null;
+		if (!session.resume && existsSync(checkpointPath))
+			throw new Error("checkpoint_exists_use_resume");
+		if (saved && !task.resumable)
+			throw new Error("task_does_not_support_resume");
+		const scope: UsageScope = saved?.scope ?? {
 			runId: values.name!,
 			configId,
 			jobId: crypto.randomUUID(),
@@ -193,15 +233,18 @@ export async function executeJobs(session: JobSession): Promise<void> {
 			...(values["budget-id"] ? { budgetId: values["budget-id"] } : {}),
 		};
 		const label = `${task.id}/${condition}/${variant}/#${repeat}`;
-		const started = Date.now();
+		const started = saved?.started ?? Date.now();
 		const goal = oracleGoal(task.goalFor?.(toolTier) ?? task.goal, claimOracle);
 		// Outside the project, so task code cannot reach .env by a relative path.
-		const directory = mkdtempSync(
-			join(tmpdir(), `eumenes-pursuit-${task.id}-${condition}-${repeat}-`),
-		);
+		const directory =
+			saved?.directory ??
+			mkdtempSync(
+				join(tmpdir(), `eumenes-pursuit-${task.id}-${condition}-${repeat}-`),
+			);
 		console.log(`[start] ${label} workspace ${directory}`);
 		const instance = await task.create(directory, {
 			grader: graderFor(scope),
+			...(saved ? { resume: true } : {}),
 			toolTier,
 			critic: values.critic ? reviewerFor(scope, "critic") : null,
 			rubricDir,
@@ -209,6 +252,76 @@ export async function executeJobs(session: JobSession): Promise<void> {
 			corpus,
 		});
 		const controller = new AbortController();
+		const advisor = session.advisorFor
+			? await createAdvisor({
+					store,
+					tools: instance.tools,
+					llm: session.advisorFor(scope),
+				})
+			: null;
+		let tools = redactTools(advisor?.tools ?? instance.tools, secrets);
+		const checkpoint: JobCheckpoint = saved ?? {
+			format: 1,
+			key: checkpointKey,
+			configId,
+			pursuitId: "",
+			directory,
+			started,
+			scope,
+			selection: null,
+			selectedCondition: condition,
+			paused: false,
+			pauseStartedAt: null,
+			pausedMs: 0,
+			restarts: 0,
+			status: "active",
+		};
+		if (saved) {
+			checkpoint.restarts++;
+			if (checkpoint.pauseStartedAt !== null) {
+				checkpoint.pausedMs += Date.now() - checkpoint.pauseStartedAt;
+				checkpoint.pauseStartedAt = null;
+			}
+		}
+		if (task.resumable) writeCheckpoint(checkpointPath, checkpoint);
+		if (condition === "AUTO" && !checkpoint.selection) {
+			if (!session.selectFor) throw new Error("AUTO_requires_selector");
+			const deadline = deadlineSignal(
+				controller.signal,
+				policy.budget.wallMs - (Date.now() - started),
+			);
+			try {
+				checkpoint.selection = await session.selectFor(
+					scope,
+					goal,
+					[...tools.list()],
+					deadline.signal,
+				);
+			} finally {
+				deadline.dispose();
+			}
+			checkpoint.selectedCondition = checkpoint.selection.condition;
+			writeCheckpoint(checkpointPath, checkpoint);
+		}
+		const selectedCondition = checkpoint.selectedCondition;
+		if (
+			condition === "AUTO" &&
+			Math.min(maxSteps, policy.budget.transitions) <= 1
+		)
+			throw new Error("selection_exhausted_request_budget");
+		const elapsed = Date.now() - started;
+		const executionPolicy = {
+			...policy,
+			budget: {
+				...policy.budget,
+				wallMs: Math.max(1, policy.budget.wallMs - elapsed),
+				transitions: Math.max(
+					1,
+					policy.budget.transitions - (condition === "AUTO" ? 1 : 0),
+				),
+			},
+		};
+
 		const common = {
 			run: values.name!,
 			task: task.id,
@@ -222,38 +335,49 @@ export async function executeJobs(session: JobSession): Promise<void> {
 			...(task.needsCorpus && corpus ? { corpus } : {}),
 		};
 		const finishRecord = async (
-			measured: ReturnType<typeof measure>,
+			measurement: (usage: UsageTotals) => ReturnType<typeof measure>,
 			error: string | null,
 		) => {
 			const facts = instance.outcomeFacts
 				? await instance.outcomeFacts().catch(() => null)
 				: null;
+			const usage = totalUsage(meter.events(scope.jobId));
 			const folded = withDiagnostics(
-				withOutcomeFacts(measured, facts),
+				withOutcomeFacts(measurement(usage), facts),
 				instance.diagnostics?.() ?? null,
 			);
-			const usage = totalUsage(meter.events(scope.jobId));
 			const record: RunRecord = {
+				verificationEvidence: verificationEvidence({
+					hostPassed: folded.verified,
+					assurance: folded.assurance ?? null,
+				}),
 				...folded,
-				llmCalls: usage.calls,
-				inputTokens: usage.inputTokens,
-				outputTokens: usage.outputTokens,
-				usd: usage.usd,
-				usage,
 				...common,
 				configId,
 				jobKey: jobKey(task.id, condition, configId, repeat),
 				correct: isCorrect(task.expected, { ...folded, error }),
 				durationMs: Date.now() - started,
+				activeDurationMs: Date.now() - started - checkpoint.pausedMs,
+				restarts: checkpoint.restarts,
 				error,
+				...(condition === "AUTO"
+					? { selectedCondition, selection: checkpoint.selection! }
+					: {}),
 			};
 			appendFileSync(runsPath, `${JSON.stringify(record)}\n`);
+			checkpoint.status = "finished";
+			if (task.resumable) writeCheckpoint(checkpointPath, checkpoint);
 			if (!values["keep-work"]) await instance.dispose();
 			console.log(
 				`[done] ${label}: ${record.outcome}${record.verified ? " (verified)" : ""}${record.verificationIssue ? ` (final verification ${record.verificationIssue}: not judged)` : ""} correct=${record.correct} tools=${record.toolCalls} requests=${record.responderRequests} stepBacks=${record.stepBacks} $${record.usd === null ? "unknown" : record.usd.toFixed(4)} ${Math.round(record.durationMs / 1000)}s`,
 			);
 		};
-		if (condition === "D0") {
+		if (selectedCondition === "D0") {
+			tools = redactTools(
+				advisor?.directTools(goal) ?? instance.tools,
+				secrets,
+			);
+			if (saved) throw new Error("direct_resume_not_supported");
 			const id = `direct_${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
 			mkdirSync(directDir, { recursive: true });
 			const transcript = resolve(
@@ -266,8 +390,8 @@ export async function executeJobs(session: JobSession): Promise<void> {
 				result = await runDirect({
 					goal,
 					acceptance: task.acceptance,
-					grant: task.grant,
-					tools: redactTools(instance.tools, secrets),
+					grant: [...task.grant, ...(advisor ? ["pursuit.advice"] : [])],
+					tools,
 					workspace: instance.workspace,
 					acceptancePort: oracleAcceptance(
 						redactAcceptance(instance.acceptance, secrets),
@@ -277,8 +401,11 @@ export async function executeJobs(session: JobSession): Promise<void> {
 					llm: generatorFor(scope),
 					budget: {
 						toolCalls: policy.budget.attempts,
-						wallMs: policy.budget.wallMs,
-						requests: Math.min(policy.budget.transitions, maxSteps),
+						wallMs: executionPolicy.budget.wallMs,
+						requests: Math.min(
+							executionPolicy.budget.transitions,
+							maxSteps - (condition === "AUTO" ? 1 : 0),
+						),
 					},
 					fullEntries: directFull,
 					observation: policy.observation,
@@ -307,49 +434,103 @@ export async function executeJobs(session: JobSession): Promise<void> {
 					: null,
 				directEnding(result),
 			);
-			await finishRecord(
-				measureDirect(result, id, (model) => pricing[model]),
-				error,
-			);
+			await finishRecord((usage) => measureDirect(result, id, usage), error);
 			return;
 		}
 		const engine = engineFor(scope);
-		let pursuitId = "";
+		let pursuitId = checkpoint.pursuitId;
 		let error: string | null = null;
 		try {
-			const startedPursuit = await engine.start(
-				{
-					goal,
-					acceptance: task.acceptance,
-					grant: task.grant,
-					policy,
-					conditions: conditionsFor(condition, conditionFlags),
-					goalRef: null,
-					label: task.id,
-					...(experience.length ? { experience } : {}),
-				},
-				// Every execution is a new pursuit; a rerun never resumes an old ledger entry.
-				`${values.name}:${label}:${crypto.randomUUID()}`,
-			);
+			const startedPursuit = pursuitId
+				? { pursuitId, replayed: false }
+				: await engine.start(
+						{
+							goal,
+							acceptance: task.acceptance,
+							grant: [...task.grant, ...(advisor ? ["pursuit.advice"] : [])],
+							policy: executionPolicy,
+							conditions: conditionsFor(
+								selectedCondition as Exclude<ConditionName, "D0">,
+								conditionFlags,
+							),
+							goalRef: null,
+							label: task.id,
+							...(experience.length ? { experience } : {}),
+						},
+						// A fresh job starts once; --resume retains the saved pursuit and scope.
+						`${values.name}:${label}:${crypto.randomUUID()}`,
+					);
 			if (startedPursuit.replayed) throw new Error("unexpected_replay");
 			pursuitId = startedPursuit.pursuitId;
 			scope.pursuitId = pursuitId;
+			checkpoint.pursuitId = pursuitId;
+			if (task.resumable) writeCheckpoint(checkpointPath, checkpoint);
 			const runtime = {
-				tools: redactTools(instance.tools, secrets),
+				tools,
 				workspace: instance.workspace,
 				acceptance: oracleAcceptance(
 					redactAcceptance(instance.acceptance, secrets),
 					claimOracle,
 				),
 			};
-			for (let i = 0; i < maxSteps; i++) {
+			for (
+				let i = (await engine.view(pursuitId))!.revision;
+				i < maxSteps - (condition === "AUTO" ? 1 : 0);
+				i++
+			) {
 				const step = await stepWithDeadline(
 					engine,
 					pursuitId,
 					runtime,
 					controller.signal,
 				);
+				if (task.resumable) writeCheckpoint(checkpointPath, checkpoint);
 				if (step.done) break;
+				const current = (await engine.view(pursuitId))!;
+				const executed = current.attempts.filter(
+					(a) => a.state === "settled",
+				).length;
+				if (
+					!checkpoint.paused &&
+					((session.pauseOnAdvice && step.pendingTool) ||
+						(session.pauseAfterTools && executed >= session.pauseAfterTools))
+				) {
+					if (!task.resumable) throw new Error("task_does_not_support_pause");
+					checkpoint.paused = true;
+					checkpoint.pauseStartedAt = Date.now();
+					writeCheckpoint(checkpointPath, checkpoint);
+					console.log(
+						`[paused] ${label} pursuit=${pursuitId} revision=${current.revision} pending=${step.pendingTool?.operationId ?? "none"}`,
+					);
+					return "paused" as const;
+				}
+				if (step.pendingTool) {
+					if (!advisor)
+						throw new Error("pending_external_work_requires_host_worker");
+					const deadline = deadlineSignal(
+						controller.signal,
+						remainingWallMs(current, Date.now()),
+					);
+					try {
+						const outcome = await advisor.resolve(
+							engine,
+							pursuitId,
+							step.pendingTool.operationId,
+							deadline.signal,
+						);
+						await engine.completeTool(
+							pursuitId,
+							step.pendingTool.attemptId,
+							step.pendingTool.operationId,
+							outcome,
+							runtime,
+							deadline.signal,
+						);
+					} finally {
+						deadline.dispose();
+					}
+				}
+
 				if (claimOracle.limit !== null) {
 					const failed = failedClaims((await engine.view(pursuitId))!);
 					if (claimLimitReached(failed, claimOracle)) {
@@ -404,10 +585,7 @@ export async function executeJobs(session: JobSession): Promise<void> {
 				: null,
 			pursuitEnding(view),
 		);
-		await finishRecord(
-			measure(view, (model) => pricing[model]),
-			error,
-		);
+		await finishRecord((usage) => measure(view, usage), error);
 	}
 
 	let runFailure: Error | null = null;
@@ -439,7 +617,11 @@ export async function executeJobs(session: JobSession): Promise<void> {
 					);
 					let jobError: string | null = null;
 					try {
-						await runOne(job);
+						const state = await runOne(job);
+						if (state === "paused") {
+							queue.length = 0;
+							jobError = "paused_for_resume";
+						}
 					} catch (error) {
 						jobError = errorText(error);
 						queue.length = 0;
@@ -459,7 +641,11 @@ export async function executeJobs(session: JobSession): Promise<void> {
 							join(root, "job-events.jsonl"),
 							JSON.stringify({
 								...identity,
-								status: record ? "recorded" : "record_missing",
+								status: record
+									? "recorded"
+									: jobError === "paused_for_resume"
+										? "paused"
+										: "record_missing",
 								error: record?.error ?? jobError,
 								at: new Date().toISOString(),
 							}) + "\n",

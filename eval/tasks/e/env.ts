@@ -371,6 +371,8 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 	const text = goal(spec);
 	return {
 		id: spec.id,
+		// Probe quotas are in-memory; do not reopen them with a fresh allowance.
+		resumable: !spec.probe,
 		group: "E",
 		level: spec.level,
 		title: spec.title,
@@ -395,9 +397,13 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 			...(spec.probe ? ["env.probe"] : []),
 		],
 		async create(directory: string, context: TaskContext) {
+			if (context.resume && spec.probe)
+				throw new Error("probe_task_resume_unsupported");
 			const workDir = join(directory, "work");
 			await mkdir(workDir, { recursive: true });
-			for (const [rel, content] of Object.entries(await loadWork(spec.id))) {
+			for (const [rel, content] of Object.entries(
+				context.resume ? {} : await loadWork(spec.id),
+			)) {
 				const abs = join(workDir, rel);
 				await mkdir(dirname(abs), { recursive: true });
 				await writeFile(abs, content, {

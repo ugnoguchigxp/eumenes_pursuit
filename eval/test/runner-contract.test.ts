@@ -120,6 +120,126 @@ const options = [
 	"1",
 ];
 
+test("AUTO resumes the same pursuit in a fresh CLI process without selecting or executing the tool again", async () => {
+	appendFileSync(
+		join(directory, "eval/tasks/index.ts"),
+		`
+tasks.push({id:"resume-fixture",resumable:true,group:"A",title:"fixture",goal:"fixture",
+acceptance:[{id:"total",text:"one observed operation",method:"machine"}],grant:["data.read"],consultAnswer:"fixture",expected:"completed",traps:[],
+async create(directory){const fs=await import("node:fs"),path=directory+"/observations.txt";
+return {workspace:null,tools:{list:()=>[{name:"read",description:"fixture",inputSchema:{type:"object",properties:{}},permission:"data.read",sideEffect:"none"}],invoke:async()=>{fs.appendFileSync(path,"effect\\n");return {status:"ok",output:"observed",refs:[]}}},
+acceptance:{verify:async()=>[{id:"total",passed:fs.existsSync(path)&&fs.readFileSync(path,"utf8")==="effect\\n",evidence:"actual operation count"}]},dispose:async()=>{}};}});
+`,
+	);
+	const settings = openSettings(
+		join(directory, "data/pursuit-settings.sqlite"),
+	);
+	settings.set("spend.limitUsd", 2);
+	settings.close();
+	const responder = join(directory, "resume-responder");
+	await mkdir(join(responder, "requests"), { recursive: true });
+	await mkdir(join(responder, "responses"), { recursive: true });
+	let resuming = false;
+	const answer = () => {
+		for (const filename of readdirSync(join(responder, "requests"))) {
+			const target = join(responder, "responses", filename);
+			if (existsSync(target)) continue;
+			const request = JSON.parse(
+				readFileSync(join(responder, "requests", filename), "utf8"),
+			);
+			const value =
+				request.purpose === "select"
+					? { condition: "E1R", reason: "fixture selection" }
+					: request.purpose === "plan"
+						? {
+								strategy: "observe once",
+								rationale: "fixture",
+								alternatives: [],
+							}
+						: request.purpose === "hypothesize"
+							? {
+									hypothesis: "one observation",
+									rationale: "fixture",
+									tools: ["read"],
+									expected: "observed",
+								}
+							: {
+									kind: resuming ? "done" : "tool",
+									tool: "read",
+									inputJson: "{}",
+									text: null,
+									expectedStatus: "ok",
+									expectedObservation: "observed",
+									whatChanged: "",
+									message: "fixture",
+									missing: "",
+								};
+			writeFileSync(target, JSON.stringify(value));
+		}
+	};
+	const timer = setInterval(answer, 10);
+	const args = [
+		"run",
+		"--name",
+		"resume-integration",
+		...options,
+		"--verify-on",
+		"claim",
+		"--conditions",
+		"AUTO",
+		"--tasks",
+		"resume-fixture",
+		"--max-steps",
+		"25",
+		"--pause-after-tools",
+		"1",
+	];
+	try {
+		const initial = await run(args, {}, responder);
+		expect(initial.code).toBe(0);
+		expect(initial.stdout).toContain("[paused]");
+		const root = join(directory, "eval/results/resume-integration");
+		const checkpoint = JSON.parse(
+			readFileSync(
+				join(root, "checkpoints", readdirSync(join(root, "checkpoints"))[0]!),
+				"utf8",
+			),
+		);
+		resuming = true;
+		const resumed = await run([...args, "--resume"], {}, responder);
+		expect(resumed.code).toBe(0);
+		const record = JSON.parse(
+			readFileSync(join(root, "runs.jsonl"), "utf8").trim(),
+		);
+		expect(record).toMatchObject({
+			pursuitId: checkpoint.pursuitId,
+			correct: true,
+			toolCalls: 1,
+			selectedCondition: "E1R",
+			restarts: 1,
+		});
+		expect(record.usage.byRole.selector.calls).toBe(1);
+		const config = JSON.parse(
+			readFileSync(join(root, "configs", record.configId + ".json"), "utf8"),
+		);
+		expect(config.roles.selector.provider).toBe("file");
+		expect(
+			new Set(
+				record.usage.events.map(
+					(event: { scope: { jobId: string } }) => event.scope.jobId,
+				),
+			).size,
+		).toBe(1);
+	} finally {
+		clearInterval(timer);
+		const restored = openSettings(
+			join(directory, "data/pursuit-settings.sqlite"),
+		);
+		restored.set("spend.limitUsd", 1);
+		restored.close();
+	}
+}, 15000);
+
 test("grader directories cannot alias or nest inside the generator directory", async () => {
 	const responder = join(directory, "responder");
 	await mkdir(responder, { recursive: true });

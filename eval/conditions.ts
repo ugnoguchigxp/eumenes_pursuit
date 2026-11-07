@@ -5,7 +5,15 @@ import { pursuitGuardsV1 } from "../src/index.ts";
  * E1R is eval-only: E3 without the judge (rules + separate-context review), for runs without LARM.
  * D0 is the direct baseline (eval/direct.ts): no pursuit engine at all, so it has no Conditions.
  */
-export type ConditionName = "E0" | "E1" | "E1R" | "E2" | "E3" | "E4" | "D0";
+export type ConditionName =
+	| "E0"
+	| "E1"
+	| "E1R"
+	| "E2"
+	| "E3"
+	| "E4"
+	| "D0"
+	| "AUTO";
 export type PursuitConditionName = Exclude<ConditionName, "D0">;
 export const conditionNames: readonly ConditionName[] = [
 	"E0",
@@ -15,6 +23,7 @@ export const conditionNames: readonly ConditionName[] = [
 	"E3",
 	"E4",
 	"D0",
+	"AUTO",
 ];
 
 const questionSet: VersionRef = {
@@ -61,6 +70,7 @@ export function conditionsFor(
 		case "E1":
 			return { ...base, rules: true, judge: false, review: false };
 		case "E1R":
+		case "AUTO":
 			return { ...base, rules: true, judge: false, review: true };
 		case "E2":
 			return { ...base, rules: true, judge: true, review: false };

@@ -1,4 +1,5 @@
 import type { EvalTask } from "../contracts.ts";
+import { studyTasks } from "./study.ts";
 import { contradictoryRoom } from "./a/contradictory-room.ts";
 import { missingBudget } from "./a/missing-budget.ts";
 import { staleSupplierPrice } from "./a/stale-supplier-price.ts";
@@ -29,6 +30,7 @@ import { horizon6Tasks } from "./e/horizon-proofs.ts";
 import { reasoningTasks } from "./e/problems.ts";
 
 export const tasks: readonly EvalTask[] = [
+	...studyTasks,
 	missingBudget,
 	staleSupplierPrice,
 	contradictoryRoom,

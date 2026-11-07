@@ -7,6 +7,7 @@ const steps = [
 	["check:boundaries"],
 	["check:results"],
 	["test"],
+	["check:performance"],
 ];
 for (const step of steps) {
 	const child = Bun.spawn([process.execPath, "run", ...step], {

@@ -3,12 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture } from "../test/fixtures/crash-runner.ts";
 import { startInput } from "../test/support.ts";
+// Fixed budgets from spec/improvement-plan-2026-11-05.md; never recalibrate during verify.
+const budgets = { p95Ms: 250, rssMiB: 512, readbackMs: 5000 };
 const output = [];
 for (const attempts of [10, 100, 200])
 	for (const concurrency of [1, 2, 4]) {
 		const dir = await mkdtemp(join(tmpdir(), "pursuit-bench-"));
 		const hosts = Array.from({ length: concurrency }, (_, i) =>
-			fixture(":memory:", join(dir, `marker-${i}`), null),
+			fixture(join(dir, `ledger-${i}.sqlite`), join(dir, `marker-${i}`), null),
 		);
 		const latencies: number[] = [];
 		try {
@@ -37,7 +39,8 @@ for (const attempts of [10, 100, 200])
 						throw new Error("benchmark_count");
 					const t = performance.now();
 					await f.engine.view(id);
-					if (performance.now() - t > 5000) throw new Error("recovery_budget");
+					if (performance.now() - t > budgets.readbackMs)
+						throw new Error("recovery_budget");
 				}),
 			);
 			latencies.sort((a, b) => a - b);
@@ -51,7 +54,10 @@ for (const attempts of [10, 100, 200])
 				p95Ms: p95,
 				rssMiB: rss,
 			});
-			if (p95 > 250 || rss > 512) throw new Error("performance_budget_failed");
+			if (p95 > budgets.p95Ms || rss > budgets.rssMiB)
+				throw new Error(
+					`performance_budget_failed: ${JSON.stringify(output.at(-1))}`,
+				);
 		} finally {
 			for (const f of hosts) f.store.close();
 			await rm(dir, { recursive: true, force: true });
@@ -64,7 +70,9 @@ console.log(
 			bun: Bun.version,
 			platform: process.platform,
 			arch: process.arch,
-			model: "deterministic fixture; external latency excluded",
+			model:
+				"durable SQLite file; deterministic fixture; external latency excluded",
+			budgets,
 			output,
 		},
 		null,

@@ -1,0 +1,786 @@
+{
+	"rubric_version": "1.1.0",
+	"mode": "full",
+	"depth": "deep",
+	"technical_profile": "agent",
+	"assessment_kind": "current",
+	"target": {
+		"locator": "/Users/y.noguchi/Code/eumenes_pursuit",
+		"snapshot": "4e249bdc7156c3b0257ba4f119d64948a26cfc23",
+		"reviewed_at": "2026-11-06",
+		"stage": "研究プロトタイプ（Eumenes への取り込み前）",
+		"scope": "agent profile / full / deep。対象は src・standalone・eval・scripts・.github/workflows/verify.yml・plan.md・spec/results.md・spec/host-contract-v1.md。除外は eval/results の台帳、env-work の課題データ、artifacts、node_modules。実行は macOS 上の bun run verify（Linux sandbox と live d1 はスキップ）。代替比較は Reflexion（arXiv:2303.11366）と SWE-agent / mini-swe-agent の公開説明に限る。"
+	},
+	"evidence": [
+		{
+			"id": "E01",
+			"kind": "execution",
+			"locator": "bun run verify @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "macOS、Bun 1.4.4 で bun run verify が終了コード 0。543 成功、12 スキップ、失敗 0。スキップは live d1 と Linux 限定の horizon-10e sandbox。最後の行は OK: deterministic checks。",
+			"scope": "このスナップショットの決定的検査。ライブ API と比較 CI の実行結果は含まない。"
+		},
+		{
+			"id": "E02",
+			"kind": "code",
+			"locator": "scripts/domains.ts; scripts/check-boundaries.ts; src/domains/loop/engine.ts @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "core のドメイン依存は台帳→規則→判定/生成→ループに固定され、境界検査が host API と領域外 import を拒否する。engine.step は状態ごとに plan、hypothesize、propose、review を分ける。",
+			"scope": "静的境界とループの主経路。動的 import は見ていない。"
+		},
+		{
+			"id": "E03",
+			"kind": "code",
+			"locator": "src/domains/ledger/repository.ts; src/domains/loop/attempt.ts; src/domains/loop/helpers.ts @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "試行の確定と pending_result_digest は settleAttempt の同一 UPDATE にあり、最終照合の中止待ちは raceAcceptance に集まっている。台帳は revision と transaction を要求する。",
+			"scope": "今回のリファクタ後の書き込み経路。ホスト側 Eumenes の store 実装は未実行。"
+		},
+		{
+			"id": "E04",
+			"kind": "code",
+			"locator": "eval/tools/sandbox.ts:1-155; eval/tools/code.ts:25-49 @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "Linux は bwrap が無いと実行を拒否し、network namespace を外し、書き込みは /work に限る。macOS は sandbox-exec で network と file-read-data を拒否したあと、実行ファイル、作業ディレクトリ、公開 OS ランタイムだけを許す。",
+			"scope": "ソース上の隔離契約。この macOS の verify では bwrap 試験はスキップされた。"
+		},
+		{
+			"id": "E05",
+			"kind": "code",
+			"locator": "test/scripts/negative-controls.test.ts:14-40; .github/workflows/verify.yml @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "受理、比較、OS 境界の保護を無効化した複製で試験が失敗することを見る negative control がある。CI は macos-14 と ubuntu-24.04 で frozen lockfile、ignore-scripts、同じ verify と build を実行する定義になっている。",
+			"scope": "negative control はローカル verify に含まれ失敗していない。この SHA の GitHub Actions の結果は未取得。"
+		},
+		{
+			"id": "E06",
+			"kind": "code",
+			"locator": "scripts/pack-core.ts:25-40; package.json; LICENSE @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "core 配布物はファイル一覧と sha256 を照合する。依存バージョンは package.json で固定。ライセンスは MIT。パッケージは private。",
+			"scope": "pack コマンドはこのレビューでは実行していない。依存ライセンスの全件監査はしていない。"
+		},
+		{
+			"id": "E07",
+			"kind": "primary_doc",
+			"locator": "plan.md:29-40; spec/results.md:39-76 @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "研究の問いは、規則・別文脈の振り返り・ホスト照合で、成功の偽装と受入条件の破壊を検出して止め、その後回復できるかである。math-1 では E0 の偽完了を E3 の照合が差し戻した記録がある。同時に易しい課題では E0 でも偽完了が無く、回数は少ないと本文が書いている。",
+			"scope": "著者自身の live 記録。独立した再現ではない。"
+		},
+		{
+			"id": "E08",
+			"kind": "code",
+			"locator": "scripts/benchmark.ts:1-41; eval/metrics.ts @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "ステップ遅延を測る benchmark.ts はあるが verify には入っていない。このレビューでは実行していない。評価記録の費用はホストのメーターを正とし、measure 内の概算は記録前に上書きされる。",
+			"scope": "遅延の保存された基準値は見当たらない。費用上限の単体試験は verify に含まれる。"
+		},
+		{
+			"id": "E09",
+			"kind": "external_observation",
+			"locator": "https://arxiv.org/abs/2303.11366",
+			"observed_at": "2026-11-06",
+			"observation": "Reflexion（Shinn ら、NeurIPS 2023）は、環境からのフィードバックを言語の振り返りにしてエピソード記憶へ置き、次の試行の文脈に使う。重みは更新しない。",
+			"scope": "論文要旨と公開 HTML。実装の現行差分や HumanEval 数値の再実験はしていない。"
+		},
+		{
+			"id": "E10",
+			"kind": "external_observation",
+			"locator": "https://github.com/SWE-agent/SWE-agent ; https://github.com/SWE-agent/mini-swe-agent",
+			"observed_at": "2026-11-06",
+			"observation": "SWE-agent は課題を LM と sandbox で直す研究用 scaffold で、現行の開発重心は mini-swe-agent だと README が述べている。mini-swe-agent は短い制御ループ、複数の sandbox、SWE-bench 上の自己申告成績を公開している。",
+			"scope": "2026-11-06 に見た公開 README と architecture 文書。成績数値は相手の主張であり、このレビューは再測定していない。"
+		},
+		{
+			"id": "E11",
+			"kind": "primary_doc",
+			"locator": "spec/host-contract-v1.md:1-39; README.md:19-48 @ 4e249bd",
+			"observed_at": "2026-11-06",
+			"observation": "配布は版つき tgz を Eumenes の vendor に置く計画で、公開入口は engine と sqlite だけである。standalone と eval は配布しない。ホストが単一 writer の transaction を貸す。",
+			"scope": "契約文書。取り込み後の動作はこのリポジトリでは未実行。"
+		}
+	],
+	"claims": [
+		{
+			"id": "C01",
+			"type": "Fact",
+			"statement": "このスナップショットの決定的検査は、ローカル macOS で失敗なく完了した。",
+			"evidence_ids": ["E01"],
+			"limitations": "Linux sandbox と live 判定はこの実行に含まれない。"
+		},
+		{
+			"id": "C02",
+			"type": "Inference",
+			"statement": "完了の権限はモデルの申告ではなくホスト照合にあり、失敗時も台帳に状態が残る。",
+			"evidence_ids": ["E02", "E03", "E07"],
+			"limitations": "Eumenes 本体の writer では未実行。"
+		},
+		{
+			"id": "C03",
+			"type": "Inference",
+			"statement": "同じ研究課題に対し、Reflexion はモデル側の言語記憶、SWE-agent 系は課題修正の短いループが代替であり、このリポジトリの固有の寄与は決定的な規則とホスト照合である。",
+			"evidence_ids": ["E07", "E09", "E10"],
+			"limitations": "代替の現行コードを実行比較していない。"
+		},
+		{
+			"id": "C04",
+			"type": "Unknown",
+			"statement": "この commit の GitHub Actions が成功しているかは未確認。",
+			"evidence_ids": [],
+			"limitations": "workflow 定義とローカル verify だけを見ている。"
+		},
+		{
+			"id": "C05",
+			"type": "Assumption",
+			"statement": "評価の利用者は、Eumenes に入れる前の研究を行う保守者である。",
+			"evidence_ids": [],
+			"limitations": "外部利用者の観測はない。"
+		}
+	],
+	"findings": [
+		{
+			"id": "F01",
+			"status": "confirmed",
+			"severity": "Low",
+			"priority": "P3",
+			"priority_reason": "研究の正しさは verify が守る。遅延は次のホスト接続の前に基準を持てば足りる。",
+			"confidence": "Medium",
+			"title": "ステップ遅延の退行を止める基準がない",
+			"root_cause": "負荷に近い測定スクリプトが検査の外にあり、結果も保存されていない。",
+			"evidence_ids": ["E08", "E01"],
+			"condition": "台帳の読み戻しが遅くなっても、bun run verify は成功する。",
+			"consequence": "一手の遅延やスナップショット読みの劣化が、費用や正しさの試験では見えない。",
+			"counterevidence": "費用上限、壁時計、200 試行未満を想定したスクリプト自体は存在する。正しさの退行は別の試験が検出する。",
+			"fix": "固定フィクスチャで benchmark の閾値を一度記録し、verify または定期実行で同じ条件と比較する。",
+			"verification": "読み戻しを意図的に遅くした複製で、その検査が失敗すること。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "performance",
+					"criterion": "measurement",
+					"reason": "代表的な遅延条件の基準と退行信号が無い。"
+				}
+			]
+		},
+		{
+			"id": "F02",
+			"status": "suspected",
+			"severity": "Low",
+			"priority": "P3",
+			"priority_reason": "現行の評価記録はメーター側の金額を採用しているため、今の成績表は壊れていない。",
+			"confidence": "Medium",
+			"title": "指標計算に第二の費用式が残っている",
+			"root_cause": "measure と measureDirect が cache を入力単価の 0.1 倍で概算し、ホストの料金表を使わない。",
+			"evidence_ids": ["E08"],
+			"condition": "将来、measure の usd を記録前の上書きなしで集計に使う。",
+			"consequence": "長文料金や cache 書き込みがある実行で、台帳の費用と評価集計が一致しない。",
+			"counterevidence": "eval/run-jobs.ts は記録時に meter の usd で上書きする。現行の runs.jsonl の金額はメーターが所有者である。",
+			"fix": "概算を削除するか、ホストと同じ料金関数を呼ぶ。上書きに依存しない。",
+			"verification": "cache 書き込みと長文単価を含む利用量で、measure の金額とメーターが一致すること。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "common_components",
+					"criterion": "duplication",
+					"reason": "費用契約の複製が残っており、現在は上書きで隠れている。"
+				}
+			]
+		},
+		{
+			"id": "F03",
+			"status": "withdrawn",
+			"severity": "Low",
+			"priority": null,
+			"priority_reason": "",
+			"confidence": "High",
+			"title": "ループ初期化の型キャストは実行時の穴ではない",
+			"root_cause": "段の関数を循環推論させないために、メソッドを後から代入している。",
+			"evidence_ids": ["E02"],
+			"condition": "生成中に未代入の段を呼ぶ。",
+			"consequence": "その呼出は失敗する。",
+			"counterevidence": "各 factory は関数を返すだけで、初期化中に段を呼んでいない。現行の一手は代入後に呼ばれる。",
+			"fix": "挙動を変える修正は不要。",
+			"verification": "engine.step の既存試験が、初期化後の段を実行して成功すること。",
+			"impacts": [
+				{
+					"track": "technical",
+					"dimension": "architecture",
+					"criterion": "boundaries",
+					"reason": "型上の警告であり、確認した範囲では失敗経路にならない。"
+				}
+			]
+		}
+	],
+	"tracks": {
+		"technical": {
+			"dimensions": {
+				"architecture": {
+					"criteria": {
+						"boundaries": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E02", "E01"],
+							"rationale": "依存方向と host 非依存は検査で固定され、主経路の責務はファイルに分かれている。",
+							"countercheck": "EngineCtx の後付け代入は残っており、境界検査は静的である。実行時のプラグイン境界ではない。"
+						},
+						"flow": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E02", "E03", "E01"],
+							"rationale": "状態遷移、revision、確定段、最終照合の中止が台帳に残る。クラッシュと延期ツールの試験も verify に含まれる。",
+							"countercheck": "複数プロセスが同じ台帳を書く Eumenes 本番構成は、このリポジトリの単一 writer 試験の範囲を超える。"
+						},
+						"fit": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E02", "E11", "E01"],
+							"rationale": "研究用 core をホストから切り離し、時計とネットワークを core に置かない制約に合っている。",
+							"countercheck": "取り込み後のスケールは未測定。単純さは研究の問いには足りているが、製品の運用規模を証明しない。"
+						}
+					}
+				},
+				"correctness": {
+					"criteria": {
+						"contracts": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E02", "E03", "E01"],
+							"rationale": "開始入力、政策、LLM 出力、台帳の往復、受理条件の過不足は試験されている。",
+							"countercheck": "条件フラグの全組み合わせを一つのスナップショット試験では固定していない。"
+						},
+						"edge_cases": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E04", "E05"],
+							"rationale": "不正な受理結果、パスの重なり、負の制御はローカル試験がカバーする。隔離の拒否側もソースで追える。",
+							"countercheck": "Linux の bwrap 試験はこの verify ではスキップされ、実行では確認していない。"
+						},
+						"concurrency": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E03", "E01", "E05"],
+							"rationale": "revision 競合、操作の再送、評価ワーカーが失敗しても共有 DB を閉じる前に待つ契約は試験されている。",
+							"countercheck": "本番の複数ホスト書き込みは未実行。"
+						}
+					}
+				},
+				"security": {
+					"criteria": {
+						"access": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E04", "E02", "E01"],
+							"rationale": "道具は許可リストで拒否でき、コマンド実行は sandbox が無いと走らない。読み取りと通信の拒否がプロファイルにある。",
+							"countercheck": "allow default を含む macOS プロファイルの残差と、Linux 試験の未実行が残る。多利用者の認可はない。"
+						},
+						"input_secrets": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E05", "E06"],
+							"rationale": "秘密の伏せ字、評価ディレクトリの分離、鍵をリポジトリに置かない構成は、試験とソースで追える。依存は ignore-scripts で入れる。",
+							"countercheck": "本番鍵のローテーションや依存の脆弱性走査は見ていない。"
+						},
+						"abuse": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E05", "E04", "E07"],
+							"rationale": "保護を外すと試験が落ちる。sandbox と照合は、モデルが完了を宣言してもホストが通すまで完了にしない。",
+							"countercheck": "課題文による誘導そのものを消す仕組みではなく、権限と照合で被害を限る。"
+						}
+					}
+				},
+				"reliability": {
+					"criteria": {
+						"failure": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E03", "E01", "E08"],
+							"rationale": "時間切れ、不正出力、最終照合の未了、費用不明は止めて台帳に残す。判定器の失敗は無言では落とさない。",
+							"countercheck": "判定器が落ちたあともループは慎重側へ寄らず継続する。これは意図した縮退であり、完全な停止ではない。"
+						},
+						"recovery": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E03", "E01", "E11"],
+							"rationale": "操作キーの再送、クラッシュ後の中断、延期した道具、最終照合のやり直しが実装され、対応する試験が通った。",
+							"countercheck": "実請求の照合と、Eumenes 側キューからの復旧は未実行。"
+						},
+						"resilience": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E08", "E02"],
+							"rationale": "料金未登録や上限超過では次の送出を止める。LARM は直列化と再試行を持つ。",
+							"countercheck": "ライブの API 遮断は注入していない。"
+						}
+					}
+				},
+				"maintainability": {
+					"criteria": {
+						"clarity": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E02", "E11"],
+							"rationale": "契約、ドメイン、評価の入口は文書と対応する。保守者は一手の状態から処理を追える。",
+							"countercheck": "プロンプト生成はなお一つの大きなファイルに schema と文言が同居する。"
+						},
+						"change": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E01", "E03", "E05"],
+							"rationale": "境界検査と verify が回帰を見る。今回の構造変更も同じ検査で通った。",
+							"countercheck": "整形検査は無関係な過去 JSON でも落ちるため、失敗の切り分けに一手間いる。"
+						},
+						"debt": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E02", "E08", "E03"],
+							"rationale": "複雑さの多くは実験フラグとして境界が分かれている。重複していた道具説明と digest 書き込みは一つの経路に寄った。",
+							"countercheck": "直接解法の入力クリップと、指標側の概算費用はまだ別実装である。"
+						}
+					}
+				},
+				"common_components": {
+					"criteria": {
+						"duplication": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E03", "E02"],
+							"rationale": "道具説明、結果 digest、最終照合の待ち方は共有された。観測文も追求側の関数を直接解法が使う。",
+							"countercheck": "直接解法の system 文と履歴要約は別契約として残している。入力クリップの文言はまだ複製がある。"
+						},
+						"reuse": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E02", "E06"],
+							"rationale": "台帳、政策 schema、条件の組み立てを評価と core が共有し、配布物にホスト実装を混ぜない。",
+							"countercheck": "評価ランナーは core の port に依存するため、研究ハーネスと製品 core の依存方向は一方向ではない。"
+						},
+						"abstraction": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E02", "E11"],
+							"rationale": "道具、LLM、照合、時計、store は port で、core は接続を開かない。消費者はホストと評価に限られ、過剰な層ではない。",
+							"countercheck": "ループ段は共有 context へ後からメソッドを足すため、型上の穴が残る。"
+						}
+					}
+				},
+				"testing": {
+					"criteria": {
+						"risk_coverage": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E05", "E04"],
+							"rationale": "台帳、エンジン、費用、評価ランナー、負の制御が主経路と失敗を見ている。",
+							"countercheck": "Linux 隔離と live 判定は今回の実行では未実施。"
+						},
+						"quality": {
+							"status": "assessed",
+							"value": 4,
+							"confidence": "High",
+							"evidence_ids": ["E05", "E01"],
+							"rationale": "保護を無効化した複製で試験が失敗することを確認する負の制御があり、受理条件の過不足も期待値で固定している。",
+							"countercheck": "負の制御は三系統で、実装の私的関数名ではなく落ちること自体を見ている。",
+							"anchor_support": "test/scripts/negative-controls.test.ts が受理、比較、OS 境界の保護無効化を検出する。このファイルはスキップ一覧に無く、verify は失敗 0 で終わった。"
+						},
+						"automation": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E05"],
+							"rationale": "文書化された verify をこの環境で再現でき、CI 定義は同じ命令を二 OS で frozen install とともに走らせる。",
+							"countercheck": "この commit の Actions 結果は取得していない。"
+						}
+					}
+				},
+				"supply_chain": {
+					"criteria": {
+						"dependencies": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E06", "E05"],
+							"rationale": "バージョンは固定され、CI は lockfile を凍結し install script を無視する。",
+							"countercheck": "脆弱性の到達性検査や更新手順の実施記録はない。"
+						},
+						"build_release": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E06", "E05", "E11"],
+							"rationale": "CI が build を定義し、配布物はファイル一覧と sha256 で自己検査する。公開はしない。",
+							"countercheck": "pack 自体はこのレビューで実行していない。署名や更新配信はない。"
+						},
+						"license": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E06"],
+							"rationale": "プロジェクト自身の権利は MIT として LICENSE と package.json にある。",
+							"countercheck": "依存それぞれのライセンス台帳は作っていない。"
+						}
+					}
+				},
+				"performance": {
+					"criteria": {
+						"budget": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E08", "E07"],
+							"rationale": "試行、壁時計、手順、費用上限は宣言され、未知料金や上限超過で次の呼出を止める試験が verify に含まれる。",
+							"countercheck": "遅延の裾は測っていない。費用は研究規模の記録であり、負荷試験ではない。"
+						},
+						"hot_path": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E08", "E03"],
+							"rationale": "一手ごとに追求全体を読み戻す形で、研究の試行数にはソース上は足りる。",
+							"countercheck": "benchmark.ts は未実行なので、200 試行での遅延は主張できない。"
+						},
+						"measurement": {
+							"status": "assessed",
+							"value": 1,
+							"confidence": "Medium",
+							"evidence_ids": ["E08", "E01"],
+							"rationale": "遅延を測るスクリプトはあるが、保存された基準も verify の一部でもない。",
+							"countercheck": "費用と所要時間は評価記録に残るが、性能退行の信号ではない。"
+						}
+					}
+				},
+				"operability": {
+					"criteria": {
+						"signals": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E01", "E08", "E03"],
+							"rationale": "評価は開始と完了、未記録、最終照合の未了、費用不明を残す。リース返却に失敗しても集計を書く試験がある。",
+							"countercheck": "メトリクス基盤や当番の警報はない。研究実行の可視性に限る。"
+						},
+						"lifecycle": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "High",
+							"evidence_ids": ["E01", "E11"],
+							"rationale": "README の verify をこの環境で完了できた。設定と鍵は利用者が用意する。",
+							"countercheck": "vendor 取り込み、更新、削除は未実施。"
+						},
+						"interaction": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "High",
+							"evidence_ids": ["E01", "E05", "E11"],
+							"rationale": "run と report の失敗する引数は試験され、照合のやり直しと費用の照合手順が契約にある。",
+							"countercheck": "画面はなく、初見の利用者での操作確認はしていない。"
+						}
+					}
+				}
+			}
+		},
+		"project": {
+			"dimensions": {
+				"problem": {
+					"criteria": {
+						"need": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E11"],
+							"rationale": "対象は、エージェントが成功を装い受入条件を壊すのを、モデルの内側の反省に頼らず止めたい研究・組込み担当である。失敗の型は具体的である。",
+							"countercheck": "易しい課題ではその失敗が稀だと同じ記録が述べており、需要の強さは課題集合に依存する。"
+						},
+						"impact": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07"],
+							"rationale": "偽完了の差し戻しと、止まりすぎ、API 費用が記録されている。",
+							"countercheck": "金額と件数は小さく、業務損失の測定ではない。"
+						},
+						"validation": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07"],
+							"rationale": "著者の live 実行が、偽完了と回復の実例を残している。",
+							"countercheck": "独立した利用者や第三者の再現はない。"
+						}
+					}
+				},
+				"solution": {
+					"criteria": {
+						"mechanism": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E02", "E07", "E03"],
+							"rationale": "通常の評価条件では、ホスト照合と規則がモデルの完了申告を上書きする。",
+							"countercheck": "E0 でも既に正しく終わる課題があり、機構の効果が常に必要とは言えない。"
+						},
+						"experience": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "High",
+							"evidence_ids": ["E01", "E11"],
+							"rationale": "保守者は verify まで到達できる。live 評価には API、LARM、Python、sandbox が要る。",
+							"countercheck": "取り込み先の製品操作としてはまだ使えない。"
+						},
+						"outcomes": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07"],
+							"rationale": "一部の課題で検出と回復が記録されている。",
+							"countercheck": "繰り返しが少なく、易しい集合では天井に近い。一般的な優位は記録自身が否定している。"
+						}
+					}
+				},
+				"differentiation": {
+					"criteria": {
+						"alternatives": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E09", "E10"],
+							"rationale": "同じ課題の直接解法 D0 と比較でき、Reflexion と SWE-agent 系は別の代替として特定できる。",
+							"countercheck": "相手の課題での勝敗は測っていない。"
+						},
+						"advantage": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E09"],
+							"rationale": "ホストが受入条件を判定し、モデルの完了申告を信用しない点は、言語記憶だけの振り返りよりこの研究課題に直結する。",
+							"countercheck": "課題修正の成功率では mini-swe-agent の公開主張の方が広く、こちらはそこを測っていない。"
+						},
+						"tradeoffs": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E10", "E11"],
+							"rationale": "費用、止まりすぎ、作業の巻き戻し、判定器依存が記録され、研究用に選ぶ条件と選ばない条件が分かれる。",
+							"countercheck": "製品としての採用判断に足る外部比較ではない。"
+						}
+					}
+				},
+				"novelty": {
+					"criteria": {
+						"prior_art": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E09", "E07", "E02"],
+							"rationale": "言語の振り返りとツールループは既にある。差分は、完了権限をホスト照合へ置き、規則を決定的コードにすることである。",
+							"countercheck": "関連研究の網羅ではない。"
+						},
+						"substance": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E03"],
+							"rationale": "その差分は実装され、少なくとも一つの偽完了を差し戻した記録がある。",
+							"countercheck": "効果の大きさは課題と回数に強く依存する。"
+						},
+						"verification": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E01"],
+							"rationale": "著者の ablation と決定的試験が、機構の存在と一部の効果を支える。",
+							"countercheck": "独立再現や共通ベンチマークはない。"
+						}
+					}
+				},
+				"adoption": {
+					"criteria": {
+						"entry": {
+							"status": "assessed",
+							"value": 1,
+							"confidence": "Medium",
+							"evidence_ids": ["E11", "E01"],
+							"rationale": "研究用の起動は可能だが、宣言された採用先である Eumenes vendor への移行は終わっていない。",
+							"countercheck": "外部利用者の導入コストは観測できない。"
+						},
+						"reach": {
+							"status": "assessed",
+							"value": 1,
+							"confidence": "Medium",
+							"evidence_ids": ["E11", "E06"],
+							"rationale": "届ける経路は private な tgz として書かれているが、配布も利用者も観測されない。",
+							"countercheck": "社内の未公開チャネルの実在は確認していない。"
+						},
+						"retention": {
+							"status": "assessed",
+							"value": 1,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E11"],
+							"rationale": "継続して価値を受けている外部利用者はいない。保守者自身の実験キャンペーンが続いているだけである。",
+							"countercheck": "放棄の記録があるわけではなく、利用者が未成立である。"
+						}
+					}
+				},
+				"defensibility": {
+					"criteria": {
+						"assets": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E11", "E03"],
+							"rationale": "課題、台帳 schema、ablation、契約が蓄積している。",
+							"countercheck": "それ自体が模倣困難だという証拠はない。"
+						},
+						"substitution": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E10", "E09", "E07"],
+							"rationale": "課題を直すだけなら短いエージェントで足りる。この研究の問いを同じ契約で続ける理由は残る。",
+							"countercheck": "プラットフォーム側が同種の照合を標準機能にすれば代替は容易である。"
+						},
+						"incentives": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E11"],
+							"rationale": "一人の保守者が契約と実験を維持している。",
+							"countercheck": "人員や予算の継続を第三者は確認できない。"
+						}
+					}
+				},
+				"execution": {
+					"criteria": {
+						"delivery": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E02", "E07", "E01"],
+							"rationale": "計画したループ、規則、評価器、live 記録はリポジトリにある。",
+							"countercheck": "本体への取り込みは未了であり、研究範囲の外として残っている。"
+						},
+						"focus": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E11"],
+							"rationale": "実験フラグは多いが、直近の変更は費用、隔離、ホスト接続に寄っている。一人で研究を続ける範囲には収まる。",
+							"countercheck": "フラグを増やし続けると検証コストが先に膨らむ。"
+						},
+						"feedback": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E01", "E05"],
+							"rationale": "live の失敗が、テキスト欄、閾値、隔離、試験へ戻っている。",
+							"countercheck": "フィードバック源は著者の実行であり、外部利用者ではない。"
+						}
+					}
+				},
+				"timing": {
+					"criteria": {
+						"drivers": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E10", "E09"],
+							"rationale": "2026 年時点でも coding agent の scaffold は保守され、制御された実行への需要が公開プロジェクトに現れている。",
+							"countercheck": "このリポジトリ自身の利用者需要は別問題である。"
+						},
+						"readiness": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E11", "E04", "E10"],
+							"rationale": "API と sandbox は使える。LARM と Eumenes への接続は外部条件のままである。",
+							"countercheck": "相手側の受入準備は未確認。"
+						},
+						"window": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E10", "E11"],
+							"rationale": "研究コンポーネントとして今も続けられる。標準的な短いエージェントが広がるため、差分を示さないままでは窓は狭くなる。",
+							"countercheck": "市場の締切は定義されていない。"
+						}
+					}
+				},
+				"health": {
+					"criteria": {
+						"ownership": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "High",
+							"evidence_ids": ["E11", "E01"],
+							"rationale": "リポジトリと契約文書から、知識と保守の所在は追える。",
+							"countercheck": "引き継ぎの実施記録はない。"
+						},
+						"activity": {
+							"status": "assessed",
+							"value": 3,
+							"confidence": "Medium",
+							"evidence_ids": ["E01", "E03"],
+							"rationale": "2026-11-06 に検査と構造変更が入り、研究プロトタイプとして保守は続いている。",
+							"countercheck": "版付きリリースの周期はない。"
+						},
+						"governance": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E07", "E11"],
+							"rationale": "決定は plan と spec に残る。資源は保守者の実行環境と API 予算である。",
+							"countercheck": "複数人の意思決定は見えない。"
+						}
+					}
+				},
+				"expansion": {
+					"criteria": {
+						"adjacency": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E11", "E02"],
+							"rationale": "同じ core を Eumenes の背景処理として使う隣接用途は契約されている。",
+							"countercheck": "パイロット取り込みは未実施。"
+						},
+						"scalability": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E11", "E08", "E03"],
+							"rationale": "単一 writer と追求ごとの直列が明示され、費用は呼出に比例する。小規模の延長には説明がつく。",
+							"countercheck": "組織展開の測定はない。"
+						},
+						"path": {
+							"status": "assessed",
+							"value": 2,
+							"confidence": "Medium",
+							"evidence_ids": ["E11", "E07"],
+							"rationale": "検証後に tgz へ入れる順序が書かれ、未達の条件も本文にある。",
+							"countercheck": "出口条件を満たした段階にはいない。"
+						}
+					}
+				}
+			}
+		}
+	}
+}
