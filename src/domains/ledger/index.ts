@@ -49,7 +49,19 @@ export const migrations: readonly MigrationDescriptor[] = [
 		sql: "\nALTER TABLE pursuit_inference ADD COLUMN usage_json TEXT;\n",
 		sha256: "cc8047d1431acd0ec6180366cc19443aa7564bdb58e59145e3a4650616bee70c",
 	},
+	{
+		id: "pursuit-0009-action-plan",
+		sql: "\nALTER TABLE pursuit_pursuit ADD COLUMN action_plan_json TEXT;\n",
+		sha256: "5878f6bd72759d0b3aca92116c17af2484019fd0fa00912f7f6597f919f8ec8a",
+	},
+	{
+		id: "pursuit-0010-productivity",
+		sql: "\nALTER TABLE pursuit_pursuit ADD COLUMN productive_json TEXT;\nCREATE TABLE pursuit_progress(id TEXT PRIMARY KEY,pursuit_id TEXT NOT NULL REFERENCES pursuit_pursuit(id),data_json TEXT NOT NULL) STRICT;\n",
+		sha256: "9808ec79f7516c217909ccd4d1e3dbf37d14b3d16b6c9876ea3d0287d4ff9bb9",
+	},
 ];
+export * from "./productivity.ts";
+export * from "./action-plan.ts";
 export * from "./host-lifecycle.ts";
 export * from "./findings.ts";
 export * from "./repository.ts";

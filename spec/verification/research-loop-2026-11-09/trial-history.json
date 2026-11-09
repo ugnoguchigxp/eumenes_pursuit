@@ -1,0 +1,222 @@
+[
+	{
+		"trial": "before",
+		"case": "museum",
+		"completedModelEvents": 10,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794152702312,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "before",
+		"case": "technical",
+		"completedModelEvents": 16,
+		"actions": 8,
+		"savedDraftVersions": 2,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794152647619,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "after",
+		"case": "technical",
+		"completedModelEvents": 21,
+		"actions": 11,
+		"savedDraftVersions": 4,
+		"hasSummary": false,
+		"summary": null,
+		"lastEventAt": 1794152884775,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "before-contract-v1",
+		"case": "denied",
+		"completedModelEvents": 10,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794153132536,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "before-contract-v1",
+		"case": "conflict",
+		"completedModelEvents": 10,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794153340437,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "before-contract-v1",
+		"case": "missing",
+		"completedModelEvents": 22,
+		"actions": 10,
+		"savedDraftVersions": 2,
+		"hasSummary": true,
+		"summary": "stopped",
+		"lastEventAt": 1794153289154,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "before-contract-v1",
+		"case": "cap",
+		"completedModelEvents": 4,
+		"actions": 1,
+		"savedDraftVersions": 0,
+		"hasSummary": true,
+		"summary": "proposing",
+		"lastEventAt": 1794153355534,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "before-contract-v1",
+		"case": "museum",
+		"completedModelEvents": 9,
+		"actions": 5,
+		"savedDraftVersions": 1,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794153081404,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "before-contract-v1",
+		"case": "technical",
+		"completedModelEvents": 10,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794153030994,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "after-rejected",
+		"case": "denied",
+		"completedModelEvents": 9,
+		"actions": 5,
+		"savedDraftVersions": 2,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794153527713,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "after-rejected",
+		"case": "missing",
+		"completedModelEvents": 28,
+		"actions": 18,
+		"savedDraftVersions": 8,
+		"hasSummary": false,
+		"summary": null,
+		"lastEventAt": 1794153841946,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "after-rejected",
+		"case": "museum",
+		"completedModelEvents": 10,
+		"actions": 6,
+		"savedDraftVersions": 2,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794153475872,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "after-rejected",
+		"case": "technical",
+		"completedModelEvents": 8,
+		"actions": 4,
+		"savedDraftVersions": 1,
+		"hasSummary": true,
+		"summary": "completed",
+		"lastEventAt": 1794153410265,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "after-contract-v1",
+		"case": "technical",
+		"completedModelEvents": 25,
+		"actions": 17,
+		"savedDraftVersions": 5,
+		"hasSummary": false,
+		"summary": null,
+		"lastEventAt": 1794154094591,
+		"eligibleForFinalComparison": false
+	},
+	{
+		"trial": "after-instructions",
+		"case": "denied",
+		"completedModelEvents": 16,
+		"actions": 9,
+		"savedDraftVersions": 3,
+		"summary": "completed",
+		"elapsedMs": 107702.2095,
+		"eligibleForFinalComparison": false,
+		"note": "valid instruction-only candidate; superseded by persisted read planning"
+	},
+	{
+		"trial": "after-instructions",
+		"case": "conflict",
+		"completedModelEvents": 8,
+		"actions": 4,
+		"savedDraftVersions": 1,
+		"summary": "completed",
+		"elapsedMs": 45976.546291999985,
+		"eligibleForFinalComparison": false,
+		"note": "valid instruction-only candidate; superseded by persisted read planning"
+	},
+	{
+		"trial": "after-instructions",
+		"case": "missing",
+		"completedModelEvents": 11,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"summary": "stopped",
+		"elapsedMs": 70982.38708300004,
+		"eligibleForFinalComparison": false,
+		"note": "valid instruction-only candidate; superseded by persisted read planning"
+	},
+	{
+		"trial": "after-instructions",
+		"case": "cap",
+		"completedModelEvents": 12,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"summary": "stopped",
+		"elapsedMs": 107548.257041,
+		"eligibleForFinalComparison": false,
+		"note": "valid instruction-only candidate; superseded by persisted read planning"
+	},
+	{
+		"trial": "after-instructions",
+		"case": "museum",
+		"completedModelEvents": 10,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"summary": "completed",
+		"elapsedMs": 53181.852999999996,
+		"eligibleForFinalComparison": false,
+		"note": "valid instruction-only candidate; superseded by persisted read planning"
+	},
+	{
+		"trial": "after-instructions",
+		"case": "technical",
+		"completedModelEvents": 10,
+		"actions": 6,
+		"savedDraftVersions": 1,
+		"summary": "completed",
+		"elapsedMs": 58137.086583000004,
+		"eligibleForFinalComparison": false,
+		"note": "valid instruction-only candidate; superseded by persisted read planning"
+	}
+]

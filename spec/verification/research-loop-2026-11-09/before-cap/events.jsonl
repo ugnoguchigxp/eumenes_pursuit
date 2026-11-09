@@ -1,0 +1,9 @@
+{"at":1794154652050,"kind":"model","purpose":"plan","latencyMs":4625.311833000043,"input":3,"cache":1734,"output":501}
+{"at":1794154652052,"kind":"step","pursuitId":"pur_b457ea16-42a4-4cbc-83c1-6dd8fa21c329","status":"hypothesizing","revision":2,"event":"planned","done":false}
+{"at":1794154655254,"kind":"model","purpose":"hypothesize","latencyMs":3181.290624999965,"input":2405,"cache":0,"output":249}
+{"at":1794154655256,"kind":"step","pursuitId":"pur_b457ea16-42a4-4cbc-83c1-6dd8fa21c329","status":"proposing","revision":3,"event":"hypothesized","done":false}
+{"at":1794154658265,"kind":"model","purpose":"propose","latencyMs":2990.5793330000015,"input":3594,"cache":0,"output":204}
+{"at":1794154658266,"kind":"action","tool":"web_read","input":{"url":"https://fixture.example/a"},"status":"ok","output":{"documents":[{"evidence":"e1","url":"https://fixture.example/a","title":"施設A 常設展示 利用規則","text":"常設展示は写真撮影可。ただし撮影禁止の表示がある展示品は撮影不可。フラッシュ、三脚、自撮り棒は使用不可。企画展は個別の案内を確認すること。","totalCharacters":69,"truncated":false,"trust":"untrusted"}],"truncated":false,"calls_left":0},"refs":[{"kind":"source","uri":"https://fixture.example/a","note":"e1"}],"ms":0.014291999978013337}
+{"at":1794154658269,"kind":"step","pursuitId":"pur_b457ea16-42a4-4cbc-83c1-6dd8fa21c329","status":"proposing","revision":6,"event":"executed","done":false}
+{"at":1794154663589,"kind":"model","purpose":"propose","latencyMs":5304.419249999977,"input":3867,"cache":0,"output":446}
+{"at":1794154663592,"kind":"admission_refused","tool":"web_read","input":{"url":"https://fixture.example/b"},"reason":"fetch_limit"}

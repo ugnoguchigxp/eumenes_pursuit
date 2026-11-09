@@ -46,7 +46,7 @@ export function makeTransitions(
 		known?: readonly CriterionResult[],
 		basisExtra: JsonObject = {},
 	): Promise<StepResult> {
-		const deferred = outcome !== "completed";
+		const deferred = outcome !== "completed" && known === undefined;
 		if (!deferred) checkTime(view, signal);
 		const criteria = deferred
 			? []
@@ -100,6 +100,8 @@ export function makeTransitions(
 					? "give_up"
 					: "stop";
 		const revision = await store.write((db) => {
+			ledger.setActionPlan(db, view.id, null);
+			ledger.clearProductivePlan(db, view.id);
 			for (const a of view.attempts)
 				if (a.state === "started")
 					ledger.interruptAttempt(db, { id: a.id, now: clock.now() });
@@ -203,6 +205,8 @@ export function makeTransitions(
 		basis: JsonObject,
 	): Promise<StepResult> {
 		const revision = await store.write((db) => {
+			ledger.setActionPlan(db, view.id, null);
+			ledger.clearProductivePlan(db, view.id);
 			ledger.closeSettlements(db, view.id, reason);
 			ledger.insertDecision(db, {
 				id: ids.next("dec"),
@@ -232,6 +236,8 @@ export function makeTransitions(
 		basisExtra: JsonObject = {},
 	): Promise<StepResult> {
 		const revision = await store.write((db) => {
+			ledger.setActionPlan(db, view.id, null);
+			ledger.clearProductivePlan(db, view.id);
 			extra(db);
 			ledger.closeSettlements(db, view.id, question);
 			ledger.insertConsultation(db, {

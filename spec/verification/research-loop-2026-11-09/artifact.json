@@ -1,0 +1,13 @@
+{
+	"package": "eumenes-pursuit",
+	"version": "0.0.5",
+	"hostContract": "1.12",
+	"dbSchemaVersion": 9,
+	"archive": "artifacts/research-loop-20261109/eumenes-pursuit-0.0.5.tgz",
+	"sha256": "949cf2fcf428c4889e7c86e9cbe35e45695f1ef3aa7d1190929dfe21f92caf78",
+	"files": 82,
+	"baseCommit": "d7eb94f89b68814daed66efd1e38beba89a42ea5",
+	"uncommittedImplementation": true,
+	"verifiedWith": "570 passed, 12 existing skips, full verify passed; 6 matched fixture+real-model comparisons",
+	"eumenesAdopted": false
+}

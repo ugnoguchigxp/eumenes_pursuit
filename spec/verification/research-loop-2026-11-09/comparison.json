@@ -1,0 +1,568 @@
+[
+	{
+		"name": "technical",
+		"before": {
+			"name": "technical",
+			"variant": "before",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 76975.247292,
+			"modelMs": 76748.337292,
+			"externalMs": 0.0602500000022701,
+			"storageMs": 3.7485840000044846,
+			"ledgerMs": 14.387789999979503,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 2,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得済みの e1・e2 の本文と回答を照合しました。回答は同期・非同期、保存できるデータ、容量・削除・保持、用途を日本語の比較表にまとめ、各資料へのリンクを示しています。資料にない容量値などは不明として扱い、明示的な矛盾がないことと資料の限界も記載しています。用途への当てはめも資料の適性を超える断定にはなっていません。保存先 report.json、読み戻し1回、実際のドラフトあり、completion は complete と確認できます。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 10,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 7,
+				"grade": 1
+			},
+			"uncachedInput": 40253,
+			"cacheInput": 0,
+			"output": 6066,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "84ca9ce55cb7d57b5119c4594316b5cbaed9a5a4d1072f829e5eb5aae71579bf",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6f00a90ac27fa70fcdf247ff15913f4c2fbdeaf64aa7169360fed86a910699df"
+		},
+		"after": {
+			"name": "technical",
+			"variant": "after",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 60868.877415999996,
+			"modelMs": 60670.992792000005,
+			"externalMs": 0.028207999999722233,
+			"storageMs": 3.602125999997952,
+			"ledgerMs": 13.34641699999925,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 0,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "report.jsonの保存確認（persistedPath: report.json、読み戻し1回）があります。回答は取得した2資料に基づき、同期・非同期、保存データ、容量・削除、用途を出典リンク付きの日本語Markdown比較表にまとめ、個人用オフラインメモでの選択目安も示しています。資料にない容量上限や削除・復旧の詳細は不明として扱い、資料の限界も記載しています。取得済みの事実を残したまま、completionはcompleteです。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 8,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 5,
+				"grade": 1
+			},
+			"uncachedInput": 27320,
+			"cacheInput": 6461,
+			"output": 5739,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "84ca9ce55cb7d57b5119c4594316b5cbaed9a5a4d1072f829e5eb5aae71579bf",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6e6f72d25314392a538a67859e04e2b1a3e8d2154f1a38b8aa387bf0ac92d321"
+		}
+	},
+	{
+		"name": "museum",
+		"before": {
+			"name": "museum",
+			"variant": "before",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 46827.96887499999,
+			"modelMs": 46657.93574900001,
+			"externalMs": 0.03454100000089966,
+			"storageMs": 1.2070419999945443,
+			"ledgerMs": 8.716251000048942,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 0,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得本文の記載と回答は整合しています。施設A・Bの常設展示の撮影可否、フラッシュ・三脚・自撮り棒、撮影禁止表示や企画展・特別展の例外を比較表にまとめ、本文にない事項は不明として扱っています。出典リンクと確認範囲の限界も示され、completionはcompleteです。hostReceiptはreport.jsonへの保存と読み戻しを確認しています。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 8,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 5,
+				"grade": 1
+			},
+			"uncachedInput": 29385,
+			"cacheInput": 0,
+			"output": 4021,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "5bf360e621be96d85bc8e8a31fecd48675e6f4524b40ea20aa08797044243cc4",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6f00a90ac27fa70fcdf247ff15913f4c2fbdeaf64aa7169360fed86a910699df"
+		},
+		"after": {
+			"name": "museum",
+			"variant": "after",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 51151.468542,
+			"modelMs": 51002.620166,
+			"externalMs": 0.01750000000174623,
+			"storageMs": 0.9437499999912689,
+			"ledgerMs": 8.787333000007493,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 0,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得本文 e1・e2 と回答を照合しました。常設展示の撮影条件、撮影禁止表示の例外、フラッシュ・三脚、自撮り棒（施設Bは本文に記載なし）、企画展・特別展の扱いが正確に比較され、本文で確認できない点も不明として示されています。出典リンクがあり、指定の report.json に回答が保存されたことも受領情報で確認できます。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 7,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 4,
+				"grade": 1
+			},
+			"uncachedInput": 21842,
+			"cacheInput": 6446,
+			"output": 5185,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "5bf360e621be96d85bc8e8a31fecd48675e6f4524b40ea20aa08797044243cc4",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6e6f72d25314392a538a67859e04e2b1a3e8d2154f1a38b8aa387bf0ac92d321"
+		}
+	},
+	{
+		"name": "denied",
+		"before": {
+			"name": "denied",
+			"variant": "before",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 44874.18387499999,
+			"modelMs": 44712.267751000036,
+			"externalMs": 0.018125000002328306,
+			"storageMs": 1.910208999994211,
+			"ledgerMs": 9.261374999914551,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 0,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得本文と照合し、常設展示の写真撮影・フラッシュ・三脚・自撮り棒を両施設について比較表に記載しています。撮影禁止表示の例外、企画展・特別展の別規則、施設Bの自撮り棒が本文では不明であることも適切に示し、各記述に出典リンクがあります。未取得の詳細を断定せず、明示的な矛盾も見当たらないと範囲を限定して説明しています。report.jsonへの保存も確認されています。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 8,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 5,
+				"grade": 1
+			},
+			"uncachedInput": 30049,
+			"cacheInput": 0,
+			"output": 3915,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "9ea248f441af573c320359e9c0a14ecf10f89b75eda553268caa8879ae6ec578",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6f00a90ac27fa70fcdf247ff15913f4c2fbdeaf64aa7169360fed86a910699df"
+		},
+		"after": {
+			"name": "denied",
+			"variant": "after",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 45701.26620799999,
+			"modelMs": 45553.050208000015,
+			"externalMs": 0.025666999994427897,
+			"storageMs": 1.3391669999982696,
+			"ledgerMs": 9.089957000047434,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 0,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "保存確認済みのreport.jsonには、両施設の撮影・フラッシュ・三脚・自撮り棒の比較表と出典リンクが含まれています。撮影禁止表示など本文にある例外を記載し、施設Bの自撮り棒や個別展示品名など本文で確認できない点は断定せず不明として扱っています。企画展・特別展の規則も常設展示の規則と混同せず、完了としています。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 7,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 4,
+				"grade": 1
+			},
+			"uncachedInput": 21749,
+			"cacheInput": 6459,
+			"output": 4523,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "9ea248f441af573c320359e9c0a14ecf10f89b75eda553268caa8879ae6ec578",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6e6f72d25314392a538a67859e04e2b1a3e8d2154f1a38b8aa387bf0ac92d321"
+		}
+	},
+	{
+		"name": "missing",
+		"before": {
+			"name": "missing",
+			"variant": "before",
+			"fixture": true,
+			"status": "awaiting_consultation",
+			"error": null,
+			"elapsedMs": 276148.77025000006,
+			"modelMs": 275489.6306669999,
+			"externalMs": 0.0813349999662023,
+			"storageMs": 4.638999999966472,
+			"ledgerMs": 39.73479299995233,
+			"hostWaitMs": 0,
+			"searches": 2,
+			"fetches": 3,
+			"reads": 2,
+			"writes": 2,
+			"rereads": 7,
+			"rejected": 4,
+			"modelCalls": 30,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 3,
+				"propose": 23,
+				"review": 2,
+				"grade": 1
+			},
+			"uncachedInput": 174666,
+			"cacheInput": 1734,
+			"output": 23806,
+			"evidenceRetainedInDraft": ["e1"],
+			"inputHash": "5bf360e621be96d85bc8e8a31fecd48675e6f4524b40ea20aa08797044243cc4",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6f00a90ac27fa70fcdf247ff15913f4c2fbdeaf64aa7169360fed86a910699df"
+		},
+		"after": {
+			"name": "missing",
+			"variant": "after",
+			"fixture": true,
+			"status": "stopped",
+			"verified": false,
+			"error": null,
+			"elapsedMs": 141006.38333299998,
+			"modelMs": 140674.78954100003,
+			"externalMs": 0.07191500000772066,
+			"storageMs": 3.09233299997868,
+			"ledgerMs": 20.077456999919377,
+			"hostWaitMs": 0,
+			"searches": 1,
+			"fetches": 2,
+			"reads": 1,
+			"writes": 1,
+			"rereads": 2,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": false,
+					"evidence": "施設Aについては、撮影可（撮影禁止表示のある展示品を除く）、フラッシュ・三脚・自撮り棒不可という取得本文の事実が表に残り、出典リンクも示されています。施設Bの取得失敗と確認できない点も明記されています。ただし、両施設の比較という依頼に対して施設Bの本文を確認できておらず、completion が「incomplete」です。未取得項目を不明とするだけでは全条件の完了にならないため、不合格です。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 14,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 2,
+				"propose": 8,
+				"review": 2,
+				"grade": 1
+			},
+			"uncachedInput": 54737,
+			"cacheInput": 10878,
+			"output": 13653,
+			"evidenceRetainedInDraft": ["e1"],
+			"inputHash": "5bf360e621be96d85bc8e8a31fecd48675e6f4524b40ea20aa08797044243cc4",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6e6f72d25314392a538a67859e04e2b1a3e8d2154f1a38b8aa387bf0ac92d321"
+		}
+	},
+	{
+		"name": "conflict",
+		"before": {
+			"name": "conflict",
+			"variant": "before",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 53253.538375000004,
+			"modelMs": 53071.03612599999,
+			"externalMs": 0.031291999970562756,
+			"storageMs": 1.063332999998238,
+			"ledgerMs": 10.109087999677286,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 2,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "回答は取得済みの2資料と整合しています。日本語Markdown表で写真撮影、フラッシュ、三脚、自撮り棒、例外・案内を資料ごとに比較し、常設展示の撮影可否の矛盾と改定資料の適用日の不明を、どちらかに決めつけず説明しています。例外や企画展案内の適用範囲も推測せず、出典リンクを付しています。取得本文にない事項を断定せず、completionもcompleteです。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 10,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 7,
+				"grade": 1
+			},
+			"uncachedInput": 41424,
+			"cacheInput": 0,
+			"output": 4834,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "014170f6f99e569368a6384bfb266c10369fc95cc5bc357381e0b2c0b4baf292",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6f00a90ac27fa70fcdf247ff15913f4c2fbdeaf64aa7169360fed86a910699df"
+		},
+		"after": {
+			"name": "conflict",
+			"variant": "after",
+			"fixture": true,
+			"status": "completed",
+			"verified": true,
+			"error": null,
+			"elapsedMs": 45670.39879200002,
+			"modelMs": 45504.107583999925,
+			"externalMs": 0.027750000008381903,
+			"storageMs": 3.0637499999720603,
+			"ledgerMs": 10.943208000331651,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 2,
+			"reads": 0,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 0,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "report.jsonへの保存が確認されています。回答は写真撮影可否の矛盾を明示し、適用日・優先関係から現行ルールを推測していません。フラッシュ、三脚、自撮り棒の両資料で一致する禁止、撮影禁止表示の例外、企画展の個別案内を記載し、改定資料に記載のない例外や企画展への適用を断定せず、資料ごとの出典リンクも示しています。completionはcompleteです。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 7,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 4,
+				"grade": 1
+			},
+			"uncachedInput": 21899,
+			"cacheInput": 6466,
+			"output": 4406,
+			"evidenceRetainedInDraft": ["e1", "e2"],
+			"inputHash": "014170f6f99e569368a6384bfb266c10369fc95cc5bc357381e0b2c0b4baf292",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6e6f72d25314392a538a67859e04e2b1a3e8d2154f1a38b8aa387bf0ac92d321"
+		}
+	},
+	{
+		"name": "cap",
+		"before": {
+			"name": "cap",
+			"variant": "before",
+			"fixture": true,
+			"status": "proposing",
+			"error": "fixture_fetch_limit",
+			"elapsedMs": 16181.016541999998,
+			"modelMs": 16101.601040999987,
+			"externalMs": 0.014291999978013337,
+			"storageMs": 0,
+			"ledgerMs": 6.76537400012603,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 1,
+			"reads": 0,
+			"writes": 0,
+			"rereads": 0,
+			"rejected": 0,
+			"modelCalls": 4,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 2
+			},
+			"uncachedInput": 9869,
+			"cacheInput": 1734,
+			"output": 1400,
+			"evidenceRetainedInDraft": [],
+			"inputHash": "5bf360e621be96d85bc8e8a31fecd48675e6f4524b40ea20aa08797044243cc4",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6f00a90ac27fa70fcdf247ff15913f4c2fbdeaf64aa7169360fed86a910699df"
+		},
+		"after": {
+			"name": "cap",
+			"variant": "after",
+			"fixture": true,
+			"status": "stopped",
+			"verified": false,
+			"error": null,
+			"elapsedMs": 69770.73825,
+			"modelMs": 69596.99046100001,
+			"externalMs": 0.011624999984633178,
+			"storageMs": 2.7974580000154674,
+			"ledgerMs": 10.115498999948613,
+			"hostWaitMs": 0,
+			"searches": 0,
+			"fetches": 1,
+			"reads": 0,
+			"writes": 1,
+			"rereads": 1,
+			"rejected": 1,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": false,
+					"evidence": "report.jsonへの保存と施設Aの取得本文に基づく内容は確認できます。施設Aの常設展示は撮影可（撮影禁止表示の展示品は不可）、フラッシュ・三脚・自撮り棒は使用不可という記述も本文と一致しています。しかし施設Bの本文がなく、比較の必須項目が未確認のままで、completionも「incomplete」です。取得不能を明示していても全条件の完了とはならないため、不合格です。",
+					"assurance": "model"
+				}
+			],
+			"modelCalls": 8,
+			"purposes": {
+				"plan": 1,
+				"hypothesize": 1,
+				"propose": 4,
+				"review": 1,
+				"grade": 1
+			},
+			"uncachedInput": 23300,
+			"cacheInput": 6446,
+			"output": 6610,
+			"evidenceRetainedInDraft": ["e1"],
+			"inputHash": "5bf360e621be96d85bc8e8a31fecd48675e6f4524b40ea20aa08797044243cc4",
+			"runnerHash": "2806df231797a93024b57575fd51338e03a40002164d2e8e29152557dbf01471",
+			"sourceHash": "6e6f72d25314392a538a67859e04e2b1a3e8d2154f1a38b8aa387bf0ac92d321"
+		}
+	}
+]

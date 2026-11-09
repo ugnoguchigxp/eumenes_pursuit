@@ -207,10 +207,20 @@ test("a failed external reservation rolls back the host queue and the core attem
 			);
 			throw new Error("fixture_reservation_failed");
 		};
-		await expect(f.engine().step(f.id, f.runtime, signal())).rejects.toThrow(
-			"fixture_reservation_failed",
+		expect((await f.engine().step(f.id, f.runtime, signal())).event).toBe(
+			"rejected",
 		);
-		expect((await f.engine().view(f.id))!.attempts).toHaveLength(0);
+		const view = (await f.engine().view(f.id))!;
+		expect(view.attempts).toHaveLength(1);
+		expect(view.attempts[0]!.state).toBe("rejected");
+		expect(view.attempts[0]!.rejection?.[0]?.rule).toBe(
+			"tool_reservation_failed",
+		);
+		expect(view.attempts[0]!.pendingOperationId).toBeUndefined();
+		expect(view.inference.filter((i) => i.purpose === "propose")).toHaveLength(
+			1,
+		);
+		expect(f.counts().invoked).toBe(0);
 		await f
 			.store()
 			.readSnapshot((db) =>

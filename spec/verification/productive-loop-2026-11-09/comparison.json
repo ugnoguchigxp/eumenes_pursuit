@@ -1,0 +1,1892 @@
+{
+	"technical": {
+		"matched_inputs": true,
+		"same_accepted_quality": true,
+		"legacy": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 72779.526834,
+			"model": {
+				"calls": 8,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 5,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 46259,
+				"cacheReadTokens": 8103,
+				"outputTokens": 5832,
+				"durationMs": 72286.41545999999,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 2,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 326.93233400000827,
+			"externalMs": 325.67633300000307,
+			"markdownMs": 7.986207000005379,
+			"usage": {
+				"calls": 8,
+				"knownUsd": 0.008778804999999999,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 54362,
+				"outputTokens": 5832,
+				"usd": 0.008778804999999999,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 8,
+						"usd": 0.008778804999999999
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 2,
+			"limitations": [
+				"結論は指定された2件のテスト資料の取得本文だけに限定される。",
+				"IndexedDBの具体的な保存期間や消去条件は本文で確認できない。",
+				"いずれの資料もオフライン用途やオフライン時の利用可否を説明していない。",
+				"ブラウザー間の詳細や本文にない挙動は評価していない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/indexed",
+				"e2": "https://fixture.example/storage"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得本文の記載と回答の主張が対応しています。同期性、保存できる値、保持範囲、容量・退避や消去の限界を比較し、各出典リンクも示しています。オフライン用途とIndexedDBの固定保存期間・具体的な消去条件は本文で確認できないと明記し、推測していません。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "受入条件を満たしています。report.jsonは同期性・データ型・保存期間／消去・オフライン用途を扱い、裏付けのある主張をe1/e2に対応させています。固定保存期間やオフライン用途など資料から確認できない事項は不明として区別し、指定資料の範囲に限ることも明記しています。",
+			"after_last_external": {
+				"wallMs": 36331,
+				"modelCallsStarted": 4,
+				"modelDurationMs": 36268.18454299998
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 326.932373046875,
+				"overlappingDecisionMs": 0,
+				"overlappingIoMs": 322.932373046875,
+				"outsideRecordedJobsMs": 4.0
+			},
+			"max_ready_to_adopt_ms": 11,
+			"progress": [],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/indexed",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/storage",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/live/technical/legacy/technical"
+		},
+		"productive": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 50808.094417,
+			"model": {
+				"calls": 5,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 2,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 12468,
+				"cacheReadTokens": 12040,
+				"outputTokens": 4911,
+				"durationMs": 50444.32658300001,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 2,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 30202.402167,
+			"externalMs": 324.62112400000115,
+			"markdownMs": 14.731917000000976,
+			"usage": {
+				"calls": 5,
+				"knownUsd": 0.0041340249999999995,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 24508,
+				"outputTokens": 4911,
+				"usd": 0.0041340249999999995,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 5,
+						"usd": 0.0041340249999999995
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 1,
+			"limitations": [
+				"指定された2資料だけを使用した比較であり、資料にない情報は補っていない。",
+				"オフライン用途や動作保証は両資料に記載されていない。",
+				"IndexedDBの具体的な保持期間、quota値、消去条件は資料に示されていない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/storage",
+				"e2": "https://fixture.example/indexed"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "回答は指定資料の取得本文と対応するリンクを示し、同期性・データ型・保存期間や消去について、本文にある範囲を正確に比較しています。IndexedDBの具体的な保持期間等と両方式のオフライン用途は資料から確認できないと明記し、資料外の情報で補っていません。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "取得本文が依頼された比較項目の一部を直接裏付け、残るオフライン用途については本文で確認できないと明示できる。指定外の情報を加えず、根拠と限界を対応させた回答を保存して読み戻す。",
+			"after_last_external": {
+				"wallMs": 24701,
+				"modelCallsStarted": 2,
+				"modelDurationMs": 24627.711167000005
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 30202.40185546875,
+				"overlappingDecisionMs": 30015.34521484375,
+				"overlappingIoMs": 184.056640625,
+				"outsideRecordedJobsMs": 3.0
+			},
+			"max_ready_to_adopt_ms": 8,
+			"progress": [
+				{
+					"assessed": [],
+					"kind": "initial",
+					"change": "指定資料だけを根拠にする方針で、未確認事項を明示した比較回答の下書きを作り、二つの指定URLの本文取得を始める。",
+					"evidence": [],
+					"criteria": ["citations", "answer"],
+					"choice": "act",
+					"reason": "指定資料の取得本文も回答案もまだない。まず不明点を明記した未完了の骨組みを保存し、同時に指定された二資料を直接取得する。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [1, 2, 3],
+					"kind": "evidence",
+					"change": "指定された2資料の取得本文を確認できた。同期性、保存値の型、保存と消去に関する主張をそれぞれ本文に結び付けられる。オフライン用途は本文に記載がなく、結論を限定する必要がある。",
+					"evidence": [2, 3],
+					"criteria": ["citations", "answer"],
+					"choice": "complete",
+					"reason": "取得本文が依頼された比較項目の一部を直接裏付け、残るオフライン用途については本文で確認できないと明示できる。指定外の情報を加えず、根拠と限界を対応させた回答を保存して読み戻す。",
+					"status": "accepted"
+				}
+			],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/indexed",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/storage",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/technical/productive/technical"
+		}
+	},
+	"museum": {
+		"matched_inputs": true,
+		"same_accepted_quality": true,
+		"legacy": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 57800.972542,
+			"model": {
+				"calls": 8,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 5,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 38660,
+				"cacheReadTokens": 17226,
+				"outputTokens": 5496,
+				"durationMs": 57312.564458,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 2,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 327.4847499999996,
+			"externalMs": 325.8301670000037,
+			"markdownMs": 6.517291000000114,
+			"usage": {
+				"calls": 8,
+				"knownUsd": 0.00775216,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 55886,
+				"outputTokens": 5496,
+				"usd": 0.00775216,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 8,
+						"usd": 0.00775216
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 2,
+			"limitations": [
+				"比較対象は指定された施設A・施設Bの取得本文のみ。外部資料は使用していない。",
+				"施設Bの自撮り棒の使用可否、禁止表示の具体的な場所・内容、企画展・特別展の個別規則の詳細は指定資料から確認できない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/a",
+				"e2": "https://fixture.example/b"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "指定資料の取得本文が提示され、回答の撮影可否・禁止表示・フラッシュ・三脚・自撮り棒・特別展の記述は各資料の本文と対応しています。施設Bの自撮り棒、禁止表示の具体的内容、個別規則の詳細は不明または資料外と区別し、出典リンクも示しています。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "report.jsonの比較表は、施設A・Bそれぞれの撮影可否、禁止表示、フラッシュ、三脚、自撮り棒、特別展の扱いに応答しています。確認済みの主張には取得本文の出典e1またはe2とリンクが対応し、施設Bの自撮り棒、禁止表示の具体的内容、個別規則の詳細は不明として記載されています。外部資料は使用していません。",
+			"after_last_external": {
+				"wallMs": 27131,
+				"modelCallsStarted": 4,
+				"modelDurationMs": 27068.030416999994
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 327.48486328125,
+				"overlappingDecisionMs": 0,
+				"overlappingIoMs": 321.48486328125,
+				"outsideRecordedJobsMs": 6.0
+			},
+			"max_ready_to_adopt_ms": 13,
+			"progress": [],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/b",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/live/museum/legacy/museum"
+		},
+		"productive": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 47544.47075,
+			"model": {
+				"calls": 5,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 2,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 16187,
+				"cacheReadTokens": 8982,
+				"outputTokens": 4736,
+				"durationMs": 47198.151417,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"web_read": 2,
+				"report_draft": 2,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 28495.357916,
+			"externalMs": 325.6401679999981,
+			"markdownMs": 6.185999999997875,
+			"usage": {
+				"calls": 5,
+				"knownUsd": 0.00448082,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 25169,
+				"outputTokens": 4736,
+				"usd": 0.00448082,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 5,
+						"usd": 0.00448082
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 2,
+			"limitations": [
+				"施設B資料に自撮り棒の記載がないため、その可否は不明。",
+				"企画展・特別展の具体的な個別規則は対象資料に示されていない。",
+				"根拠は依頼で指定された2資料の取得本文に限定される。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/b",
+				"e2": "https://fixture.example/a"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "両資料の取得本文が回答の主要な比較点を裏づけています。施設Aは撮影可、禁止表示優先、フラッシュ・三脚・自撮り棒不可、企画展は個別規則。施設Bは個人利用の撮影可、禁止表示優先、フラッシュ・三脚不可、特別展は個別規則です。施設Bの自撮り棒は本文に記載がないと適切に不明とし、個別規則の内容も資料から確認できないと限界を示しています。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "全比較項目について指定本文に基づく記述または不明の区別ができました。回答・主張・出典対応をreport.jsonに保存し、読み戻しで確認します。",
+			"after_last_external": {
+				"wallMs": 21951,
+				"modelCallsStarted": 2,
+				"modelDurationMs": 21884.049417000002
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 28495.357666015625,
+				"overlappingDecisionMs": 28321.9267578125,
+				"overlappingIoMs": 166.430908203125,
+				"outsideRecordedJobsMs": 7.0
+			},
+			"max_ready_to_adopt_ms": 10,
+			"progress": [
+				{
+					"assessed": [],
+					"kind": "initial",
+					"change": "指定された2資料の取得と、未確認事項を明示した回答案の初期保存を同時に開始します。",
+					"evidence": [],
+					"criteria": ["citations", "answer"],
+					"choice": "act",
+					"reason": "指定URL以外の資料は使わず、本文取得後に各項目を根拠に照らして更新します。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [1, 2, 3],
+					"kind": "artifact",
+					"change": "指定された2資料の取得本文で比較項目を確認できました。根拠リンク付きの比較表に更新し、施設Bの自撮り棒は資料に記載がないため不明とします。",
+					"evidence": [1, 2, 3],
+					"criteria": ["citations", "answer"],
+					"choice": "complete",
+					"reason": "全比較項目について指定本文に基づく記述または不明の区別ができました。回答・主張・出典対応をreport.jsonに保存し、読み戻しで確認します。",
+					"status": "accepted"
+				}
+			],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/b",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/museum/productive/museum"
+		}
+	},
+	"denied": {
+		"matched_inputs": true,
+		"same_accepted_quality": true,
+		"legacy": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 56403.06225,
+			"model": {
+				"calls": 8,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 5,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 35279,
+				"cacheReadTokens": 19288,
+				"outputTokens": 4923,
+				"durationMs": 55945.067499000004,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 2,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 325.6228749999973,
+			"externalMs": 324.81587500000023,
+			"markdownMs": 6.262665999995079,
+			"usage": {
+				"calls": 8,
+				"knownUsd": 0.007063655000000001,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 54567,
+				"outputTokens": 4923,
+				"usd": 0.007063655000000001,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 8,
+						"usd": 0.007063655000000001
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 1,
+			"limitations": [
+				"確認対象は指定された施設A・施設Bの2資料の取得本文に限る。",
+				"施設B資料には自撮り棒の記載がなく、可否は不明。",
+				"特別展は個別規則とされており、具体的な規則は対象資料から確認できない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/a",
+				"e2": "https://fixture.example/b"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得本文の抜粋が、施設Aの撮影可・禁止表示優先・フラッシュ／三脚／自撮り棒不可・企画展は個別規則、施設Bの個人利用に限る撮影可・禁止表示優先・フラッシュ／三脚不可・自撮り棒の記載なし・特別展は個別規則を裏づけています。回答は各主張を資料リンクに対応づけ、施設Bの自撮り棒の可否と特別展の具体的規則を確認できない事項として明記しています。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "report.jsonには、施設A・施設Bの常設展示の撮影可否、禁止表示、フラッシュ、三脚、自撮り棒、特別展の扱いを比較し、各主張を取得本文のe1/e2にリンクしています。施設Bの自撮り棒は不明とし、特別展の具体的規則など資料の限界も明記しています。外部資料は使用していません。",
+			"after_last_external": {
+				"wallMs": 27019,
+				"modelCallsStarted": 4,
+				"modelDurationMs": 26957.597625000002
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 325.622802734375,
+				"overlappingDecisionMs": 0,
+				"overlappingIoMs": 321.7548828125,
+				"outsideRecordedJobsMs": 3.867919921875
+			},
+			"max_ready_to_adopt_ms": 12,
+			"progress": [],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/b",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/final/denied/legacy/denied"
+		},
+		"productive": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 50074.50625,
+			"model": {
+				"calls": 5,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 2,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 13364,
+				"cacheReadTokens": 12181,
+				"outputTokens": 5103,
+				"durationMs": 49785.260167,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 2,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 31392.979835999995,
+			"externalMs": 325.07904100000087,
+			"markdownMs": 14.164042000000336,
+			"usage": {
+				"calls": 5,
+				"knownUsd": 0.004343435,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 25545,
+				"outputTokens": 5103,
+				"usd": 0.004343435,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 5,
+						"usd": 0.004343435
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 1,
+			"limitations": [
+				"結論は指定された2資料の取得本文の記載に限る。",
+				"施設Bの自撮り棒の可否は資料に記載がなく不明。",
+				"企画展・特別展の個別規則の具体的内容は、指定資料から確認できない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/b",
+				"e2": "https://fixture.example/a"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "指定された両資料の取得本文が提示され、回答の各比較項目は本文で裏づけられています。出典リンクも主張に対応し、施設Bの自撮り棒は不明、企画展・特別展の個別規則の詳細は確認できないと限界を明記しています。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "指定された2資料の取得本文で依頼の全項目を確認できた。本文に明記された事項を出典付きで示し、Bの自撮り棒は記載がないため不明とする。これは依頼が認める扱いであり、外部資料は不要。回答案を保存して読み戻し、条件との対応を確認する。",
+			"after_last_external": {
+				"wallMs": 23265,
+				"modelCallsStarted": 2,
+				"modelDurationMs": 23233.801251
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 31392.97998046875,
+				"overlappingDecisionMs": 31206.1689453125,
+				"overlappingIoMs": 183.81103515625,
+				"outsideRecordedJobsMs": 3.0
+			},
+			"max_ready_to_adopt_ms": 7,
+			"progress": [
+				{
+					"assessed": [],
+					"kind": "initial",
+					"change": "調査前の不完全な回答骨子を保存し、指定された2資料の本文取得を開始する。",
+					"evidence": [],
+					"criteria": ["answer"],
+					"choice": "act",
+					"reason": "指定資料以外は使わず、本文を取得して根拠を確認する。回答骨子の保存と2件の本文取得は互いに独立して実行できる。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [1, 2, 3],
+					"kind": "evidence",
+					"change": "指定された2資料の取得本文が得られ、施設別に撮影条件を確認できた。取得本文を根拠に、比較回答と項目ごとの出典対応を保存する。",
+					"evidence": [2, 3],
+					"criteria": ["citations", "answer"],
+					"choice": "complete",
+					"reason": "指定された2資料の取得本文で依頼の全項目を確認できた。本文に明記された事項を出典付きで示し、Bの自撮り棒は記載がないため不明とする。これは依頼が認める扱いであり、外部資料は不要。回答案を保存して読み戻し、条件との対応を確認する。",
+					"status": "accepted"
+				}
+			],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/b",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/denied/productive/denied"
+		}
+	},
+	"missing": {
+		"matched_inputs": true,
+		"same_accepted_quality": false,
+		"legacy": {
+			"status": "awaiting_consultation",
+			"verified": false,
+			"expectedComplete": false,
+			"elapsedMs": 73076.992333,
+			"model": {
+				"calls": 8,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 5,
+					"review": 1,
+					"grade": 0
+				},
+				"inputTokens": 40721,
+				"cacheReadTokens": 19363,
+				"outputTokens": 6393,
+				"durationMs": 72607.76283200001,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 2,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 328.3272510000061,
+			"externalMs": 326.5228330000027,
+			"markdownMs": 8.069166000008408,
+			"usage": {
+				"calls": 8,
+				"knownUsd": 0.008479655,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 60084,
+				"outputTokens": 6393,
+				"usd": 0.008479655,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 8,
+						"usd": 0.008479655
+					}
+				}
+			},
+			"same_acceptance_passed": false,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": false,
+			"supported_claims_retained": true,
+			"draft_completion": "incomplete",
+			"unknown_claims": 1,
+			"limitations": [
+				"施設Bの指定URLはfetch_unavailable（retryable:false）で本文を取得できず、現行案内の確認必須条件を満たせていない。",
+				"施設Bの本文がないため、施設間の撮影条件の比較結論は出せない。",
+				"記載のない項目を本文で確認できるのは、取得本文がある施設Aに限られる。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/a"
+			},
+			"verification": [],
+			"stop_reason": null,
+			"after_last_external": {
+				"wallMs": 38753,
+				"modelCallsStarted": 4,
+				"modelDurationMs": 38712.94937500001
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 328.3271484375,
+				"overlappingDecisionMs": 0,
+				"overlappingIoMs": 324.3271484375,
+				"outsideRecordedJobsMs": 4.0
+			},
+			"max_ready_to_adopt_ms": 17,
+			"progress": [],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "error",
+					"refs": []
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/missing/legacy/missing"
+		},
+		"productive": {
+			"status": "incomplete",
+			"verified": false,
+			"expectedComplete": false,
+			"elapsedMs": 90066.27304100001,
+			"model": {
+				"calls": 7,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 4,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 36364,
+				"cacheReadTokens": 16517,
+				"outputTokens": 10120,
+				"durationMs": 89633.416668,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 4,
+				"web_read": 2,
+				"report_read": 2
+			},
+			"rejections": [
+				{
+					"tool": "report_read",
+					"rules": [
+						{
+							"rule": "hypothesis_budget",
+							"detail": "この仮説の試行予算を使い切りました"
+						}
+					]
+				}
+			],
+			"waitMs": 76136.888376,
+			"externalMs": 327.6366249999992,
+			"markdownMs": 24.17483299999367,
+			"usage": {
+				"calls": 7,
+				"knownUsd": 0.009770145,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 52881,
+				"outputTokens": 10120,
+				"usd": 0.009770145,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 7,
+						"usd": 0.009770145
+					}
+				}
+			},
+			"same_acceptance_passed": false,
+			"acceptable_partial": true,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "incomplete",
+			"unknown_claims": 1,
+			"limitations": [
+				"施設Bの指定URLから本文を取得できず、現行案内の確認が必須という条件を満たせていない。",
+				"施設Bの未確認事項について、規則の不在とは結論できない。",
+				"施設A・施設Bの完全な比較はできていない。",
+				"指定資料以外の外部資料は使用していない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/a"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": false,
+					"evidence": "施設Bの現行案内本文を確認できておらず、必須条件が未達でcompletionもincompleteです。施設Aの記載は取得本文で裏づけられていますが、施設Bとの比較は完了していません。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "施設Bの必須本文を確認できていないため、完全な比較としては完了できない。確認済みの施設Aの内容と施設Bの未確認事項を保った部分回答を保存し、読み戻して確認する。",
+			"after_last_external": {
+				"wallMs": 68022,
+				"modelCallsStarted": 4,
+				"modelDurationMs": 67863.89654300001
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 76136.88818359375,
+				"overlappingDecisionMs": 75944.23291015625,
+				"overlappingIoMs": 179.6552734375,
+				"outsideRecordedJobsMs": 13.0
+			},
+			"max_ready_to_adopt_ms": 13,
+			"progress": [
+				{
+					"assessed": [],
+					"kind": "initial",
+					"change": "初回評価。本文取得も保存済み回答もまだないため、比較内容は不明として骨組みを作り、指定2資料の本文取得を開始する。",
+					"evidence": [],
+					"criteria": ["citations", "answer"],
+					"choice": "act",
+					"reason": "指定資料以外を使わず、2つのURLの本文取得と、依頼項目を網羅した未完了の下書き保存を独立して行う。施設Bの指定URL本文が取得できるかを確認する。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [1, 2, 3],
+					"kind": "evidence",
+					"change": "施設Aの指定本文を取得し、常設展示の撮影可、禁止表示優先、フラッシュ・三脚・自撮り棒の使用不可、企画展は個別規則という記載を確認した。一方、施設Bの指定URLは取得不能で、必須の現行案内本文を確認できていない。施設Aの根拠を下書きへ反映し、施設Bは取得不能による未確認として残す。",
+					"evidence": [2, 3],
+					"criteria": ["citations", "answer"],
+					"choice": "act",
+					"reason": "施設Aの本文根拠を出典付きで回答案へ反映し、施設Bの未取得と必須確認未了を明記した未完了報告を保存する。続けて読み戻し、内容を確認する。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [4, 5],
+					"kind": "artifact",
+					"change": "施設Aの取得本文に基づく回答を根拠付きで保存し、読み戻して確認した。施設Bの必須本文は未取得のため、未完了の範囲と限界を維持する。",
+					"evidence": [4, 5],
+					"criteria": ["citations", "answer"],
+					"choice": "partial",
+					"reason": "施設Aの根拠付き情報と、施設Bの必須本文が未確認であることを区別した部分回答を保存する。施設Bの確認を満たしていないため、完了とはしない。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [6, 7],
+					"kind": "constraint",
+					"change": "試行6は既存の部分回答を同じ内容で再保存したもので、新たな調査結果や実質的な回答改善はない。試行7は仮説の試行予算超過で読み戻しを拒否され、直近の保存後の確認ができていない。",
+					"evidence": [7],
+					"criteria": ["answer"],
+					"choice": "partial",
+					"reason": "施設Bの必須本文を確認できていないため、完全な比較としては完了できない。確認済みの施設Aの内容と施設Bの未確認事項を保った部分回答を保存し、読み戻して確認する。",
+					"status": "accepted"
+				}
+			],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "error",
+					"refs": []
+				},
+				{
+					"seq": 4,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 5,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 6,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 7,
+					"tool": "report_read",
+					"state": "rejected",
+					"status": null,
+					"refs": []
+				},
+				{
+					"seq": 8,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 9,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/missing/productive/missing"
+		}
+	},
+	"conflict": {
+		"matched_inputs": true,
+		"same_accepted_quality": true,
+		"legacy": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 77576.705334,
+			"model": {
+				"calls": 9,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 6,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 48150,
+				"cacheReadTokens": 22145,
+				"outputTokens": 7269,
+				"durationMs": 76983.44345800001,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"tool": 0,
+				"web_read": 3,
+				"report_read": 1
+			},
+			"rejections": [
+				{
+					"tool": "tool",
+					"rules": [
+						{
+							"rule": "finding_not_recorded",
+							"detail": "台帳にない知見を引用しています: F1（台帳の知見は 0 件）。確かめた事実は findings に記録してから、その F番号で引用してください"
+						}
+					]
+				}
+			],
+			"waitMs": 446.7604999999967,
+			"externalMs": 447.4697080000042,
+			"markdownMs": 8.533125999998447,
+			"usage": {
+				"calls": 9,
+				"knownUsd": 0.009874024999999998,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 70295,
+				"outputTokens": 7269,
+				"usd": 0.009874024999999998,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 9,
+						"usd": 0.009874024999999998
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 2,
+			"limitations": [
+				"指定された資料3件のみを根拠とし、外部資料で補足していない。",
+				"施設B現行案内には自撮り棒の記載がなく、可否は不明。旧版Q&Aにも他の撮影条件の多くは記載されていない。",
+				"禁止表示の具体的な場所・対象、および特別展・企画展の個別規則の内容は、取得した本文から確認できない。",
+				"施設B旧版Q&Aは本文で2024年版・失効済みと明記されている。旧版の三脚記述を現行規則として適用しない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/a",
+				"e2": "https://fixture.example/b",
+				"e3": "https://fixture.example/c"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "指定3資料の取得本文は省略・切り詰めなしで提示され、比較表の撮影可否、禁止表示、フラッシュ、三脚、自撮り棒、特別展の扱いは各資料の記載に対応しています。施設Bの三脚も、現行案内の使用不可と、失効済みの2024年版Q&Aの使用可を版・適用範囲を区別して示しています。記載のない事項や資料の限界を明記し、各主張に出典リンクを付しています。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "report.jsonの読み戻し内容を確認しました。施設A・施設Bの常設展示について、撮影可否、禁止表示、フラッシュ、三脚、自撮り棒、特別展の扱いを比較し、資料にない事項は不明または記載なしとしています。施設Bの三脚は現行案内（e2）と失効済み2024年版Q&A（e3）の記述を版・適用範囲を分けて併記しています。主張には指定資料へのリンクとe1〜e3を対応させ、資料の限界も明記しています。",
+			"after_last_external": {
+				"wallMs": 38740,
+				"modelCallsStarted": 4,
+				"modelDurationMs": 38713.99920800001
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 446.760498046875,
+				"overlappingDecisionMs": 0,
+				"overlappingIoMs": 441.760498046875,
+				"outsideRecordedJobsMs": 5.0
+			},
+			"max_ready_to_adopt_ms": 14,
+			"progress": [],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "tool",
+					"state": "rejected",
+					"status": null,
+					"refs": []
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 4,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/b",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 5,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/c",
+							"note": "e3"
+						}
+					]
+				},
+				{
+					"seq": 6,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 7,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/conflict/legacy/conflict"
+		},
+		"productive": {
+			"status": "completed",
+			"verified": true,
+			"expectedComplete": true,
+			"elapsedMs": 60401.086333,
+			"model": {
+				"calls": 5,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 2,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 17328,
+				"cacheReadTokens": 10119,
+				"outputTokens": 6153,
+				"durationMs": 60009.278542,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 3,
+				"report_read": 1
+			},
+			"rejections": [],
+			"waitMs": 39318.66779,
+			"externalMs": 465.3565830000007,
+			"markdownMs": 29.75050100000226,
+			"usage": {
+				"calls": 5,
+				"knownUsd": 0.005343315,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 27447,
+				"outputTokens": 6153,
+				"usd": 0.005343315,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 5,
+						"usd": 0.005343315
+					}
+				}
+			},
+			"same_acceptance_passed": true,
+			"acceptable_partial": false,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "complete",
+			"unknown_claims": 2,
+			"limitations": [
+				"比較は指定された3資料の取得本文の範囲に限る。",
+				"施設Bの自撮り棒の扱いは現行案内に記載がなく不明。",
+				"禁止表示を優先する規則はあるが、禁止表示のある具体的な場所は資料に示されていない。",
+				"特別展・企画展は個別規則とされているが、その個別条件は資料に記載されていない。",
+				"施設Bの旧版Q&Aは2024年版・失効済みであり、現行の扱いは現行案内と区別する。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/b",
+				"e2": "https://fixture.example/c",
+				"e3": "https://fixture.example/a"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "回答の各比較項目は指定資料の取得本文に対応しています。施設Aの撮影可否・禁止表示・フラッシュ・三脚・自撮り棒・企画展の扱いはe3、施設B現行案内の各項目はe1で裏づけられています。施設Bの三脚について、現行案内は使用不可、失効済みの2024年版Q&Aは常設展示で使用可と明記しており、回答は矛盾を示したうえで版と適用範囲を区別しています。記載のない具体的な禁止場所や個別展の条件、施設Bの自撮り棒を不明・確認不能としており、資料の限界も明示しています。出典リンクも主張に対応しています。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "指定資料の本文に基づいて全項目を比較でき、資料に記載のない自撮り棒等は不明として扱えます。施設Bの三脚の相違も旧版の失効と現行案内を区別して記載したうえで保存し、読み戻して最終確認します。",
+			"after_last_external": {
+				"wallMs": 30465,
+				"modelCallsStarted": 2,
+				"modelDurationMs": 30381.618917000003
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 39318.667724609375,
+				"overlappingDecisionMs": 39168.6376953125,
+				"overlappingIoMs": 143.030029296875,
+				"outsideRecordedJobsMs": 7.0
+			},
+			"max_ready_to_adopt_ms": 16,
+			"progress": [
+				{
+					"assessed": [],
+					"kind": "initial",
+					"change": "依頼項目と施設Bの三脚の版比較欄を含む未確認の下書きを保存し、指定された3資料の本文取得を開始します。",
+					"evidence": [],
+					"criteria": ["answer"],
+					"choice": "act",
+					"reason": "指定資料の取得本文がまだないため、事実はunknownのまま骨組みを作り、3つの指定URLを並行して取得します。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [1, 2, 3, 4],
+					"kind": "evidence",
+					"change": "指定3資料の取得本文で撮影条件と施設B三脚の版ごとの記述を確認できました。依頼項目の比較と出典対応を回答案に反映できます。",
+					"evidence": [2, 3, 4],
+					"criteria": ["citations", "answer"],
+					"choice": "complete",
+					"reason": "指定資料の本文に基づいて全項目を比較でき、資料に記載のない自撮り棒等は不明として扱えます。施設Bの三脚の相違も旧版の失効と現行案内を区別して記載したうえで保存し、読み戻して最終確認します。",
+					"status": "accepted"
+				}
+			],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e3"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/b",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 4,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/c",
+							"note": "e2"
+						}
+					]
+				},
+				{
+					"seq": 5,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 6,
+					"tool": "report_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/conflict/productive/conflict"
+		}
+	},
+	"cap": {
+		"matched_inputs": true,
+		"same_accepted_quality": true,
+		"legacy": {
+			"status": "stopped",
+			"verified": false,
+			"expectedComplete": false,
+			"elapsedMs": 61281.620749999995,
+			"model": {
+				"calls": 6,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 3,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 21669,
+				"cacheReadTokens": 14006,
+				"outputTokens": 5760,
+				"durationMs": 60956.815125,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 1
+			},
+			"rejections": [],
+			"waitMs": 208.44604100000288,
+			"externalMs": 202.11916599999677,
+			"markdownMs": 8.746416000001773,
+			"usage": {
+				"calls": 6,
+				"knownUsd": 0.005728235000000001,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 35675,
+				"outputTokens": 5760,
+				"usd": 0.005728235000000001,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 6,
+						"usd": 0.005728235000000001
+					}
+				}
+			},
+			"same_acceptance_passed": false,
+			"acceptable_partial": true,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "incomplete",
+			"unknown_claims": 2,
+			"limitations": [
+				"施設Bの指定資料の取得本文を確認できておらず、施設Bの項目はすべて不明。",
+				"施設Aの取得本文は、禁止表示の具体的な場所・対象や企画展ごとの規則内容を示していない。",
+				"施設Bの本文確認が必須という条件が未達のため、比較は未完了。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/a"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": false,
+					"evidence": "施設Aの取得本文は提示され、撮影可、禁止表示優先、フラッシュ・三脚・自撮り棒不可、企画展は個別規則との記述を裏づけています。一方、施設Bの本文は確認されておらず、依頼で必須とされた両施設の本文確認を満たしていません。回答自体も未完了と明記しているため、比較は未完了です。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "追求全体の試行予算を使い切りました",
+			"after_last_external": {
+				"wallMs": 16478,
+				"modelCallsStarted": 2,
+				"modelDurationMs": 16428.82275
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 208.44580078125,
+				"overlappingDecisionMs": 0,
+				"overlappingIoMs": 202.492919921875,
+				"outsideRecordedJobsMs": 5.952880859375
+			},
+			"max_ready_to_adopt_ms": 16,
+			"progress": [],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/cap/legacy/cap"
+		},
+		"productive": {
+			"status": "stopped",
+			"verified": false,
+			"expectedComplete": false,
+			"elapsedMs": 67885.347291,
+			"model": {
+				"calls": 5,
+				"failed": 0,
+				"byPurpose": {
+					"plan": 1,
+					"hypothesize": 1,
+					"propose": 2,
+					"review": 0,
+					"grade": 1
+				},
+				"inputTokens": 15954,
+				"cacheReadTokens": 10119,
+				"outputTokens": 6731,
+				"durationMs": 67567.587917,
+				"overlappingIo": 0
+			},
+			"toolCounts": {
+				"report_draft": 2,
+				"web_read": 1
+			},
+			"rejections": [],
+			"waitMs": 34919.611292,
+			"externalMs": 202.18962499999907,
+			"markdownMs": 11.949458000002778,
+			"usage": {
+				"calls": 5,
+				"knownUsd": 0.005460565,
+				"unknownCostCalls": 0,
+				"unknownUsageCalls": 0,
+				"estimatedTokenCalls": 0,
+				"inputTokens": 26073,
+				"outputTokens": 6731,
+				"usd": 0.005460565,
+				"costStatus": "known",
+				"byRole": {
+					"subagent": {
+						"calls": 5,
+						"usd": 0.005460565
+					}
+				}
+			},
+			"same_acceptance_passed": false,
+			"acceptable_partial": true,
+			"citations_exist": true,
+			"markdown_matches_draft": true,
+			"supported_claims_retained": true,
+			"draft_completion": "incomplete",
+			"unknown_claims": 1,
+			"limitations": [
+				"施設Bの指定URLの取得本文を確認できていないため、施設Bの各項目および施設間の比較は確定できない。",
+				"確認済みの施設Aの規則を施設Bに当てはめていない。"
+			],
+			"acquired": {
+				"e1": "https://fixture.example/a"
+			},
+			"verification": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "すべての主張の出典IDを今回取得した本文に照合",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": false,
+					"evidence": "施設Aの取得本文は提示され、撮影可、禁止表示優先、フラッシュ・三脚・自撮り棒不可、企画展は個別規則という記載を裏づけています。施設Bの本文は未確認で、両施設の本文確認は必須条件ですが未実施です。未確認事項を不明とし、確認済み事項を残して未完了とした対応は依頼の代替手順に沿っていますが、比較の必須条件を満たしていないため不合格です。",
+					"assurance": "model"
+				}
+			],
+			"stop_reason": "追求の上限に達しました",
+			"after_last_external": {
+				"wallMs": 26252,
+				"modelCallsStarted": 2,
+				"modelDurationMs": 26189.780499999993
+			},
+			"waiting_breakdown": {
+				"schedulerParkedMs": 34919.611572265625,
+				"overlappingDecisionMs": 34719.523193359375,
+				"overlappingIoMs": 195.08837890625,
+				"outsideRecordedJobsMs": 5.0
+			},
+			"max_ready_to_adopt_ms": 8,
+			"progress": [
+				{
+					"assessed": [],
+					"kind": "initial",
+					"change": "初回の実行として、依頼項目を網羅する未完了の回答案を作成し、指定URLの一方を本文取得にかけます。本文の取得結果はまだ確定していません。",
+					"evidence": [],
+					"criteria": ["citations", "answer"],
+					"choice": "act",
+					"reason": "指定された両URLの本文確認が必要ですが、外部呼出しは1回です。Aの取得を試み、同時に事実を推測せず全項目をunknownとした未完了の比較案を保存します。",
+					"status": "accepted"
+				},
+				{
+					"assessed": [1, 2],
+					"kind": "evidence",
+					"change": "施設Aの指定URLの取得本文を確認。常設展示は撮影可、禁止表示を優先し、フラッシュ・三脚・自撮り棒は使用不可、企画展は個別規則と記載されている。施設Bの本文は未確認。",
+					"evidence": [2],
+					"criteria": ["citations", "answer"],
+					"choice": "partial",
+					"reason": "施設Aについて取得本文に裏付けられた情報が得られたため回答案を更新する。施設Bの本文は必須確認事項として未確認のまま明示し、両施設の本文確認が揃わないため未完了とする。",
+					"status": "accepted"
+				}
+			],
+			"attempts": [
+				{
+					"seq": 1,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				},
+				{
+					"seq": 2,
+					"tool": "web_read",
+					"state": "settled",
+					"status": "ok",
+					"refs": [
+						{
+							"kind": "source",
+							"uri": "https://fixture.example/a",
+							"note": "e1"
+						}
+					]
+				},
+				{
+					"seq": 3,
+					"tool": "report_draft",
+					"state": "settled",
+					"status": "ok",
+					"refs": []
+				}
+			],
+			"directory": "artifacts/productive-loop-20261109/release/cap/productive/cap"
+		}
+	}
+}

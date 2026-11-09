@@ -1,0 +1,9 @@
+{
+	"count": 43,
+	"modelMs": 876736,
+	"uncachedInput": 729992,
+	"cachedInput": 193664,
+	"output": 38136,
+	"actionMapping": null,
+	"reason": "Public host view/export does not expose core attempts, draft revisions or decisions; original core DB not opened."
+}

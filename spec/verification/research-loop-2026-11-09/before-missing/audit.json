@@ -1,0 +1,1622 @@
+{
+	"attempts": [
+		{
+			"id": "att_ee4521d2-2c34-4f96-996b-dd415d5f7450",
+			"hypothesisId": "hyp_faf1bf15-b0cd-4652-acf6-752cce8877ef",
+			"seq": 1,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/a"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Aの公式資料本文が取得され、後続の確認に使える証拠ID（eN）が返る。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "初回の取得試行です。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:15fd4b56a865d3f8af19af802dfe23f1",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"documents": [
+						{
+							"evidence": "e1",
+							"url": "https://fixture.example/a",
+							"title": "施設A 常設展示 利用規則",
+							"text": "常設展示は写真撮影可。ただし撮影禁止の表示がある展示品は撮影不可。フラッシュ、三脚、自撮り棒は使用不可。企画展は個別の案内を確認すること。",
+							"totalCharacters": 69,
+							"truncated": false,
+							"trust": "untrusted"
+						}
+					],
+					"truncated": false,
+					"calls_left": 7
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [
+				{
+					"kind": "source",
+					"uri": "https://fixture.example/a",
+					"note": "e1"
+				}
+			],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154334660,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_c3502a5b-1e7f-4dfd-8976-bdcb4f7ae8d2",
+			"hypothesisId": "hyp_faf1bf15-b0cd-4652-acf6-752cce8877ef",
+			"seq": 2,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/b"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Bの資料本文が取得され、後続確認に使える証拠ID（eN）が返る。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "前回は施設Aの入口URLを取得した。今回はもう一方の指定入口URL https://fixture.example/b を取得する。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:77c79a06b48885bd2209695aed34cc1c",
+			"rejection": null,
+			"observation": {
+				"status": "error",
+				"output": {
+					"error": "unavailable",
+					"calls_left": 6
+				},
+				"errorCode": null
+			},
+			"outcome": "failure",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154338910,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_bbbc67fc-a456-4115-9e2b-3c97c53b723a",
+			"hypothesisId": "hyp_faf1bf15-b0cd-4652-acf6-752cce8877ef",
+			"seq": 3,
+			"state": "settled",
+			"tool": "web_lookup",
+			"input": {
+				"query": "https://fixture.example/b 施設B 常設展示 写真撮影 フラッシュ 三脚 自撮り棒"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "検索候補が返り、施設Bの資料が入口URL以外にも特定できるか確認できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "前回は指定URLへの直接取得が unavailable だったため、今回は別の道具で候補検索を試す。",
+			"fingerprint": "v2:9a19915439612947ec20ab3f6066e648:ef8c7387f74dc1c93d91b9b706cda66c",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"candidates": [
+						{
+							"url": "https://fixture.example/a",
+							"title": "施設A 常設展示 利用規則"
+						},
+						{
+							"url": "https://fixture.example/b",
+							"title": "施設B 常設展示 来館案内"
+						}
+					],
+					"calls_left": 7
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154345926,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_65bf0ee1-2ca3-41a7-a9c5-0101520c1832",
+			"hypothesisId": "hyp_faf1bf15-b0cd-4652-acf6-752cce8877ef",
+			"seq": 4,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/b"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Bの常設展示 来館案内の本文が取得され、出典として使える証拠ID（eN）が返る。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "前回の取得エラー後、web_lookupで指定URLが施設Bの資料候補として確認できたため、その確認を踏まえて再取得する。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:77c79a06b48885bd2209695aed34cc1c",
+			"rejection": null,
+			"observation": {
+				"status": "error",
+				"output": {
+					"error": "unavailable",
+					"calls_left": 5
+				},
+				"errorCode": null
+			},
+			"outcome": "failure",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154349989,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_72dc79e2-c09e-4bf7-9ef6-002faa0fc0d1",
+			"hypothesisId": "hyp_faf1bf15-b0cd-4652-acf6-752cce8877ef",
+			"seq": 5,
+			"state": "settled",
+			"tool": "source_read",
+			"input": {
+				"evidence": "e1",
+				"start": 0,
+				"limit": 12000
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "e1 の本文全体が返り、施設Aの常設展示の写真撮影可否、撮影禁止表示の例外、フラッシュ・三脚・自撮り棒について出典本文を確認できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "取得済みのe1を保存本文から直接読み、生成側の未確認知見F1を根拠として流用せず内容を検証する。",
+			"fingerprint": "v2:b0bc56677e846a16a888585e7d30d077:56c1c337deda64ec4cc991c07f35f6f5",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"evidence": "e1",
+					"url": "https://fixture.example/a",
+					"title": "施設A 常設展示 利用規則",
+					"start": 0,
+					"text": "常設展示は写真撮影可。ただし撮影禁止の表示がある展示品は撮影不可。フラッシュ、三脚、自撮り棒は使用不可。企画展は個別の案内を確認すること。",
+					"totalCharacters": 69,
+					"truncated": false,
+					"trust": "untrusted"
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154354385,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_83394f27-de77-4281-9ff7-0871a4f558f6",
+			"hypothesisId": "hyp_faf1bf15-b0cd-4652-acf6-752cce8877ef",
+			"seq": 6,
+			"state": "settled",
+			"tool": "report_draft",
+			"input": {
+				"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・補足 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 可。ただし撮影禁止表示がある展示品は不可。[1] | 使用不可。[1] | 使用不可。[1] | 使用不可。[1] | 撮影禁止表示のある展示品は撮影不可。本文には企画展は個別案内を確認するよう記載があるが、企画展は常設展示とは別の案内として扱う。[1] | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 展示ごとの例外も確認できない。指定された入口URLから本文を取得できなかったため、可否を推定しない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（入口URL。本文未取得） |\n\n**不明・限界:** 施設Bについては、指定された入口URLを読み込もうとしたが本文を取得できず、検索候補の表示だけでは規則の根拠にできない。したがって施設Bの撮影規則や展示ごとの例外は未確認であり、施設間の規則の相違・一致も判断できない。施設Aについても、取得本文に書かれた範囲を超える規則は確認していない。\n\n[1] https://fixture.example/a\n[2] https://fixture.example/b（入口URL。本文は取得できていない）",
+				"summary": "施設Aは常設展示の写真撮影可（撮影禁止表示のある展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bは本文未取得のため各項目とも不明。施設Bの規則を推定せず、取得できた施設A本文と未確認の限界を区別して記載した。",
+				"claims": [
+					{
+						"text": "施設Aでは常設展示の写真撮影は可能だが、撮影禁止表示のある展示品は撮影できない。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設Aではフラッシュ、三脚、自撮り棒は使用できない。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設Aの本文は企画展について個別の案内を確認するよう案内している。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設Bの常設展示における写真撮影、フラッシュ、三脚、自撮り棒の規則および展示ごとの例外は、本文で確認できていない。",
+						"status": "unknown",
+						"evidence": []
+					}
+				],
+				"limitations": [
+					"施設Bの入口URLはweb_readで本文を取得できず、web_lookupの候補情報は本文根拠ではないため、規則の確認には使っていない。",
+					"施設Bについては撮影可否・禁止事項・展示ごとの例外を一切推定していない。",
+					"施設Aについても、取得した利用規則本文に記載された内容の範囲でのみ回答している。"
+				],
+				"completion": "incomplete",
+				"stopReason": "施設Aの規則は取得本文で確認できたが、施設Bの指定URLから本文を取得できず、比較に必要な施設Bの規則を根拠付きで回答できないため。"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "report.jsonが更新され、施設Aの本文根拠付き規則、施設Bの未確認事項、比較表・出典リンク・限界、および未完了の理由が保存される。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "施設A本文はe1で読み戻して確認済み。施設Bの同一条件での再試行はせず、現時点の根拠で未完了の報告を保存する。",
+			"fingerprint": "v2:eee591a27b4f08fdbbf7bc83b03e2358:fdffd991ade4d07b033c7586227decbc",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"saved": "report.json"
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154372638,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・補足 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 可。ただし撮影禁止表示がある展示品は不可。[1] | 使用不可。[1] | 使用不可。[1] | 使用不可。[1] | 撮影禁止表示のある展示品は撮影不可。本文には企画展は個別案内を確認するよう記載があるが、企画展は常設展示とは別の案内として扱う。[1] | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 展示ごとの例外も確認できない。指定された入口URLから本文を取得できなかったため、可否を推定しない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（入口URL。本文未取得） |\\n\\n**不明・限界:** 施設Bについては、指定された入口URLを読み込もうとしたが本文を取得できず、検索候補の表示だけでは規則の根拠にできない。したがって施設Bの撮影規則や展示ごとの例外は未確認であり、施設間の規則の相違・一致も判断できない。施設Aについても、取得本文に書かれた範囲を超える規則は確認していない。\\n\\n[1] https://fixture.example/a\\n[2] https://fixture.example/b（入口URL。本文は取得できていない）\",\"summary\":\"施設Aは常設展示の写真撮影可（撮影禁止表示のある展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bは本文未取得のため各項目とも不明。施設Bの規則を推定せず、取得できた施設A本文と未確認の限界を区別して記載した。\",\"claims\":[{\"text\":\"施設Aでは常設展示の写真撮影は可能だが、撮影禁止表示のある展示品は撮影できない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用できない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aの本文は企画展について個別の案内を確認するよう案内している。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示における写真撮影、フラッシュ、三脚、自撮り棒の規則および展示ごとの例外は、本文で確認できていない。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLはweb_readで本文を取得できず、web_lookupの候補情報は本文根拠ではないため、規則の確認には使っていない。\",\"施設Bについては撮影可否・禁止事項・展示ごとの例外を一切推定していない。\",\"施設Aについても、取得した利用規則本文に記載された内容の範囲でのみ回答している。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの規則は取得本文で確認できたが、施設Bの指定URLから本文を取得できず、比較に必要な施設Bの規則を根拠付きで回答できないため。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_254b6beb-940f-4bcd-b028-2bee20ae88b8",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 7,
+			"state": "settled",
+			"tool": "source_read",
+			"input": {
+				"evidence": "e1",
+				"start": 0,
+				"limit": 12000
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "保存本文e1の内容が返り、常設展示の撮影可否、撮影禁止表示のある展示品の例外、フラッシュ・三脚・自撮り棒の禁止、および企画展は個別案内を確認するとの記載を確認できる。",
+				"refutedIf": "status:error || not_contains:\"常設展示\""
+			},
+			"whatChanged": "同じ条件での再試行ではなく、この仮説での初回試行。",
+			"fingerprint": "v2:b0bc56677e846a16a888585e7d30d077:56c1c337deda64ec4cc991c07f35f6f5",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"evidence": "e1",
+					"url": "https://fixture.example/a",
+					"title": "施設A 常設展示 利用規則",
+					"start": 0,
+					"text": "常設展示は写真撮影可。ただし撮影禁止の表示がある展示品は撮影不可。フラッシュ、三脚、自撮り棒は使用不可。企画展は個別の案内を確認すること。",
+					"totalCharacters": 69,
+					"truncated": false,
+					"trust": "untrusted"
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154402008,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・補足 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 可。ただし撮影禁止表示がある展示品は不可。[1] | 使用不可。[1] | 使用不可。[1] | 使用不可。[1] | 撮影禁止表示のある展示品は撮影不可。本文には企画展は個別案内を確認するよう記載があるが、企画展は常設展示とは別の案内として扱う。[1] | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 展示ごとの例外も確認できない。指定された入口URLから本文を取得できなかったため、可否を推定しない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（入口URL。本文未取得） |\\n\\n**不明・限界:** 施設Bについては、指定された入口URLを読み込もうとしたが本文を取得できず、検索候補の表示だけでは規則の根拠にできない。したがって施設Bの撮影規則や展示ごとの例外は未確認であり、施設間の規則の相違・一致も判断できない。施設Aについても、取得本文に書かれた範囲を超える規則は確認していない。\\n\\n[1] https://fixture.example/a\\n[2] https://fixture.example/b（入口URL。本文は取得できていない）\",\"summary\":\"施設Aは常設展示の写真撮影可（撮影禁止表示のある展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bは本文未取得のため各項目とも不明。施設Bの規則を推定せず、取得できた施設A本文と未確認の限界を区別して記載した。\",\"claims\":[{\"text\":\"施設Aでは常設展示の写真撮影は可能だが、撮影禁止表示のある展示品は撮影できない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用できない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aの本文は企画展について個別の案内を確認するよう案内している。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示における写真撮影、フラッシュ、三脚、自撮り棒の規則および展示ごとの例外は、本文で確認できていない。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLはweb_readで本文を取得できず、web_lookupの候補情報は本文根拠ではないため、規則の確認には使っていない。\",\"施設Bについては撮影可否・禁止事項・展示ごとの例外を一切推定していない。\",\"施設Aについても、取得した利用規則本文に記載された内容の範囲でのみ回答している。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの規則は取得本文で確認できたが、施設Bの指定URLから本文を取得できず、比較に必要な施設Bの規則を根拠付きで回答できないため。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_84082281-4196-408e-9221-66745290ed16",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 8,
+			"state": "rejected",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/b"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Bの公式資料本文が取得され、写真撮影・フラッシュ・三脚・自撮り棒の扱い、および展示ごとの例外に関する記述を確認できる。",
+				"refutedIf": "status:error || not_contains:\"常設展示\""
+			},
+			"whatChanged": "施設Aの本文e1は読み戻して確認済み。今回は指定されたもう一方の入口URLで施設Bの本文を取得する。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:77c79a06b48885bd2209695aed34cc1c",
+			"rejection": [
+				{
+					"rule": "same_failure_limit",
+					"detail": "同じ条件の失敗を繰り返しています。別の方法を考えてください"
+				}
+			],
+			"observation": null,
+			"outcome": null,
+			"refs": [],
+			"features": null,
+			"startedAt": 1794154406627,
+			"settlement": {
+				"stage": "done",
+				"digest": null,
+				"effects": null
+			}
+		},
+		{
+			"id": "att_5f6a091f-c2f6-49c5-ab41-20f658463139",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 9,
+			"state": "settled",
+			"tool": "web_lookup",
+			"input": {
+				"query": "https://fixture.example/b 施設B 常設展示 来館案内 写真撮影 フラッシュ 三脚 自撮り棒"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Bの指定入口URLが候補として返る。検索snippetは本文根拠として扱わず、本文取得の代替にはしない。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "直前のweb_readはsame_failure_limitで拒否されたため、同じ条件での再試行はせず、まず検索で指定URLの候補情報を確認する。",
+			"fingerprint": "v2:9a19915439612947ec20ab3f6066e648:75c0dd4d1327433d46367a0b0f701136",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"candidates": [
+						{
+							"url": "https://fixture.example/a",
+							"title": "施設A 常設展示 利用規則"
+						},
+						{
+							"url": "https://fixture.example/b",
+							"title": "施設B 常設展示 来館案内"
+						}
+					],
+					"calls_left": 6
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154414301,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・補足 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 可。ただし撮影禁止表示がある展示品は不可。[1] | 使用不可。[1] | 使用不可。[1] | 使用不可。[1] | 撮影禁止表示のある展示品は撮影不可。本文には企画展は個別案内を確認するよう記載があるが、企画展は常設展示とは別の案内として扱う。[1] | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 不明（本文未取得） | 展示ごとの例外も確認できない。指定された入口URLから本文を取得できなかったため、可否を推定しない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（入口URL。本文未取得） |\\n\\n**不明・限界:** 施設Bについては、指定された入口URLを読み込もうとしたが本文を取得できず、検索候補の表示だけでは規則の根拠にできない。したがって施設Bの撮影規則や展示ごとの例外は未確認であり、施設間の規則の相違・一致も判断できない。施設Aについても、取得本文に書かれた範囲を超える規則は確認していない。\\n\\n[1] https://fixture.example/a\\n[2] https://fixture.example/b（入口URL。本文は取得できていない）\",\"summary\":\"施設Aは常設展示の写真撮影可（撮影禁止表示のある展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bは本文未取得のため各項目とも不明。施設Bの規則を推定せず、取得できた施設A本文と未確認の限界を区別して記載した。\",\"claims\":[{\"text\":\"施設Aでは常設展示の写真撮影は可能だが、撮影禁止表示のある展示品は撮影できない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用できない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aの本文は企画展について個別の案内を確認するよう案内している。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示における写真撮影、フラッシュ、三脚、自撮り棒の規則および展示ごとの例外は、本文で確認できていない。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLはweb_readで本文を取得できず、web_lookupの候補情報は本文根拠ではないため、規則の確認には使っていない。\",\"施設Bについては撮影可否・禁止事項・展示ごとの例外を一切推定していない。\",\"施設Aについても、取得した利用規則本文に記載された内容の範囲でのみ回答している。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの規則は取得本文で確認できたが、施設Bの指定URLから本文を取得できず、比較に必要な施設Bの規則を根拠付きで回答できないため。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_fadc0963-5094-432e-9714-23ce7fe8626f",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 10,
+			"state": "settled",
+			"tool": "report_draft",
+			"input": {
+				"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+				"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+				"claims": [
+					{
+						"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+						"status": "unknown",
+						"evidence": []
+					}
+				],
+				"limitations": [
+					"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+					"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+					"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+				],
+				"completion": "incomplete",
+				"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "report.jsonが更新され、施設Aの本文確認済み事項と施設Bの不明事項を分けた日本語Markdown表、出典リンク、根拠、限界、および不完全な理由が保存される。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "施設Aの本文を確認できた一方、施設Bの本文取得は実行に至らず、入口URLしか確認できていない。この状態を隠さず未確認として保存する。",
+			"fingerprint": "v2:eee591a27b4f08fdbbf7bc83b03e2358:204ba3bf25e3c8feb33362f95ce1a175",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"saved": "report.json"
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154434409,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_2dc52d36-95d4-484a-aecc-e005a7f8d52e",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 11,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "現在のreport.json全文が返り、回答・claims・limitations・completion・stopReasonを確認できる。特に、施設Aの本文根拠がe1として有効に示され、施設Bを本文未確認として扱っているかを確認する。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "前回のreport_draft後に内容の読み戻しをしていないため、保存済み成果物を検査する。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:dbe265387a2e4aba3af5fbffb54bbaad",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+						"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+								"status": "unknown",
+								"evidence": []
+							}
+						],
+						"limitations": [
+							"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+							"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+							"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+						],
+						"completion": "incomplete",
+						"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154442830,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_499e4248-0f68-4a0d-a7f7-124d3b9e2a06",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 12,
+			"state": "rejected",
+			"tool": "done",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "report.jsonの読み戻し内容を確認しました。施設Aの規則は取得本文e1を根拠として示し、施設Bは本文未確認として許可・禁止を推定せず、不明点と限界を明記しています。比較表、指定URLへのリンク、展示ごとの例外、本文で確認できない点が保存されているため、受入条件を満たすものとして提出します。"
+			},
+			"whatChanged": "",
+			"fingerprint": "claim",
+			"rejection": [
+				{
+					"rule": "claim_not_verified",
+					"detail": "[answer] 施設Aの取得本文に基づく規則と例外は正しく反映され、施設Bを不明としたことも取得状況に沿っています。しかし施設Bの公式本文を確認できておらず、両施設の比較という依頼を完了していません。さらにcompletionが「incomplete」と明記されています。"
+				}
+			],
+			"observation": null,
+			"outcome": null,
+			"refs": [],
+			"features": null,
+			"startedAt": 1794154470361,
+			"settlement": {
+				"stage": "done",
+				"digest": null,
+				"effects": null
+			}
+		},
+		{
+			"id": "att_6c8dcf80-4958-4639-8a74-25f70fa999ee",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 13,
+			"state": "rejected",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/b"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Bの指定URLから本文が取得され、常設展示の写真撮影・フラッシュ・三脚・自撮り棒と展示ごとの例外を確認できる証拠IDが返る。",
+				"refutedIf": "status:error || not_contains:\"常設展示\""
+			},
+			"whatChanged": "前回の取得拒否後にweb_lookupで指定URLが施設Bの資料候補として再確認されたため、その候補が示す正確な入口URLを対象に取得を試す。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:77c79a06b48885bd2209695aed34cc1c",
+			"rejection": [
+				{
+					"rule": "same_failure_limit",
+					"detail": "同じ条件の失敗を繰り返しています。別の方法を考えてください"
+				}
+			],
+			"observation": null,
+			"outcome": null,
+			"refs": [],
+			"features": null,
+			"startedAt": 1794154483813,
+			"settlement": {
+				"stage": "done",
+				"digest": null,
+				"effects": null
+			}
+		},
+		{
+			"id": "att_cf0c4b02-7d0f-4bb3-8863-db9a4f684c5a",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 14,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "現在のreport.json全文が返り、施設Aの根拠、施設Bの不明扱い、表・リンク・限界、およびcompletionの状態を確認できるはずです。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "直近の読み戻し後に成果物を更新していません。step_backまたはgive_upの前提として、現状の全文を再確認します。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:dbe265387a2e4aba3af5fbffb54bbaad",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+						"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+								"status": "unknown",
+								"evidence": []
+							}
+						],
+						"limitations": [
+							"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+							"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+							"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+						],
+						"completion": "incomplete",
+						"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154490778,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_c7bb16b0-cb75-4783-a554-f97b64a79fa0",
+			"hypothesisId": "hyp_eca4f52f-8b9e-459f-b989-8c18b84383cb",
+			"seq": 15,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "現在のreport.json全文が返り、保存済みの比較表・出典・根拠・限界・completionを再確認できる。施設Bの本文が未確認のままであれば、両施設比較の条件が未達であることも確認できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "直前の読み戻し後にreport.jsonを更新した記録はありません。今回は、step_backまたはgive_upを選ぶ前に成果物の現状を読み直します。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:dbe265387a2e4aba3af5fbffb54bbaad",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+						"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+								"status": "unknown",
+								"evidence": []
+							}
+						],
+						"limitations": [
+							"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+							"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+							"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+						],
+						"completion": "incomplete",
+						"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154496962,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_d7db7893-8c47-46ce-a448-4da36d6e5024",
+			"hypothesisId": "hyp_ff5895ad-d87e-4a3d-a4b6-eaa7c636519b",
+			"seq": 16,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "現在のreport.json全文が返り、施設Aの本文根拠、施設Bの不明扱い、completion=incomplete が確認できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "直近の読み戻し以降に成果物が更新されたかは未確認のため、終了判断の前提として現在の内容を改めて確認する。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:dbe265387a2e4aba3af5fbffb54bbaad",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+						"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+								"status": "unknown",
+								"evidence": []
+							}
+						],
+						"limitations": [
+							"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+							"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+							"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+						],
+						"completion": "incomplete",
+						"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154536343,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_1553cdcb-9e2c-4ae4-85b5-aa3ee94c84dd",
+			"hypothesisId": "hyp_ff5895ad-d87e-4a3d-a4b6-eaa7c636519b",
+			"seq": 17,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "report.json の全文が返り、現在の回答・主張・限界・completion の内容を再確認できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "直前の読み戻し後に成果物を変更していない。give_up の判断に先立ち、指定どおり現状の成果物を全文読み直す。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:dbe265387a2e4aba3af5fbffb54bbaad",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+						"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+								"status": "unknown",
+								"evidence": []
+							}
+						],
+						"limitations": [
+							"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+							"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+							"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+						],
+						"completion": "incomplete",
+						"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154543991,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_09d048f9-b8d1-4cfd-ba2c-22e1fa0e5682",
+			"hypothesisId": "hyp_ff5895ad-d87e-4a3d-a4b6-eaa7c636519b",
+			"seq": 18,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "report.json の全文が返り、施設Aの本文根拠に基づく比較、施設Bの不明扱い、限界、および completion=incomplete を確認できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "直近の読み戻し後に成果物を更新したという情報はないが、step_back または give_up の判断前に、現時点の成果物全文を改めて確認する。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:dbe265387a2e4aba3af5fbffb54bbaad",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+						"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+								"status": "unknown",
+								"evidence": []
+							}
+						],
+						"limitations": [
+							"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+							"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+							"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+						],
+						"completion": "incomplete",
+						"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154552152,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_d1c41366-d52a-4b99-9873-acef894e4b43",
+			"hypothesisId": "hyp_ff5895ad-d87e-4a3d-a4b6-eaa7c636519b",
+			"seq": 19,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "現在のreport.json全文が返り、回答・主張・限界・completionの内容を確認できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "前回の読み戻し後に成果物を更新していないが、step_backまたはgive_upの判断前に、現行成果物を全文確認する。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:dbe265387a2e4aba3af5fbffb54bbaad",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+						"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+								"status": "unknown",
+								"evidence": []
+							}
+						],
+						"limitations": [
+							"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+							"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+							"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+						],
+						"completion": "incomplete",
+						"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154558737,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 常設展示の撮影ルール比較\\n\\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\\n|---|---|---|---|---|---|---|\\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\\n\\n### 根拠と限界\\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。\",\"summary\":\"施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。\",\"status\":\"unknown\",\"evidence\":[]}],\"limitations\":[\"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。\",\"施設Bの規則や展示ごとの例外が存在しないとは結論できない。\",\"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。\"],\"completion\":\"incomplete\",\"stopReason\":\"施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_837232c5-3438-47d8-bdcd-0b34e4033505",
+			"hypothesisId": "hyp_ff5895ad-d87e-4a3d-a4b6-eaa7c636519b",
+			"seq": 20,
+			"state": "rejected",
+			"tool": "give_up",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "この状態では目標を達成できません。report.jsonには施設Aの内容、施設Bの不明点、出典リンク、限界が保存されていますが、施設Bの取得本文がなく、両施設の公式資料に基づく比較は完成していません。施設Bの本文取得を同じ条件で再試行することはできず、web_lookupの候補やsnippetは本文根拠になりません。利用可能な道具のうち、保存済みの施設A本文を読むものやreport.jsonを更新・確認するものは、施設Bの本文を補う経路ではありません。"
+			},
+			"whatChanged": "",
+			"fingerprint": "give_up",
+			"rejection": [
+				{
+					"rule": "strategy_not_exhausted",
+					"detail": "まだやりきっていない部品があります: 部品1（指定された施設A・施設Bの入口URLから本文を取得し、出典として参照できる資料を確保する。）: 詰まり、次の一手: 利用可能な別の本文取得経路がない。 / 部品2（取得本文を確認し、常設展示の写真撮影・フラッシュ・三脚・自撮り棒の記述と、展示ごとの例外を施設別に整理する。）: 詰まり、次の一手: 施設Bの取得本文が必要だが、利用可能な取得経路がない。 / 部品3（各比較内容を本文の根拠に結び付け、矛盾する記述と本文では確認できない点を明示した日本語Markdown表を作成する。）: 詰まり、次の一手: 施設Bの公式資料本文が必要だが、利用可能な取得経路がない。（この提案の findings は台帳に記録済み: F10。退けたのは選んだ手だけなので、記録し直さず番号で引用してください）"
+				}
+			],
+			"observation": null,
+			"outcome": null,
+			"refs": [],
+			"features": null,
+			"startedAt": 1794154581114,
+			"settlement": {
+				"stage": "done",
+				"digest": null,
+				"effects": null
+			}
+		}
+	],
+	"decisions": [
+		{
+			"seq": 1,
+			"kind": "step_back",
+			"reason": "仮説の試行予算を使い切りました",
+			"basis": {
+				"rule": "hypothesis_budget"
+			},
+			"decidedBy": "rules"
+		},
+		{
+			"seq": 2,
+			"kind": "change_hypothesis",
+			"reason": "仮説の試行予算は尽きていますが、方針全体が行き詰まったとは判断できません。施設Aの本文e1が存在し、施設Bの指定URLも候補として得られており、本文取得と確認を続ける余地があります。検索snippetだけで回答する必要もありません。",
+			"basis": {
+				"review": {
+					"decision": "continue_strategy",
+					"brokenAssumption": "なし。尽きたのは現在の仮説の試行予算であり、指定URLの資料本文に基づいて比較する方針そのものが崩れた証拠はありません。",
+					"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0"
+				},
+				"judge": null,
+				"signals": [],
+				"escalation": [],
+				"direction": "現在の仮説を繰り返さず、保存済みの施設A本文の確認と施設B指定URLの本文取得を別の仮説として進め、受入条件に沿ってreport.jsonを作成・検証してください。"
+			},
+			"decidedBy": "review"
+		},
+		{
+			"seq": 3,
+			"kind": "step_back",
+			"reason": "仮説の試行予算を使い切りました",
+			"basis": {
+				"rule": "hypothesis_budget"
+			},
+			"decidedBy": "rules"
+		},
+		{
+			"seq": 4,
+			"kind": "change_hypothesis",
+			"reason": "試行予算切れによる停滞ですが、目標全体が不可能になった証拠はありません。施設Aの本文根拠はあり、施設Bは指定入口URLの候補が得られているものの、取得本文はまだありません。",
+			"basis": {
+				"review": {
+					"decision": "continue_strategy",
+					"brokenAssumption": "保存済み本文e1をsource_readで読み戻して確認する経路は、すでに複数回拒否されており、このまま繰り返せば確認できるという前提は崩れています。",
+					"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0"
+				},
+				"judge": null,
+				"signals": [],
+				"escalation": [],
+				"direction": "e1の再読は繰り返さず、未取得の施設Bについて指定入口URLをweb_readで取得する仮説を試し、本文が得られた場合に両施設の根拠をreport.jsonへまとめてください。"
+			},
+			"decidedBy": "review"
+		},
+		{
+			"seq": 5,
+			"kind": "consult",
+			"reason": "施設Bの公式資料本文がこちらで取得・確認できず、本文に基づく比較を完了できません。施設Bの固定資料本文をこの会話で提供するか、本文を取得できる利用可能な方法を用意してください。本文を確認できた後、出典リンク付きの表と根拠をreport.jsonに保存します。",
+			"basis": {
+				"missing": "施設B「常設展示 来館案内」の取得本文。"
+			},
+			"decidedBy": "generator"
+		}
+	],
+	"verifications": [
+		{
+			"attemptId": null,
+			"trigger": "claim",
+			"passed": false,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": false,
+					"evidence": "施設Aの取得本文に基づく規則と例外は正しく反映され、施設Bを不明としたことも取得状況に沿っています。しかし施設Bの公式本文を確認できておらず、両施設の比較という依頼を完了していません。さらにcompletionが「incomplete」と明記されています。",
+					"assurance": "model"
+				}
+			]
+		}
+	],
+	"findings": [
+		{
+			"id": "fnd_6efadf4d-1d1c-40ce-b838-85ffe4a13cd9",
+			"seq": 1,
+			"kind": "observation",
+			"statement": "取得本文e1（施設A 常設展示 利用規則）には、常設展示は写真撮影可、撮影禁止表示のある展示品は撮影不可、フラッシュ・三脚・自撮り棒は使用不可とある。企画展は個別案内を確認するよう記載されている。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_ee4521d2-2c34-4f96-996b-dd415d5f7450",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_d3ac6ea9-7d74-4200-b728-1dacd516d66f",
+			"seq": 2,
+			"kind": "observation",
+			"statement": "web_lookupは指定URL https://fixture.example/b を施設B 常設展示 来館案内の候補として返した。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_bbbc67fc-a456-4115-9e2b-3c97c53b723a",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_df449e2b-c10d-412b-bdf4-f8d7918e3454",
+			"seq": 3,
+			"kind": "observation",
+			"statement": "施設A本文e1の取得内容を直接確認するための読み戻しを試みる。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_65bf0ee1-2ca3-41a7-a9c5-0101520c1832",
+			"sourceVerificationId": null,
+			"scope": "hypothesis",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": "hyp_faf1bf15-b0cd-4652-acf6-752cce8877ef",
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_0cce1e4e-0ac6-4d2d-b529-663e24114661",
+			"seq": 4,
+			"kind": "observation",
+			"statement": "source_readでe1の本文を読み戻し、施設Aの撮影可否、撮影禁止表示の例外、フラッシュ・三脚・自撮り棒の不可、および企画展の個別案内への言及を確認した。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_72dc79e2-c09e-4bf7-9ef6-002faa0fc0d1",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_da6a33d2-2841-4ec1-a703-496838616419",
+			"seq": 5,
+			"kind": "dead_end",
+			"statement": "仮説1「指定された入口URL https://fixture.example/a を web_read で取得すれば、施設Aの公式資料本文が保存され、以後の確認に使える証拠IDが返るはずです。」は成り立たないまま閉じた（実行した試行 6 回: 反証の条件に当たらなかった 4・当たった 2・未判定 0。拒否 0 回）。最後に実行した試行: #6 report_draft → 反証の条件に当たらなかった（状態も予測どおり）。一段上へ戻した理由（規則・判定の説明。ホストは確かめていない）: 仮説の試行予算を使い切りました",
+			"assurance": "exact",
+			"sourceAttemptId": null,
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_6607a8c2-5925-401c-b9f1-603a3c824c90",
+			"seq": 6,
+			"kind": "observation",
+			"statement": "保存本文e1には、常設展示は写真撮影可、撮影禁止表示のある展示品は撮影不可、フラッシュ・三脚・自撮り棒は使用不可、企画展は個別案内を確認するとの記載がある。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_254b6beb-940f-4bcd-b028-2bee20ae88b8",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_87596286-a095-4d9b-a18d-2c624e203078",
+			"seq": 7,
+			"kind": "observation",
+			"statement": "e1の取得本文には、常設展示は写真撮影可、撮影禁止表示のある展示品は撮影不可、フラッシュ・三脚・自撮り棒は使用不可、企画展は個別案内を確認するとの記載がある。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_5f6a091f-c2f6-49c5-ab41-20f658463139",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_00f66da6-65ce-47f7-a2f8-a3f6b076e3d4",
+			"seq": 8,
+			"kind": "observation",
+			"statement": "施設Bの入口URLの検索候補は得られているが、今回の記録には施設Bの取得本文がなく、本文根拠に基づく規則の確認はできていない。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_5f6a091f-c2f6-49c5-ab41-20f658463139",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_fb95a5c0-2ac9-4327-b226-edcbb4e9b85c",
+			"seq": 9,
+			"kind": "dead_end",
+			"statement": "仮説2「保存済み本文e1をsource_readで読み戻せば、施設Aの常設展示の撮影ルールと展示ごとの例外を本文に基づいて確認できるはずです。」は成り立たないまま閉じた（実行した試行 6 回: 反証の条件に当たらなかった 6・当たった 0・未判定 0。拒否 3 回）。最後に実行した試行: #15 report_read → 反証の条件に当たらなかった（状態も予測どおり）。一段上へ戻した理由（規則・判定の説明。ホストは確かめていない）: 仮説の試行予算を使い切りました",
+			"assurance": "exact",
+			"sourceAttemptId": null,
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_3798b219-f07e-47bb-8a10-b1e22711f0d0",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_1f7dc261-9028-4d34-86d8-78cdb276c76a",
+			"seq": 10,
+			"kind": "observation",
+			"statement": "直近のreport_read結果では、report.jsonは施設Bの規則を不明とし、completionをincompleteとしている。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_d1c41366-d52a-4b99-9873-acef894e4b43",
+			"sourceVerificationId": null,
+			"scope": "pursuit",
+			"strategyId": null,
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		}
+	],
+	"report": null,
+	"draft": {
+		"answer": "## 常設展示の撮影ルール比較\n\n| 施設 | 写真撮影 | フラッシュ | 三脚 | 自撮り棒 | 展示ごとの例外・本文で確認できない点 | 出典 |\n|---|---|---|---|---|---|---|\n| 施設A | 常設展示は撮影可。ただし、撮影禁止表示のある展示品は撮影不可。 | 使用不可。 | 使用不可。 | 使用不可。 | 撮影禁止表示のある展示品が例外。本文には該当する具体的な展示品名はない。企画展については個別案内を確認するよう記載されているが、これは常設展示の規則としては扱わない。 | [施設A 常設展示 利用規則](https://fixture.example/a)（取得本文 e1） |\n| 施設B | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 本文で確認できず不明。 | 展示ごとの例外も本文で確認できず不明。入口URLは提示されているが、今回確認できる施設Bの取得本文がないため、施設Aとの比較を確定できない。 | [施設B 常設展示 来館案内](https://fixture.example/b)（提示された入口URL。本文は未確認） |\n\n### 根拠と限界\n施設Aは取得本文に基づく。施設Bについては、検索候補として入口URLと資料名は得られているものの、検索snippetは本文根拠として採用せず、取得本文を確認できていない。したがって施設Bの各項目は「禁止」または「許可」と推定せず、不明とした。比較は施設Aで本文に明記された規則と、施設Bで確認できない項目の区別に限られる。",
+		"summary": "施設Aは常設展示の撮影可（撮影禁止表示の展示品を除く）、フラッシュ・三脚・自撮り棒は不可。施設Bの取得本文を確認できないため、全項目と展示ごとの例外は不明。",
+		"claims": [
+			{
+				"text": "施設Aの常設展示は写真撮影可。ただし撮影禁止表示のある展示品は撮影不可。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "施設A本文は企画展について個別の案内を確認するよう記載している。これは企画展に関する記載であり、常設展示の例外とは区別した。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "施設A本文は撮影禁止表示のある展示品という例外を示すが、具体的な展示品名は本文にない。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "施設Bの常設展示の写真撮影可否、フラッシュ、三脚、自撮り棒の規則と展示ごとの例外は、取得本文を確認できず不明。",
+				"status": "unknown",
+				"evidence": []
+			}
+		],
+		"limitations": [
+			"施設Bの入口URLから本文を確認できていない。検索結果の候補・snippetは本文根拠として使用していない。",
+			"施設Bの規則や展示ごとの例外が存在しないとは結論できない。",
+			"施設Aについても、本文に例示のない個別展示の扱いは、撮影禁止表示の有無を超えて特定できない。"
+		],
+		"completion": "incomplete",
+		"stopReason": "施設Aの本文に基づく記述は保存できるが、施設Bの本文根拠を確認できず、依頼された両施設の比較を確定できないため不完全として保存する。"
+	},
+	"modelCalls": [
+		{
+			"purpose": "plan",
+			"latencyMs": 10456.859541999991,
+			"input": 3,
+			"cache": 1734,
+			"output": 795
+		},
+		{
+			"purpose": "hypothesize",
+			"latencyMs": 2988.592082999996,
+			"input": 2439,
+			"cache": 0,
+			"output": 201
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 3196.6347499999974,
+			"input": 3671,
+			"cache": 0,
+			"output": 188
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 4223.605875000008,
+			"input": 3905,
+			"cache": 0,
+			"output": 347
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 6996.602041000006,
+			"input": 4180,
+			"cache": 0,
+			"output": 500
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 4040.6634170000034,
+			"input": 4339,
+			"cache": 0,
+			"output": 292
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 4370.043458,
+			"input": 4518,
+			"cache": 0,
+			"output": 327
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 18230.070542,
+			"input": 4806,
+			"cache": 0,
+			"output": 1847
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 5999.446416999999,
+			"input": 5416,
+			"cache": 0,
+			"output": 498
+		},
+		{
+			"purpose": "review",
+			"latencyMs": 8166.25445800001,
+			"input": 2737,
+			"cache": 0,
+			"output": 638
+		},
+		{
+			"purpose": "hypothesize",
+			"latencyMs": 11282.65516699999,
+			"input": 4570,
+			"cache": 0,
+			"output": 1045
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 3846.9036250000063,
+			"input": 4506,
+			"cache": 0,
+			"output": 295
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 4605.767125000013,
+			"input": 4781,
+			"cache": 0,
+			"output": 370
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 7655.48112500002,
+			"input": 4998,
+			"cache": 0,
+			"output": 611
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 20079.546207999985,
+			"input": 5167,
+			"cache": 0,
+			"output": 2135
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 8391.52466699999,
+			"input": 5872,
+			"cache": 0,
+			"output": 655
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 23745.085666999978,
+			"input": 7794,
+			"cache": 0,
+			"output": 2187
+		},
+		{
+			"purpose": "grade",
+			"latencyMs": 3744.711666999967,
+			"input": 1263,
+			"cache": 0,
+			"output": 298
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 13429.848916999996,
+			"input": 8129,
+			"cache": 0,
+			"output": 1086
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 6939.060875000025,
+			"input": 8245,
+			"cache": 0,
+			"output": 545
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 6156.368791999994,
+			"input": 9240,
+			"cache": 0,
+			"output": 515
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 7569.962332999974,
+			"input": 10254,
+			"cache": 0,
+			"output": 653
+		},
+		{
+			"purpose": "review",
+			"latencyMs": 7365.7402090000105,
+			"input": 3596,
+			"cache": 0,
+			"output": 624
+		},
+		{
+			"purpose": "hypothesize",
+			"latencyMs": 18834.88500000001,
+			"input": 7970,
+			"cache": 0,
+			"output": 1739
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 5524.684040999971,
+			"input": 6274,
+			"cache": 0,
+			"output": 448
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 7620.05224999995,
+			"input": 7292,
+			"cache": 0,
+			"output": 657
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 8132.580583000032,
+			"input": 8268,
+			"cache": 0,
+			"output": 657
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 6567.954749999975,
+			"input": 9259,
+			"cache": 0,
+			"output": 540
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 22347.14383299998,
+			"input": 10235,
+			"cache": 0,
+			"output": 2028
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 12980.901250000054,
+			"input": 10939,
+			"cache": 0,
+			"output": 1085
+		}
+	]
+}

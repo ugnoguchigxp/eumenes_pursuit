@@ -1,0 +1,40 @@
+{
+	"sourceBaseCommit": "40b9630c4dbae20ad3837fdd7e5397c721300ae5",
+	"sources": {
+		"tools.ts": {
+			"source": "api/domains/pursuit/service/tools.ts",
+			"sha256": "b6144c94c7263418370e826e536f15e536debfc2b017b875bc2fa0b0b7ae8997",
+			"adaptations": "Import bindings only; function bodies and validation preserved"
+		},
+		"acceptance.ts": {
+			"source": "api/domains/pursuit/service/acceptance.ts",
+			"sha256": "5a2da6cbfb3f6741ea878b1bb0c176c33f68cea5f8e33b94223bc523fb6c67c2",
+			"adaptations": "Import bindings only; function bodies and validation preserved"
+		},
+		"contracts.ts": {
+			"source": "api/domains/pursuit/contracts/index.ts",
+			"sha256": "a5161d6f8a0f7916de01cd8efda00cbb60cfdb31165682019295cbca801db949",
+			"adaptations": "Only researchDraft/researchDocumentDraft/ResearchDraft declarations extracted"
+		},
+		"instructions.json": {
+			"source": "api/domains/capabilities/bundles/pursuit-research.bundle.json",
+			"sha256": "a87a5a7af155a376434fec46aa7879b6d259761e8a8cfb67d39c3cf2d5ebcecd",
+			"adaptations": "Highest source skill revision; frozen at sync time, not assumed to match historical runs"
+		},
+		"policy.json": {
+			"source": "api/domains/pursuit/service/policy.json",
+			"sha256": "e9dd25a774d2d9dc840f2a9d5e34f5bffc6e5c8d3367872cbe1ae409c6ae6ad5",
+			"adaptations": "Copied policy verbatim"
+		},
+		"document-name.ts": {
+			"source": "api/domains/pursuit/service/documents.ts",
+			"sha256": "da4cd888ba882f7245d213d9f2416895c3641543c0eb81451dcb719bec50f47d",
+			"adaptations": "Filename function extracted"
+		},
+		"markdown-write.ts": {
+			"source": "api/application/pursuit/document-port.ts",
+			"sha256": "4529e9f880f6c902bc12866a8485da8f9d44f044cb885dc29c50c29e8c7d3e53",
+			"adaptations": "Extracted writeLocal, inject scratch.put and URI; do not use production scratch"
+		}
+	}
+}

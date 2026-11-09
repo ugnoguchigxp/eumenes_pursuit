@@ -2,6 +2,7 @@ import {
 	LlmOutputError,
 	type LlmResult,
 	type StepResult,
+	type JsonValue,
 } from "../../contracts/index.ts";
 import {
 	budgetCounted,
@@ -24,6 +25,7 @@ import {
 import type { EngineCtx, EngineSteps } from "./context.ts";
 import type { PursuitRuntime } from "./engine.ts";
 import { citationNote } from "./helpers.ts";
+import { digestJson } from "../rules/fingerprint.ts";
 
 export function makePropose(ctx: EngineCtx): Pick<EngineSteps, "propose"> {
 	const {
@@ -47,6 +49,53 @@ export function makePropose(ctx: EngineCtx): Pick<EngineSteps, "propose"> {
 		runtime: PursuitRuntime,
 		signal: AbortSignal,
 	): Promise<StepResult> {
+		if (view.actionPlan) {
+			const plan = view.actionPlan;
+			const tools = runtime.tools.list();
+			const digest = runtime.workspace
+				? await runtime.workspace.digest()
+				: null;
+			if (
+				plan.hypothesisId !== view.currentHypothesisId ||
+				digest !== plan.digest ||
+				digestJson(tools as unknown as JsonValue) !== plan.toolsDigest ||
+				!plan.actions.length
+			) {
+				const revision = await store.write((db) => {
+					ledger.setActionPlan(db, view.id, null);
+					ledger.insertDecision(db, {
+						id: ids.next("dec"),
+						pursuitId: view.id,
+						kind: "continue",
+						reason: "未実行の読取り計画を状態変更のため破棄",
+						basis: { rule: "plan_invalidated" },
+						decidedBy: "rules",
+						now: clock.now(),
+					});
+					return ledger.advancePursuit(db, {
+						id: view.id,
+						expectedRevision: view.revision,
+						now: clock.now(),
+					});
+				});
+				return result(view, revision, view.status, "interrupted");
+			}
+			checkTime(view, signal);
+			return ctx.attempt(
+				view,
+				runtime,
+				{
+					kind: "tool",
+					...plan.actions[0]!,
+					message: "",
+					missing: "",
+					following: [],
+				},
+				null,
+				tools,
+				signal,
+			);
+		}
 		const conditions = view.input.conditions;
 		const policy = view.input.policy;
 		const hypothesis = view.hypotheses.find(

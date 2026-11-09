@@ -17,6 +17,12 @@ export interface ToolDescriptor {
 	/** Returns the current deliverable itself, so calling it is a re-read (spec/completion-design.md). */
 	readonly readsBack?: boolean;
 	/**
+	 * Opt-in for declarative deliverable writes. A successful write can be reused during partial
+	 * finalization if it was read back and the workspace is unchanged. List only input keys whose
+	 * values affect neither deliverable content, acceptance, nor side effects. [] compares all keys.
+	 */
+	readonly reuseWriteIgnoring?: readonly string[];
+	/**
 	 * How to read a clipped result of this tool again, when calling it again is not the way (e.g. a
 	 * budgeted probe whose results the host also keeps in a file). Shown in the clip notice
 	 * (spec/fixes-2026-10-22-e.md §8).

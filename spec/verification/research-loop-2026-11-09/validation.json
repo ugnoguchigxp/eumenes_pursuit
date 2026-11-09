@@ -1,0 +1,31 @@
+{
+	"beforeVerify": {
+		"passed": 556,
+		"skipped": 12,
+		"failed": 0
+	},
+	"finalVerify": {
+		"passed": 570,
+		"skipped": 12,
+		"failed": 0
+	},
+	"targetedIntegration": {
+		"passed": 31,
+		"failed": 0,
+		"assertions": 170
+	},
+	"inputEqualityChecked": true,
+	"regularCompletedBefore": 4,
+	"regularCompletedAfter": 4,
+	"falseCompletionOnUnavailableEvidence": false,
+	"paidRunsPerCase": 1,
+	"externalWebIsAuthoredFixture": true,
+	"eumenesRuntimeTested": false,
+	"eumenesProductEdited": false,
+	"activeModelReservationsUnknown": 3,
+	"contextCompileCalls": 1,
+	"compileEvalCalls": 1,
+	"toolContractMutationFailureReproducedAndFixed": true,
+	"finalCoreVersion": "0.0.5",
+	"finalMigrationCount": 9
+}

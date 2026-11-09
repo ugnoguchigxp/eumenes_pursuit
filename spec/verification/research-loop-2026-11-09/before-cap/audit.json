@@ -1,0 +1,112 @@
+{
+	"attempts": [
+		{
+			"id": "att_53d84190-b5a0-4c02-ba5a-2efcbcb53c94",
+			"hypothesisId": "hyp_5aca6ada-284e-4475-8406-fb57a1d3755d",
+			"seq": 1,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/a"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "指定された施設Aの入口URLの本文が取得され、出典識別子（例: e1）と本文内容が返る。撮影規則が本文にあれば後続で確認し、なければその点は未確認として扱う。",
+				"refutedIf": "status:error || not_contains:\"https://fixture.example/a\""
+			},
+			"whatChanged": "この仮説での最初の試行です。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:15fd4b56a865d3f8af19af802dfe23f1",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"documents": [
+						{
+							"evidence": "e1",
+							"url": "https://fixture.example/a",
+							"title": "施設A 常設展示 利用規則",
+							"text": "常設展示は写真撮影可。ただし撮影禁止の表示がある展示品は撮影不可。フラッシュ、三脚、自撮り棒は使用不可。企画展は個別の案内を確認すること。",
+							"totalCharacters": 69,
+							"truncated": false,
+							"trust": "untrusted"
+						}
+					],
+					"truncated": false,
+					"calls_left": 0
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [
+				{
+					"kind": "source",
+					"uri": "https://fixture.example/a",
+					"note": "e1"
+				}
+			],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794154658266,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		}
+	],
+	"decisions": [],
+	"verifications": [],
+	"findings": [
+		{
+			"id": "fnd_71b5331e-a3a0-4405-ae72-ee9b3556fe62",
+			"seq": 1,
+			"kind": "observation",
+			"statement": "施設Aの取得本文e1は、常設展示の写真撮影を可とし、撮影禁止表示のある展示品を例外とし、フラッシュ・三脚・自撮り棒を不可としている。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_53d84190-b5a0-4c02-ba5a-2efcbcb53c94",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_77cc2a39-bcdb-4fe9-8294-077f945a959b",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		}
+	],
+	"report": null,
+	"draft": null,
+	"modelCalls": [
+		{
+			"purpose": "plan",
+			"latencyMs": 4625.311833000043,
+			"input": 3,
+			"cache": 1734,
+			"output": 501
+		},
+		{
+			"purpose": "hypothesize",
+			"latencyMs": 3181.290624999965,
+			"input": 2405,
+			"cache": 0,
+			"output": 249
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 2990.5793330000015,
+			"input": 3594,
+			"cache": 0,
+			"output": 204
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 5304.419249999977,
+			"input": 3867,
+			"cache": 0,
+			"output": 446
+		}
+	]
+}

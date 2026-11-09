@@ -1,0 +1,198 @@
+[
+	{
+		"execution": "legacy",
+		"peak": 1,
+		"elapsedMs": 350.141084,
+		"queueMs": 165.21758000000003,
+		"observations": [
+			{
+				"job": "museum",
+				"purpose": "plan",
+				"queueMs": 0.14974999999999739,
+				"serviceMs": 17.789166
+			},
+			{
+				"job": "technical",
+				"purpose": "plan",
+				"queueMs": 17.847333,
+				"serviceMs": 17.141000000000005
+			},
+			{
+				"job": "museum",
+				"purpose": "hypothesize",
+				"queueMs": 13.280500000000004,
+				"serviceMs": 17.503916999999987
+			},
+			{
+				"job": "technical",
+				"purpose": "hypothesize",
+				"queueMs": 15.75608299999999,
+				"serviceMs": 17.123625000000004
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 12.065541999999994,
+				"serviceMs": 17.991792000000004
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 16.213041000000004,
+				"serviceMs": 17.367958999999985
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 0.0018330000000048585,
+				"serviceMs": 16.30491699999999
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 0.4404999999999859,
+				"serviceMs": 17.672208000000012
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 0.0015830000000107702,
+				"serviceMs": 22.387999999999977
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 0.23516599999999244,
+				"serviceMs": 17.25395900000001
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 11.38091700000001,
+				"serviceMs": 26.38662499999998
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 21.768416000000002,
+				"serviceMs": 17.78437500000001
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 12.512124999999969,
+				"serviceMs": 17.01712500000002
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 10.843125000000043,
+				"serviceMs": 17.73887499999995
+			},
+			{
+				"job": "museum",
+				"purpose": "grade",
+				"queueMs": 16.22191600000002,
+				"serviceMs": 17.67629199999999
+			},
+			{
+				"job": "technical",
+				"purpose": "grade",
+				"queueMs": 16.499750000000006,
+				"serviceMs": 17.130791000000045
+			}
+		]
+	},
+	{
+		"execution": "productive",
+		"peak": 1,
+		"elapsedMs": 247.11720799999995,
+		"queueMs": 133.9241679999999,
+		"observations": [
+			{
+				"job": "museum",
+				"purpose": "plan",
+				"queueMs": 0.03429199999999355,
+				"serviceMs": 17.143957999999998
+			},
+			{
+				"job": "technical",
+				"purpose": "plan",
+				"queueMs": 17.150999999999954,
+				"serviceMs": 17.114792000000023
+			},
+			{
+				"job": "museum",
+				"purpose": "hypothesize",
+				"queueMs": 12.494166000000007,
+				"serviceMs": 17.135084000000006
+			},
+			{
+				"job": "technical",
+				"purpose": "hypothesize",
+				"queueMs": 13.467291999999986,
+				"serviceMs": 17.04675000000003
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 9.953125,
+				"serviceMs": 20.422750000000008
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 17.724041999999997,
+				"serviceMs": 16.975416999999993
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 6.5246250000000146,
+				"serviceMs": 18.33558400000004
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 9.32554099999993,
+				"serviceMs": 16.429500000000075
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 11.720249999999965,
+				"serviceMs": 17.33354200000008
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 10.619416999999999,
+				"serviceMs": 17.416624999999954
+			},
+			{
+				"job": "museum",
+				"purpose": "propose",
+				"queueMs": 11.45616700000005,
+				"serviceMs": 17.556666999999948
+			},
+			{
+				"job": "technical",
+				"purpose": "propose",
+				"queueMs": 11.666667000000075,
+				"serviceMs": 17.149541
+			},
+			{
+				"job": "museum",
+				"purpose": "grade",
+				"queueMs": 0.4412919999999758,
+				"serviceMs": 16.182500000000005
+			},
+			{
+				"job": "technical",
+				"purpose": "grade",
+				"queueMs": 1.3462919999999485,
+				"serviceMs": 17.06766700000003
+			}
+		]
+	}
+]

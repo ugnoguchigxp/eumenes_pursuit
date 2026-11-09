@@ -148,9 +148,20 @@ export interface EngineSteps {
 		view: PursuitView,
 		runtime: PursuitRuntime,
 		p: Proposal,
-		usage: InferenceRow,
+		usage: InferenceRow | null,
 		tools: readonly ToolDescriptor[],
 		signal: AbortSignal,
+		committed?: (db: LedgerDb, attemptId: string) => void,
+	): Promise<StepResult>;
+	productive(
+		view: PursuitView,
+		runtime: PursuitRuntime,
+		signal: AbortSignal,
+		resolved?: { operationId: string; response: LlmResult<unknown> },
+	): Promise<StepResult>;
+	productiveResult(
+		value: StepResult,
+		runtime: PursuitRuntime,
 	): Promise<StepResult>;
 	resumeSettlement(
 		view: PursuitView,

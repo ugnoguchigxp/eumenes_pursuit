@@ -17,6 +17,24 @@ export interface Prediction {
 	readonly expectedObservation: string;
 	/** What observation would show the hypothesis wrong; with prediction "falsifiable". */
 	readonly refutedIf?: string;
+	/** Declared unsent reads, retained for action auditing even after the active plan is discarded. */
+	readonly following?: readonly PlannedAction[];
+}
+
+export interface PlannedAction {
+	readonly tool: string;
+	readonly inputJson: string;
+	readonly text: string | null;
+	readonly expectedStatus: "ok" | "error";
+	readonly expectedObservation: string;
+	readonly whatChanged: string;
+	readonly refutedIf: string | null;
+}
+export interface ActionPlan {
+	readonly hypothesisId: string;
+	readonly digest: string | null;
+	readonly toolsDigest: string;
+	readonly actions: readonly PlannedAction[];
 }
 
 export interface AcceptanceRow {
@@ -183,6 +201,9 @@ export interface InferenceRow {
 
 /** Everything the loop needs, rebuilt from the ledger on every step. */
 export interface PursuitView {
+	readonly productive?: import("./productivity.ts").ProductiveState;
+	readonly progress?: readonly import("./productivity.ts").ProgressRecord[];
+	readonly actionPlan?: ActionPlan;
 	readonly id: string;
 	readonly goal: string;
 	readonly status: PursuitStatus;

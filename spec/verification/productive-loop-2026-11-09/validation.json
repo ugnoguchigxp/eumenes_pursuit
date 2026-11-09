@@ -1,0 +1,27 @@
+{
+	"verify": {
+		"passed": 589,
+		"skipped": 12,
+		"failed": 0
+	},
+	"comparison": {
+		"pairs": 6,
+		"matchedInputs": 6,
+		"bothCompleteAndVerified": 4,
+		"bothSupportedPartial": 1,
+		"differentCompletionState": 1
+	},
+	"fixedIntegration": {
+		"passed": 19,
+		"failed": 0
+	},
+	"provenance": {
+		"emulator": "examples/eumenes/provenance.json",
+		"comparisonSourceHashes": "artifacts/productive-loop-20261109/release-sources.json",
+		"afterComparisonChange": "Only src/domains/loop/productive.ts; atomic receipt and scope/consultation, fault-injected. The denied candidate was run after this change."
+	},
+	"contextStill": {
+		"contextCompile": 1,
+		"compileEval": 1
+	}
+}

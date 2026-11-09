@@ -1,0 +1,8 @@
+{
+	"archive": "artifacts/productive-loop-20261109/eumenes-pursuit-0.0.6.tgz",
+	"files": 88,
+	"sha256": "21dd8bda5107b3415d8a1bac723aac327aa85a6defb014707b75533e8bf4289b",
+	"version": "0.0.6",
+	"hostContract": "1.13",
+	"migrationCount": 10
+}

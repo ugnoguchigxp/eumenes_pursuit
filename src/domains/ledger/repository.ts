@@ -12,6 +12,7 @@ import {
 	type Report,
 	type VersionRef,
 } from "../../contracts/index.ts";
+import { loadProgress, type ProductiveState } from "./productivity.ts";
 import type {
 	AcceptanceRow,
 	AttemptFeatures,
@@ -749,6 +750,19 @@ export function loadPursuit(db: LedgerDb, id: string): PursuitView | null {
 		.get(id) as Row | null;
 	return {
 		id: text(p.id),
+		...(p.productive_json
+			? {
+					productive: parse<ProductiveState>(p.productive_json),
+					progress: loadProgress(db, id),
+				}
+			: {}),
+		...(p.action_plan_json
+			? {
+					actionPlan: parse<import("./types.ts").ActionPlan>(
+						p.action_plan_json,
+					),
+				}
+			: {}),
 		goal: text(p.goal),
 		status: p.status as PursuitStatus,
 		revision: Number(p.revision),

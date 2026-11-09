@@ -1,6 +1,8 @@
 import type {
 	CriterionResult,
 	JsonObject,
+	JsonValue,
+	LedgerDb,
 	StepResult,
 	ToolDescriptor,
 	ToolOutcome,
@@ -24,6 +26,13 @@ import {
 } from "../rules/fingerprint.ts";
 import type { EngineCtx, EngineSteps } from "./context.ts";
 import type { PursuitRuntime } from "./engine.ts";
+
+/** Only failures thrown by the host's atomic reservation hook are recoverable here. */
+class ToolReservationFailed extends Error {
+	constructor(readonly original: unknown) {
+		super("tool_reservation_failed");
+	}
+}
 import { trajectoryStreak } from "./helpers.ts";
 
 export function makeAttempt(
@@ -49,9 +58,10 @@ export function makeAttempt(
 		view: PursuitView,
 		runtime: PursuitRuntime,
 		p: Proposal,
-		usage: InferenceRow,
+		usage: InferenceRow | null,
 		tools: readonly ToolDescriptor[],
 		signal: AbortSignal,
+		committed?: (db: LedgerDb, attemptId: string) => void,
 	): Promise<StepResult> {
 		const conditions = view.input.conditions;
 		const policy = view.input.policy;
@@ -93,7 +103,9 @@ export function makeAttempt(
 		const proposed = {
 			tool: toolName,
 			input,
-			prediction,
+			prediction: p.following?.length
+				? { ...prediction, following: p.following }
+				: prediction,
 			whatChanged: p.whatChanged,
 			fingerprint: fp,
 		};
@@ -103,6 +115,68 @@ export function makeAttempt(
 			inputError,
 			grant: view.input.grant,
 		});
+		if (conditions.execution === "productive") {
+			if (
+				view.attempts.filter((a) => a.state !== "rejected").length >=
+				policy.budget.attempts
+			)
+				rejections.push({
+					rule: "attempt_budget",
+					detail: "実行中の予約を含めて試行上限に達しました",
+				});
+			if (
+				view.attempts.some((a) => a.state === "started" && a.fingerprint === fp)
+			)
+				rejections.push({
+					rule: "attempt_pending",
+					detail: "同じ条件の結果を受領してから再試行してください",
+				});
+		}
+		const following = p.following ?? [];
+		const planDigest =
+			following.length && runtime.workspace
+				? await runtime.workspace.digest()
+				: null;
+		if (following.length) {
+			const members = [toolName, ...following.map((a) => a.tool)];
+			if (
+				members.some(
+					(name) =>
+						!tools.some(
+							(t) =>
+								t.name === name &&
+								t.sideEffect === "none" &&
+								view.input.grant.includes(t.permission),
+						),
+				)
+			)
+				rejections.push({
+					rule: "plan_read_only",
+					detail: "まとめて選べるのは許可された読取り専用の道具だけです",
+				});
+			const used = view.attempts.filter(
+				(a) =>
+					a.state === "settled" ||
+					a.state === "started" ||
+					a.state === "interrupted",
+			).length;
+			const ownUsed = budgetCounted(
+				view,
+				attemptsOf(view, hypothesis.id),
+				tools,
+			).length;
+			if (
+				used + members.length > policy.budget.attempts ||
+				(conditions.rules &&
+					conditions.attemptCount === "all" &&
+					ownUsed + members.length > hypothesis.budget)
+			)
+				rejections.push({
+					rule: "plan_budget",
+					detail:
+						"読取り計画の件数が残りの試行予算を超えます。残予算内の独立した操作だけを選んでください",
+				});
+		}
 		if (!rejections.length && conditions.rules)
 			rejections.push(
 				...ruleRejections({
@@ -146,7 +220,9 @@ export function makeAttempt(
 		if (pre) rejections.push(...pre.effects.rejections);
 		if (rejections.length || !tool) {
 			const revision = await reject(view, proposed, rejections, (db, id) => {
-				inference(db, view, [usage]);
+				committed?.(db, id);
+				if (usage) inference(db, view, [usage]);
+				ledger.setActionPlan(db, view.id, null);
 				if (pre)
 					writeJudgements(db, view, {
 						rows: pre.rows.map((row) => ({ ...row, attemptId: id })),
@@ -166,41 +242,94 @@ export function makeAttempt(
 		}
 		checkTime(view, signal);
 		const attemptId = ids.next("att");
-		const pending = await store.write((db) => {
-			ledger.insertAttempt(db, {
-				id: attemptId,
-				pursuitId: view.id,
-				hypothesisId: hypothesis.id,
-				state: "started",
-				...proposed,
-				rejection: null,
-				now: clock.now(),
-			});
-			inference(db, view, [usage]);
-			if (pre)
-				writeJudgements(db, view, {
-					rows: pre.rows.map((row) => ({ ...row, attemptId })),
-					usage: pre.usage,
+		let pending: { revision: number; operationId: string | null };
+		try {
+			pending = await store.write((db) => {
+				ledger.insertAttempt(db, {
+					id: attemptId,
+					pursuitId: view.id,
+					hypothesisId: hypothesis.id,
+					state: "started",
+					...proposed,
+					rejection: null,
+					now: clock.now(),
 				});
-			const deferred = runtime.tools.deferInTransaction
-				? runtime.tools.deferInTransaction(
+				committed?.(db, attemptId);
+				if (usage) inference(db, view, [usage]);
+				if (following.length)
+					ledger.setActionPlan(db, view.id, {
+						hypothesisId: hypothesis.id,
+						digest: planDigest,
+						toolsDigest: digestJson(tools as unknown as JsonValue),
+						actions: following,
+					});
+				else if (!usage && view.actionPlan) {
+					const rest = view.actionPlan.actions.slice(1);
+					ledger.setActionPlan(
 						db,
-						{ tool: tool.name, input },
-						{ pursuitId: view.id, attemptId },
-					)
-				: null;
-			if (deferred !== null) {
-				if (!deferred || typeof deferred !== "object")
-					throw new Error("invalid_deferred_tool");
-				ledger.deferAttempt(db, attemptId, deferred.operationId);
-			}
-			const revision = ledger.advancePursuit(db, {
-				id: view.id,
-				expectedRevision: view.revision,
-				now: clock.now(),
+						view.id,
+						rest.length ? { ...view.actionPlan, actions: rest } : null,
+					);
+				}
+				if (pre)
+					writeJudgements(db, view, {
+						rows: pre.rows.map((row) => ({ ...row, attemptId })),
+						usage: pre.usage,
+					});
+				let deferred: { readonly operationId: string } | null = null;
+				try {
+					deferred = runtime.tools.deferInTransaction
+						? runtime.tools.deferInTransaction(
+								db,
+								{ tool: tool.name, input },
+								{ pursuitId: view.id, attemptId },
+							)
+						: null;
+				} catch (error) {
+					throw new ToolReservationFailed(error);
+				}
+				if (deferred !== null) {
+					if (!deferred || typeof deferred !== "object")
+						throw new Error("invalid_deferred_tool");
+					ledger.deferAttempt(db, attemptId, deferred.operationId);
+				}
+				const revision = ledger.advancePursuit(db, {
+					id: view.id,
+					expectedRevision: view.revision,
+					now: clock.now(),
+				});
+				return { revision, operationId: deferred?.operationId ?? null };
 			});
-			return { revision, operationId: deferred?.operationId ?? null };
-		});
+		} catch (error) {
+			if (!(error instanceof ToolReservationFailed)) throw error;
+			// The transaction rolled back both started attempt and host reservation.
+			// Do not fall through to invoke or automatically resend. Let the LLM
+			// use acquired evidence, save partial work, or choose another route.
+			checkTime(view, signal);
+			warn("tool_reservation_failed", { tool: tool.name });
+			const revision = await reject(
+				view,
+				proposed,
+				[
+					{
+						rule: "tool_reservation_failed",
+						detail:
+							"ホストが道具の受付を確定できませんでした。この要求は実行していません。既取得の根拠を成果物へ保存し、利用可能な経路を選んでください。同じ要求の自動再送はしません。",
+					},
+				],
+				(db, id) => {
+					committed?.(db, id);
+					if (usage) inference(db, view, [usage]);
+					ledger.setActionPlan(db, view.id, null);
+					if (pre)
+						writeJudgements(db, view, {
+							rows: pre.rows.map((row) => ({ ...row, attemptId: id })),
+							usage: pre.usage,
+						});
+				},
+			);
+			return result(view, revision, view.status, "rejected");
+		}
 		if (pending.operationId)
 			return {
 				...result(view, pending.revision, view.status, "waiting_tool"),
@@ -285,6 +414,7 @@ export function makeAttempt(
 			throw new Error("tool_result_not_pending");
 		if (pendingDigest) checkTime(current, signal);
 		await store.write((db) => {
+			if (outcome.status === "error") ledger.setActionPlan(db, view.id, null);
 			ledger.settleAttempt(db, {
 				id: attemptId,
 				observation: {
@@ -478,6 +608,17 @@ export function makeAttempt(
 				verified.criteria,
 			);
 		const fired = firedSignals(current, tools);
+		if (
+			conditions.execution === "productive" &&
+			!fired.some(
+				(s) => s.code === "protected_touch" || s.code === "scope_growth",
+			)
+		) {
+			await store.write((db) =>
+				ledger.updateSettlement(db, attemptId, { ...pending, stage: "done" }),
+			);
+			return result(current, current.revision, current.status, "executed");
+		}
 		if (fired.length)
 			return ctx.stepBack(
 				current,

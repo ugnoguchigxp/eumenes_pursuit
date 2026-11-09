@@ -1,0 +1,531 @@
+{
+	"attempts": [
+		{
+			"id": "att_55ee8adf-dae9-44ac-a3b5-3938d1e9683c",
+			"hypothesisId": "hyp_cd06d526-3d08-418a-89be-7d41f183eac5",
+			"seq": 1,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/a"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Aの指定入口URLから本文が取得され、本文識別子（eN）と出典URLが返ること。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "初回の取得であり、条件の変更はありません。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:15fd4b56a865d3f8af19af802dfe23f1",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"documents": [
+						{
+							"evidence": "e1",
+							"url": "https://fixture.example/a",
+							"title": "施設A 常設展示 利用規則",
+							"text": "常設展示は写真撮影可。ただし撮影禁止の表示がある展示品は撮影不可。フラッシュ、三脚、自撮り棒は使用不可。企画展は個別の案内を確認すること。",
+							"totalCharacters": 69,
+							"truncated": false,
+							"trust": "untrusted"
+						}
+					],
+					"truncated": false,
+					"calls_left": 7
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [
+				{
+					"kind": "source",
+					"uri": "https://fixture.example/a",
+					"note": "e1"
+				}
+			],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155842697,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_10cb330a-8e91-4d02-9e9e-6bf95053a196",
+			"hypothesisId": "hyp_cd06d526-3d08-418a-89be-7d41f183eac5",
+			"seq": 2,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/b"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "施設Bの指定入口URLから本文が取得され、本文識別子（eN）と出典URLが返ること。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "初回の取得です。施設Aと独立して指定URLの本文を取得します。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:77c79a06b48885bd2209695aed34cc1c",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"documents": [
+						{
+							"evidence": "e2",
+							"url": "https://fixture.example/b",
+							"title": "施設B 常設展示 来館案内",
+							"text": "常設展示の写真撮影は個人利用に限り可。撮影禁止の表示を優先する。フラッシュ、三脚は使用不可。自撮り棒についてこのページに記載はない。特別展は別途規則を設ける。",
+							"totalCharacters": 79,
+							"truncated": false,
+							"trust": "untrusted"
+						}
+					],
+					"truncated": false,
+					"calls_left": 6
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [
+				{
+					"kind": "source",
+					"uri": "https://fixture.example/b",
+					"note": "e2"
+				}
+			],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155842703,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_18507fc8-4bf5-491e-a946-48050ac60666",
+			"hypothesisId": "hyp_cd06d526-3d08-418a-89be-7d41f183eac5",
+			"seq": 3,
+			"state": "settled",
+			"tool": "report_draft",
+			"input": {
+				"answer": "## 施設A・Bの常設展示における撮影ルール比較\n\n| 項目 | 施設A | 施設B |\n|---|---|---|\n| 写真撮影 | 常設展示は撮影可。ただし撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 個人利用に限り撮影可。撮影禁止表示を優先。[e2](https://fixture.example/b) |\n| フラッシュ | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\n| 三脚 | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\n| 自撮り棒 | 使用不可。[e1](https://fixture.example/a) | 本文に記載なし。使用可とは確認できない。[e2](https://fixture.example/b) |\n| 展示ごとの例外 | 撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 撮影禁止表示がある場合はその表示を優先。[e2](https://fixture.example/b) |\n\n### 確認できる範囲と不明点\n施設Aの本文は常設展示の撮影可を示し、撮影禁止表示のある展示品を例外としています。施設Bは撮影を個人利用に限定し、撮影禁止表示を優先するとしています。したがって、撮影禁止表示のある展示品では両施設とも撮影不可として扱う必要があります。フラッシュと三脚は両施設とも使用不可です。\n\n施設Bの本文には自撮り棒の規則がありません。施設A・Bとも、撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示に対する追加例外は本文から確認できません。施設Bで個人利用以外の撮影が許可されるかも本文では確認できません。施設Aの本文は企画展について個別案内の確認を求め、施設Bの本文は特別展に別途規則があるとしていますが、これは常設展示の規則とは別の案内です。\n\n### 出典\n- 施設A「常設展示 利用規則」[https://fixture.example/a](https://fixture.example/a)（取得本文 e1）\n- 施設B「常設展示 来館案内」[https://fixture.example/b](https://fixture.example/b)（取得本文 e2）",
+				"summary": "指定された施設A・Bの入口URLから取得した公式本文に基づき、常設展示の写真撮影、フラッシュ、三脚、自撮り棒を比較。撮影禁止表示の例外、施設Bの個人利用限定、自撮り棒の不記載、特別展等との区別を明記した。",
+				"claims": [
+					{
+						"text": "施設Aの常設展示は写真撮影可だが、撮影禁止表示のある展示品は撮影不可。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設Bの常設展示の写真撮影は個人利用に限り可で、撮影禁止表示を優先する。",
+						"status": "verified",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "施設Bではフラッシュ、三脚は使用不可。",
+						"status": "verified",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "施設Bの取得本文には自撮り棒の規則が記載されておらず、使用可否は確認できない。",
+						"status": "unknown",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "両施設の取得本文では撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示の追加例外は確認できない。",
+						"status": "unknown",
+						"evidence": ["e1", "e2"]
+					},
+					{
+						"text": "施設Bで個人利用以外の撮影が許可されるかは取得本文から確認できない。",
+						"status": "unknown",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "施設Aは企画展について個別案内を確認するよう案内し、施設Bは特別展に別途規則があるとしている。",
+						"status": "verified",
+						"evidence": ["e1", "e2"]
+					}
+				],
+				"limitations": [
+					"根拠は指定入口URLから取得した各1ページの本文に限る。本文に記載がないことから、施設全体に規則がないとは断定しない。",
+					"具体的に撮影禁止表示が掲示される展示品や、施設Bの自撮り棒の可否は本文では確認できない。",
+					"企画展・特別展の詳細規則は今回の常設展示比較の本文からは確認できない。"
+				],
+				"completion": "complete",
+				"stopReason": "指定された2つの入口URLから取得した本文に基づく比較、例外、不明点、出典リンクを含む日本語Markdown回答を保存した。"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "report.json が更新され、回答・主張・限界と e1/e2 の参照を含む保存結果が返る。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "取得済みの施設A・B本文を根拠に、依頼された比較表と不明点をreport.jsonへ保存する。",
+			"fingerprint": "v2:eee591a27b4f08fdbbf7bc83b03e2358:dd01fb3646d043f66c54926d03c625c1",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"saved": "report.json"
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155856703,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 施設A・Bの常設展示における撮影ルール比較\\n\\n| 項目 | 施設A | 施設B |\\n|---|---|---|\\n| 写真撮影 | 常設展示は撮影可。ただし撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 個人利用に限り撮影可。撮影禁止表示を優先。[e2](https://fixture.example/b) |\\n| フラッシュ | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\\n| 三脚 | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\\n| 自撮り棒 | 使用不可。[e1](https://fixture.example/a) | 本文に記載なし。使用可とは確認できない。[e2](https://fixture.example/b) |\\n| 展示ごとの例外 | 撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 撮影禁止表示がある場合はその表示を優先。[e2](https://fixture.example/b) |\\n\\n### 確認できる範囲と不明点\\n施設Aの本文は常設展示の撮影可を示し、撮影禁止表示のある展示品を例外としています。施設Bは撮影を個人利用に限定し、撮影禁止表示を優先するとしています。したがって、撮影禁止表示のある展示品では両施設とも撮影不可として扱う必要があります。フラッシュと三脚は両施設とも使用不可です。\\n\\n施設Bの本文には自撮り棒の規則がありません。施設A・Bとも、撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示に対する追加例外は本文から確認できません。施設Bで個人利用以外の撮影が許可されるかも本文では確認できません。施設Aの本文は企画展について個別案内の確認を求め、施設Bの本文は特別展に別途規則があるとしていますが、これは常設展示の規則とは別の案内です。\\n\\n### 出典\\n- 施設A「常設展示 利用規則」[https://fixture.example/a](https://fixture.example/a)（取得本文 e1）\\n- 施設B「常設展示 来館案内」[https://fixture.example/b](https://fixture.example/b)（取得本文 e2）\",\"summary\":\"指定された施設A・Bの入口URLから取得した公式本文に基づき、常設展示の写真撮影、フラッシュ、三脚、自撮り棒を比較。撮影禁止表示の例外、施設Bの個人利用限定、自撮り棒の不記載、特別展等との区別を明記した。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可だが、撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影は個人利用に限り可で、撮影禁止表示を優先する。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bではフラッシュ、三脚は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"施設Bの取得本文には自撮り棒の規則が記載されておらず、使用可否は確認できない。\",\"status\":\"unknown\",\"evidence\":[\"e2\"]},{\"text\":\"両施設の取得本文では撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示の追加例外は確認できない。\",\"status\":\"unknown\",\"evidence\":[\"e1\",\"e2\"]},{\"text\":\"施設Bで個人利用以外の撮影が許可されるかは取得本文から確認できない。\",\"status\":\"unknown\",\"evidence\":[\"e2\"]},{\"text\":\"施設Aは企画展について個別案内を確認するよう案内し、施設Bは特別展に別途規則があるとしている。\",\"status\":\"verified\",\"evidence\":[\"e1\",\"e2\"]}],\"limitations\":[\"根拠は指定入口URLから取得した各1ページの本文に限る。本文に記載がないことから、施設全体に規則がないとは断定しない。\",\"具体的に撮影禁止表示が掲示される展示品や、施設Bの自撮り棒の可否は本文では確認できない。\",\"企画展・特別展の詳細規則は今回の常設展示比較の本文からは確認できない。\"],\"completion\":\"complete\",\"stopReason\":\"指定された2つの入口URLから取得した本文に基づく比較、例外、不明点、出典リンクを含む日本語Markdown回答を保存した。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_f8fe0486-2d73-49b5-9307-6c7265bb102a",
+			"hypothesisId": "hyp_cd06d526-3d08-418a-89be-7d41f183eac5",
+			"seq": 4,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "保存済みreport.jsonの全文が返り、表・出典リンク・主張と根拠e1/e2の対応、確認できない点および限界を照合できること。前回の下書き保存結果は表示が途中で切れていたため、その全文を確認する。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "保存済みの回答全文を確認し、受入条件との照合に必要な不足情報を回収する。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:d9367be84d410645071efb92a36f1724",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "## 施設A・Bの常設展示における撮影ルール比較\n\n| 項目 | 施設A | 施設B |\n|---|---|---|\n| 写真撮影 | 常設展示は撮影可。ただし撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 個人利用に限り撮影可。撮影禁止表示を優先。[e2](https://fixture.example/b) |\n| フラッシュ | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\n| 三脚 | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\n| 自撮り棒 | 使用不可。[e1](https://fixture.example/a) | 本文に記載なし。使用可とは確認できない。[e2](https://fixture.example/b) |\n| 展示ごとの例外 | 撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 撮影禁止表示がある場合はその表示を優先。[e2](https://fixture.example/b) |\n\n### 確認できる範囲と不明点\n施設Aの本文は常設展示の撮影可を示し、撮影禁止表示のある展示品を例外としています。施設Bは撮影を個人利用に限定し、撮影禁止表示を優先するとしています。したがって、撮影禁止表示のある展示品では両施設とも撮影不可として扱う必要があります。フラッシュと三脚は両施設とも使用不可です。\n\n施設Bの本文には自撮り棒の規則がありません。施設A・Bとも、撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示に対する追加例外は本文から確認できません。施設Bで個人利用以外の撮影が許可されるかも本文では確認できません。施設Aの本文は企画展について個別案内の確認を求め、施設Bの本文は特別展に別途規則があるとしていますが、これは常設展示の規則とは別の案内です。\n\n### 出典\n- 施設A「常設展示 利用規則」[https://fixture.example/a](https://fixture.example/a)（取得本文 e1）\n- 施設B「常設展示 来館案内」[https://fixture.example/b](https://fixture.example/b)（取得本文 e2）",
+						"summary": "指定された施設A・Bの入口URLから取得した公式本文に基づき、常設展示の写真撮影、フラッシュ、三脚、自撮り棒を比較。撮影禁止表示の例外、施設Bの個人利用限定、自撮り棒の不記載、特別展等との区別を明記した。",
+						"claims": [
+							{
+								"text": "施設Aの常設展示は写真撮影可だが、撮影禁止表示のある展示品は撮影不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bの常設展示の写真撮影は個人利用に限り可で、撮影禁止表示を優先する。",
+								"status": "verified",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "施設Bではフラッシュ、三脚は使用不可。",
+								"status": "verified",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "施設Bの取得本文には自撮り棒の規則が記載されておらず、使用可否は確認できない。",
+								"status": "unknown",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "両施設の取得本文では撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示の追加例外は確認できない。",
+								"status": "unknown",
+								"evidence": ["e1", "e2"]
+							},
+							{
+								"text": "施設Bで個人利用以外の撮影が許可されるかは取得本文から確認できない。",
+								"status": "unknown",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "施設Aは企画展について個別案内を確認するよう案内し、施設Bは特別展に別途規則があるとしている。",
+								"status": "verified",
+								"evidence": ["e1", "e2"]
+							}
+						],
+						"limitations": [
+							"根拠は指定入口URLから取得した各1ページの本文に限る。本文に記載がないことから、施設全体に規則がないとは断定しない。",
+							"具体的に撮影禁止表示が掲示される展示品や、施設Bの自撮り棒の可否は本文では確認できない。",
+							"企画展・特別展の詳細規則は今回の常設展示比較の本文からは確認できない。"
+						],
+						"completion": "complete",
+						"stopReason": "指定された2つの入口URLから取得した本文に基づく比較、例外、不明点、出典リンクを含む日本語Markdown回答を保存した。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155860928,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"## 施設A・Bの常設展示における撮影ルール比較\\n\\n| 項目 | 施設A | 施設B |\\n|---|---|---|\\n| 写真撮影 | 常設展示は撮影可。ただし撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 個人利用に限り撮影可。撮影禁止表示を優先。[e2](https://fixture.example/b) |\\n| フラッシュ | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\\n| 三脚 | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\\n| 自撮り棒 | 使用不可。[e1](https://fixture.example/a) | 本文に記載なし。使用可とは確認できない。[e2](https://fixture.example/b) |\\n| 展示ごとの例外 | 撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 撮影禁止表示がある場合はその表示を優先。[e2](https://fixture.example/b) |\\n\\n### 確認できる範囲と不明点\\n施設Aの本文は常設展示の撮影可を示し、撮影禁止表示のある展示品を例外としています。施設Bは撮影を個人利用に限定し、撮影禁止表示を優先するとしています。したがって、撮影禁止表示のある展示品では両施設とも撮影不可として扱う必要があります。フラッシュと三脚は両施設とも使用不可です。\\n\\n施設Bの本文には自撮り棒の規則がありません。施設A・Bとも、撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示に対する追加例外は本文から確認できません。施設Bで個人利用以外の撮影が許可されるかも本文では確認できません。施設Aの本文は企画展について個別案内の確認を求め、施設Bの本文は特別展に別途規則があるとしていますが、これは常設展示の規則とは別の案内です。\\n\\n### 出典\\n- 施設A「常設展示 利用規則」[https://fixture.example/a](https://fixture.example/a)（取得本文 e1）\\n- 施設B「常設展示 来館案内」[https://fixture.example/b](https://fixture.example/b)（取得本文 e2）\",\"summary\":\"指定された施設A・Bの入口URLから取得した公式本文に基づき、常設展示の写真撮影、フラッシュ、三脚、自撮り棒を比較。撮影禁止表示の例外、施設Bの個人利用限定、自撮り棒の不記載、特別展等との区別を明記した。\",\"claims\":[{\"text\":\"施設Aの常設展示は写真撮影可だが、撮影禁止表示のある展示品は撮影不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bの常設展示の写真撮影は個人利用に限り可で、撮影禁止表示を優先する。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"施設Aではフラッシュ、三脚、自撮り棒は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"施設Bではフラッシュ、三脚は使用不可。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"施設Bの取得本文には自撮り棒の規則が記載されておらず、使用可否は確認できない。\",\"status\":\"unknown\",\"evidence\":[\"e2\"]},{\"text\":\"両施設の取得本文では撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示の追加例外は確認できない。\",\"status\":\"unknown\",\"evidence\":[\"e1\",\"e2\"]},{\"text\":\"施設Bで個人利用以外の撮影が許可されるかは取得本文から確認できない。\",\"status\":\"unknown\",\"evidence\":[\"e2\"]},{\"text\":\"施設Aは企画展について個別案内を確認するよう案内し、施設Bは特別展に別途規則があるとしている。\",\"status\":\"verified\",\"evidence\":[\"e1\",\"e2\"]}],\"limitations\":[\"根拠は指定入口URLから取得した各1ページの本文に限る。本文に記載がないことから、施設全体に規則がないとは断定しない。\",\"具体的に撮影禁止表示が掲示される展示品や、施設Bの自撮り棒の可否は本文では確認できない。\",\"企画展・特別展の詳細規則は今回の常設展示比較の本文からは確認できない。\"],\"completion\":\"complete\",\"stopReason\":\"指定された2つの入口URLから取得した本文に基づく比較、例外、不明点、出典リンクを含む日本語Markdown回答を保存した。\"}",
+				"effects": null
+			}
+		}
+	],
+	"decisions": [
+		{
+			"seq": 1,
+			"kind": "complete",
+			"reason": "report.jsonには、施設A・Bの常設展示について写真撮影、フラッシュ、三脚、自撮り棒を比較する日本語Markdown表、展示ごとの例外、本文で確認できない点、限界、取得本文の出典リンクが保存されています。取得本文e1・e2に照らして、施設Bの自撮り棒の不記載も使用可とは断定せず不明として扱っています。",
+			"basis": {
+				"verified": true
+			},
+			"decidedBy": "rules"
+		}
+	],
+	"verifications": [
+		{
+			"attemptId": null,
+			"trigger": "claim",
+			"passed": true,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得本文 e1・e2 と回答を照合しました。常設展示の撮影条件、撮影禁止表示の例外、フラッシュ・三脚、自撮り棒（施設Bは本文に記載なし）、企画展・特別展の扱いが正確に比較され、本文で確認できない点も不明として示されています。出典リンクがあり、指定の report.json に回答が保存されたことも受領情報で確認できます。",
+					"assurance": "model"
+				}
+			]
+		},
+		{
+			"attemptId": null,
+			"trigger": "final",
+			"passed": true,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "取得本文 e1・e2 と回答を照合しました。常設展示の撮影条件、撮影禁止表示の例外、フラッシュ・三脚、自撮り棒（施設Bは本文に記載なし）、企画展・特別展の扱いが正確に比較され、本文で確認できない点も不明として示されています。出典リンクがあり、指定の report.json に回答が保存されたことも受領情報で確認できます。",
+					"assurance": "model"
+				}
+			]
+		}
+	],
+	"findings": [
+		{
+			"id": "fnd_b950ac39-fd5d-4fae-ab94-e3443d497074",
+			"seq": 1,
+			"kind": "observation",
+			"statement": "指定入口URLの施設A本文e1は、常設展示の撮影可（撮影禁止表示の展示品を除く）とフラッシュ・三脚・自撮り棒不可、企画展の個別案内確認を記載している。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_10cb330a-8e91-4d02-9e9e-6bf95053a196",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_ee9bfc1c-2231-4991-bc22-7529314ebfdc",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_4c22e02d-d9de-45ec-af96-bad791a7147d",
+			"seq": 2,
+			"kind": "observation",
+			"statement": "指定入口URLの施設B本文e2は、常設展示の個人利用に限る撮影可、撮影禁止表示優先、フラッシュ・三脚不可を記載し、自撮り棒については記載がない。また特別展は別規則としている。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_10cb330a-8e91-4d02-9e9e-6bf95053a196",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_ee9bfc1c-2231-4991-bc22-7529314ebfdc",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		}
+	],
+	"report": {
+		"pursuitId": "pur_f42f7b0f-2868-4679-81e6-a721bbd8f930",
+		"outcome": "completed",
+		"verified": true,
+		"reason": "report.jsonには、施設A・Bの常設展示について写真撮影、フラッシュ、三脚、自撮り棒を比較する日本語Markdown表、展示ごとの例外、本文で確認できない点、限界、取得本文の出典リンクが保存されています。取得本文e1・e2に照らして、施設Bの自撮り棒の不記載も使用可とは断定せず不明として扱っています。",
+		"criteria": [
+			{
+				"id": "citations",
+				"passed": true,
+				"evidence": "IDs matched",
+				"assurance": "exact"
+			},
+			{
+				"id": "answer",
+				"passed": true,
+				"evidence": "取得本文 e1・e2 と回答を照合しました。常設展示の撮影条件、撮影禁止表示の例外、フラッシュ・三脚、自撮り棒（施設Bは本文に記載なし）、企画展・特別展の扱いが正確に比較され、本文で確認できない点も不明として示されています。出典リンクがあり、指定の report.json に回答が保存されたことも受領情報で確認できます。",
+				"assurance": "model"
+			}
+		],
+		"needs": [],
+		"refs": [
+			{
+				"kind": "source",
+				"uri": "https://fixture.example/a",
+				"note": "e1"
+			},
+			{
+				"kind": "source",
+				"uri": "https://fixture.example/b",
+				"note": "e2"
+			}
+		],
+		"stats": {
+			"attempts": 4,
+			"rejected": 0,
+			"hypotheses": 1,
+			"strategies": 1,
+			"stepBacks": 0,
+			"consultations": 0
+		},
+		"findings": {
+			"total": 2,
+			"checked": []
+		}
+	},
+	"draft": {
+		"answer": "## 施設A・Bの常設展示における撮影ルール比較\n\n| 項目 | 施設A | 施設B |\n|---|---|---|\n| 写真撮影 | 常設展示は撮影可。ただし撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 個人利用に限り撮影可。撮影禁止表示を優先。[e2](https://fixture.example/b) |\n| フラッシュ | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\n| 三脚 | 使用不可。[e1](https://fixture.example/a) | 使用不可。[e2](https://fixture.example/b) |\n| 自撮り棒 | 使用不可。[e1](https://fixture.example/a) | 本文に記載なし。使用可とは確認できない。[e2](https://fixture.example/b) |\n| 展示ごとの例外 | 撮影禁止表示のある展示品は撮影不可。[e1](https://fixture.example/a) | 撮影禁止表示がある場合はその表示を優先。[e2](https://fixture.example/b) |\n\n### 確認できる範囲と不明点\n施設Aの本文は常設展示の撮影可を示し、撮影禁止表示のある展示品を例外としています。施設Bは撮影を個人利用に限定し、撮影禁止表示を優先するとしています。したがって、撮影禁止表示のある展示品では両施設とも撮影不可として扱う必要があります。フラッシュと三脚は両施設とも使用不可です。\n\n施設Bの本文には自撮り棒の規則がありません。施設A・Bとも、撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示に対する追加例外は本文から確認できません。施設Bで個人利用以外の撮影が許可されるかも本文では確認できません。施設Aの本文は企画展について個別案内の確認を求め、施設Bの本文は特別展に別途規則があるとしていますが、これは常設展示の規則とは別の案内です。\n\n### 出典\n- 施設A「常設展示 利用規則」[https://fixture.example/a](https://fixture.example/a)（取得本文 e1）\n- 施設B「常設展示 来館案内」[https://fixture.example/b](https://fixture.example/b)（取得本文 e2）",
+		"summary": "指定された施設A・Bの入口URLから取得した公式本文に基づき、常設展示の写真撮影、フラッシュ、三脚、自撮り棒を比較。撮影禁止表示の例外、施設Bの個人利用限定、自撮り棒の不記載、特別展等との区別を明記した。",
+		"claims": [
+			{
+				"text": "施設Aの常設展示は写真撮影可だが、撮影禁止表示のある展示品は撮影不可。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "施設Bの常設展示の写真撮影は個人利用に限り可で、撮影禁止表示を優先する。",
+				"status": "verified",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "施設Aではフラッシュ、三脚、自撮り棒は使用不可。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "施設Bではフラッシュ、三脚は使用不可。",
+				"status": "verified",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "施設Bの取得本文には自撮り棒の規則が記載されておらず、使用可否は確認できない。",
+				"status": "unknown",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "両施設の取得本文では撮影禁止表示の対象となる具体的な展示品名や、表示のない個別展示の追加例外は確認できない。",
+				"status": "unknown",
+				"evidence": ["e1", "e2"]
+			},
+			{
+				"text": "施設Bで個人利用以外の撮影が許可されるかは取得本文から確認できない。",
+				"status": "unknown",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "施設Aは企画展について個別案内を確認するよう案内し、施設Bは特別展に別途規則があるとしている。",
+				"status": "verified",
+				"evidence": ["e1", "e2"]
+			}
+		],
+		"limitations": [
+			"根拠は指定入口URLから取得した各1ページの本文に限る。本文に記載がないことから、施設全体に規則がないとは断定しない。",
+			"具体的に撮影禁止表示が掲示される展示品や、施設Bの自撮り棒の可否は本文では確認できない。",
+			"企画展・特別展の詳細規則は今回の常設展示比較の本文からは確認できない。"
+		],
+		"completion": "complete",
+		"stopReason": "指定された2つの入口URLから取得した本文に基づく比較、例外、不明点、出典リンクを含む日本語Markdown回答を保存した。"
+	},
+	"modelCalls": [
+		{
+			"purpose": "plan",
+			"latencyMs": 14294.591000000008,
+			"input": 3,
+			"cache": 2014,
+			"output": 1438
+		},
+		{
+			"purpose": "hypothesize",
+			"latencyMs": 3545.866041999994,
+			"input": 2757,
+			"cache": 0,
+			"output": 294
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 3499.515124999991,
+			"input": 3348,
+			"cache": 1108,
+			"output": 300
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 13967.614000000001,
+			"input": 3815,
+			"cache": 1108,
+			"output": 1731
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 4201.728958000007,
+			"input": 4484,
+			"cache": 1108,
+			"output": 361
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 6647.746708000006,
+			"input": 5809,
+			"cache": 1108,
+			"output": 557
+		},
+		{
+			"purpose": "grade",
+			"latencyMs": 4845.558332999994,
+			"input": 1626,
+			"cache": 0,
+			"output": 504
+		}
+	]
+}

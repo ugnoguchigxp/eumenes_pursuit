@@ -9,6 +9,8 @@ import {
 	type JsonValue,
 	type JudgePort,
 	type LlmPort,
+	type LlmRequest,
+	type LlmResult,
 	type PursuitStatus,
 	type PursuitStore,
 	type StepResult,
@@ -17,6 +19,7 @@ import {
 	type WorkspacePort,
 } from "../../contracts/index.ts";
 import * as ledger from "../ledger/index.ts";
+import { decisionSchema } from "../generation/productive.ts";
 import type { PursuitView } from "../ledger/types.ts";
 import { acceptancePassed } from "../rules/acceptance.ts";
 import { pursuitBudgetExceeded, remainingWallMs } from "../rules/checks.ts";
@@ -28,6 +31,7 @@ import { makePropose } from "./propose.ts";
 import { makeReview } from "./review.ts";
 import { makeSupport } from "./support.ts";
 import { makeTransitions } from "./transitions.ts";
+import { makeProductive } from "./productive.ts";
 
 /** What the host lends for one pursuit. In Eumenes: toolchain, workspace, verifier. */
 export interface PursuitRuntime {
@@ -49,6 +53,19 @@ export interface EngineDeps {
 }
 
 export interface PursuitEngine {
+	/** Read the saved request. The host dispatches it once, outside the serialized writer. */
+	decisionRequest(
+		pursuitId: string,
+		operationId: string,
+	): Promise<LlmRequest<unknown>>;
+	/** Adopt a controller response without executing tools or inference a second time. */
+	completeDecision(
+		pursuitId: string,
+		operationId: string,
+		response: LlmResult<unknown>,
+		runtime: PursuitRuntime,
+		signal: AbortSignal,
+	): Promise<StepResult>;
 	/** Adopt one confirmed result of a host-queued tool; never invokes that tool again. */
 	completeTool(
 		pursuitId: string,
@@ -100,9 +117,60 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 		makePropose(ctx),
 		makeAttempt(ctx),
 		makeReview(ctx),
+		makeProductive(ctx),
 	);
 
 	return {
+		async decisionRequest(pursuitId, operationId) {
+			const view = await read(pursuitId);
+			const request = view.productive?.request;
+			if (!request || request.id !== operationId)
+				throw new Error("decision_not_pending");
+			return {
+				purpose: "propose",
+				system: request.system,
+				prompt: request.prompt,
+				maxOutputTokens: request.maxOutputTokens,
+				schema: decisionSchema(view),
+			};
+		},
+		async completeDecision(pursuitId, operationId, response, runtime, signal) {
+			const view = await read(pursuitId);
+			const key = `controller-result:${operationId}`;
+			const receipt = await store.readSnapshot((db) =>
+				ledger.findPursuitByOperation(db, key),
+			);
+			if (receipt) {
+				if (receipt !== pursuitId) throw new Error("decision_pursuit_mismatch");
+				await store.write((db) =>
+					ledger.claimOperation(db, {
+						key,
+						kind: "controller_result",
+						digest: digestJson(response as unknown as JsonValue),
+						pursuitId,
+						now: clock.now(),
+					}),
+				);
+				return ctx.productiveResult(
+					result(view, view.revision, view.status, "executed"),
+					runtime,
+				);
+			}
+			if (
+				terminalStatuses.includes(view.status) ||
+				view.productive?.request?.id !== operationId
+			)
+				throw new Error("decision_not_pending");
+			try {
+				return await ctx.productive(view, runtime, signal, {
+					operationId,
+					response,
+				});
+			} catch (error) {
+				if (!(error instanceof WallTimeExpired)) throw error;
+				return this.step(pursuitId, runtime, signal);
+			}
+		},
 		async completeTool(
 			pursuitId,
 			attemptId,
@@ -111,20 +179,26 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			runtime,
 			signal,
 		) {
-			return ctx.completeTool(
-				await read(pursuitId),
+			const view = await read(pursuitId);
+			const completed = await ctx.completeTool(
+				view,
 				runtime,
 				attemptId,
 				operationId,
 				outcome,
 				signal,
 			);
+			return view.input.conditions.execution === "productive"
+				? ctx.productiveResult(completed, runtime)
+				: completed;
 		},
 		async start(input, operationKey) {
 			const start = startInputSchema.parse(input);
 			if (start.conditions.judge && !deps.judge)
 				throw new Error("judge_required");
 			if (start.conditions.review && !deps.reviewer)
+				throw new Error("reviewer_required");
+			if (start.conditions.execution === "productive" && !deps.reviewer)
 				throw new Error("reviewer_required");
 			const pursuitId = ids.next("pur");
 			return store.write((db) => {
@@ -153,9 +227,14 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 			if (terminalStatuses.includes(view.status))
 				return result(view, view.revision, view.status, "finished");
 			const started = view.attempts.find((a) => a.state === "started");
-			if (started && !started.pendingOperationId) {
+			if (
+				started &&
+				!started.pendingOperationId &&
+				view.input.conditions.execution !== "productive"
+			) {
 				// No restore: earlier successful attempts of the hypothesis keep their effects.
 				const revision = await store.write((db) => {
+					ledger.setActionPlan(db, view.id, null);
 					ledger.interruptAttempt(db, { id: started.id, now: clock.now() });
 					return ledger.advancePursuit(db, {
 						id: view.id,
@@ -170,6 +249,8 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 
 			try {
 				checkTime(view, signal);
+				if (view.input.conditions.execution === "productive")
+					return await ctx.productive(view, runtime, signal);
 				if (started?.pendingOperationId)
 					return {
 						...result(view, view.revision, view.status, "waiting_tool"),

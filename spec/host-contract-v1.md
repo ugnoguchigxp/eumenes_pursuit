@@ -157,3 +157,32 @@ core（`src/`）は時計・乱数・ネットワーク・ファイル・`proces
 ### v1.11: 未報告の推論使用量
 
 LlmResultと台帳のinputTokens/outputTokens/cacheReadTokensは未報告ならnull。0で実測を代用しない。migration 8は既存のNOT NULL列を互換用に残し、usage_jsonを正本としてnullableの値を保存・読取りする。過去行のusage_jsonがNULLなら既存値を読む。評価のトークン合計と推定額も未報告があればnull。ホストの正式会計はホスト側の使用量台帳を正本とし、呼出し回数の上限は未報告でも強制する。
+
+### 受付失敗の回復（2026-11-09、未配布）
+
+`deferInTransaction`内の例外ではwriter transactionを全てrollbackし、started試行と外部受付は残さない。その後に拒否試行`tool_reservation_failed`と当該提案の使用量を一度記録して`rejected`を返す。従来の例外送出からの動作変更であり、ホストはstepが投げることだけを受付拒否の検知に使わない。成功した受付のpending/receipt、取消・期限・世代の契約は同じ。ホストは必ずcallbackの全保存を同一transactionへ参加させる。callback外のwriter障害、revision競合、無効な戻り値は引き続き例外となる。
+
+拒否後に取得済みの根拠を成果物へ保存するか、別経路へ進むか、partialで終えるかはLLMが判断する。自動再送・上限増加・未確認の完了への昇格はしない。既存ホストは新coreの採用と自身の通し検証が必要であり、この変更だけで稼働中Eumenesの更新完了とは扱わない。
+
+### v1.12: 保存済みの独立読取り計画（core 0.0.5、未配布）
+
+提案の任意フィールド`following`は、先頭と互いの結果に依存せず、全入力が既知である追加の読取りを最大5件指定する。未指定は空。道具名・JSON入力・予測・条件変更・生テキストを個別に保持する。すべて読取り専用かつ許可済みで、追求全体と仮説の既存試行予算に収まる場合だけ受け付ける。各操作は従来通り一試行として数える。意味上の独立性はLLMが判断し、結果や未発行の識別子を後続入力へ代入する機能は設けない。
+
+migration 9で`pursuit_pursuit.action_plan_json`を追加する。最初のstartedと後続計画、次のstartedと計画の消費は、それぞれ同じwriter transactionで保存する。実行は直列で、同時にpendingになる道具は一つ。ホストの既存`pendingTool`/`completeTool`契約は変わらない。後続の`step`はLLMを呼ばず保存済みの一件を実行することがあるため、step数をモデル呼出し数とみなさない。
+
+再開は保存済みpending/計画を使い、再提案・再送しない。拒否・道具エラー・結果不明・方針変更・相談・取消・期限切れ・workspace digest変更・道具契約のdigest変更で未送出の計画を破棄する。読取りが同名の書込み道具へ変わった場合も実行しない。各結果の一度だけの採用・世代検査・出典は従来の一件ごとの機構を通す。忘却時は計画も消去する。すべての旧migration/checksumと保存入力を保つ。新coreの起動前に追加migrationを適用し、旧coreへの単純な巻戻しでは新しい計画を継続できない。
+
+最初の試行の`prediction.following`には宣言した後続を監査用に残す。能動的な再開はaction_plan_jsonだけを使う。破棄済み計画を監査情報から再実行しない。既存のモデル・判定への表示はこの監査フィールドを含めない。
+
+## v1.13（2026-11-09、明示的に有効にする進捗制御）
+
+[実装設計](productive-loop-2026-11-09.md)を参照。migration `pursuit-0010-productivity` は追求の再開状態と `pursuit_progress` を追加する。既存の追求は従来どおり動く。`conditions.execution: "productive"` の追求は reviewer を要求し、以下の契約を話すホストだけが開始できる。
+
+- `StepResult.workReady` が true なら、未完了の子処理があっても `step` で進める。false のとき、ポーリングやスリープの代わりに子処理の完了、取消、期限を待つ。複数の `pendingTools` を管理する。`pendingTool` は既存の単数表示との互換用であり、productive でスケジュールを止める条件にしない。
+- `pendingDecision.operationId` を受け取ったら `decisionRequest(id, operationId)` で保存済み要求を読み、ホストの reviewer へ同じ ID で一度だけ発行する。要求の読取り自体は推論しない。推論中は core の書込み権を保持しない。再開時はホストの既存 receipt を読む。発行済みで結果不明の要求は再発行しない。
+- 状態を変える呼出しは同じ追求内で直列化する。到着済みの道具結果を `completeTool` で先に採用し、判断の receipt を `completeDecision(id, operationId, response, runtime, signal)` へ渡す。同じ receipt の再送は使用量や判断を二重計上せず、異なる内容は競合とする。古い前提の操作案は実行しない。以前の資料に基づく推論の結論はその前提にひも付けて保持し、新しい結果は未評価のまま次の判断に渡す。
+- Workspace を変える非同期操作は、ホストが同じ run/epoch と権限を再確認して receipt を確定する。保存と状態の採用は取消・期限と整合させる。一度に一つの書込みだけを認め、後続の読戻しや最終検証を先行させない。遅い処理の生成物は公開せず、失効した receipt を採用しない。
+- 独立した受入検証は同じ受入条件を使用する。道具の成功や進捗記録は検証の代替にならない。監査には `PursuitView.progress` の要点・対象試行・根拠・判断と `inference` の使用量を使う。保管した要求と台帳は `forgetPursuit` の対象であり、一般のログへ要求全文を出さない。
+- 部分終了では、最新の成功した保存と読戻しの両方が現在の workspace digest に一致すれば、その成果物を最終検証に渡せる。宣言的な成果物の置換道具は、任意の `ToolDescriptor.reuseWriteIgnoring` で再保存の省略を許可できる。列挙するのは成果物の内容・受入条件・副作用に関係しない入力キーだけ。空配列は全キーを比較し、省略時は従来どおり実行する。提案が同じ保存内容と読戻しを要求した場合、既存の試行番号を `progress.reusedArtifact` に記録し、再実行せず独立検証を行う。
+
+[examples のホスト](../examples/eumenes/README.md)がこの契約を使用する。既存 Eumenes の単数待機処理はこの契約への更新が必要であり、tgz の差替えだけでは有効にならない。

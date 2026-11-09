@@ -1,0 +1,585 @@
+{
+	"attempts": [
+		{
+			"id": "att_3b56ede9-dd08-4548-9f93-495ac579be94",
+			"hypothesisId": "hyp_d8428771-133d-4676-a367-6c390bb88c04",
+			"seq": 1,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/indexed"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "取得本文と、後で出典として参照できるeN識別子が返る。IndexedDBの比較に使える記述が含まれるか確認する。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "指定されたIndexedDB入口URLを初めて取得する。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:57fc532d8bf9d8ae16207a10ab04240f",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"documents": [
+						{
+							"evidence": "e1",
+							"url": "https://fixture.example/indexed",
+							"title": "IndexedDB test reference",
+							"text": "IndexedDB uses asynchronous operations and transactions. It stores structured-clone values including objects and blobs. Browser-specific quota and eviction rules apply; storage is not a guaranteed backup. Useful for larger structured offline data.",
+							"totalCharacters": 247,
+							"truncated": false,
+							"trust": "untrusted"
+						}
+					],
+					"truncated": false,
+					"calls_left": 7
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [
+				{
+					"kind": "source",
+					"uri": "https://fixture.example/indexed",
+					"note": "e1"
+				}
+			],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155781927,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_9229ec14-55a8-47b2-8946-19b37f774a03",
+			"hypothesisId": "hyp_d8428771-133d-4676-a367-6c390bb88c04",
+			"seq": 2,
+			"state": "settled",
+			"tool": "web_read",
+			"input": {
+				"url": "https://fixture.example/storage"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "本文が保存され、出典識別子eNとWeb Storageの比較に使える記述が返る。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "前回はIndexedDB資料を取得した。今回はもう一方の指定入口URLからWeb Storage資料を取得する。",
+			"fingerprint": "v2:5412fe3dcdceaf4df8d2038bb351827a:e7508bd1e37bbcfa084b57d22e83de3f",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"documents": [
+						{
+							"evidence": "e2",
+							"url": "https://fixture.example/storage",
+							"title": "Web Storage test reference",
+							"text": "Web Storage uses synchronous operations with string keys and string values. localStorage persists across sessions, sessionStorage is scoped to a page session. Browser quotas and user clearing can remove data. Appropriate for small settings; large operations can block the main thread.",
+							"totalCharacters": 284,
+							"truncated": false,
+							"trust": "untrusted"
+						}
+					],
+					"truncated": false,
+					"calls_left": 6
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [
+				{
+					"kind": "source",
+					"uri": "https://fixture.example/storage",
+					"note": "e2"
+				}
+			],
+			"features": {
+				"filesTouched": [],
+				"linesChanged": 0,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155785772,
+			"settlement": {
+				"stage": "done",
+				"digest": "null",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_93db25a7-b715-4cd4-bec7-a01f612b80dd",
+			"hypothesisId": "hyp_d8428771-133d-4676-a367-6c390bb88c04",
+			"seq": 3,
+			"state": "settled",
+			"tool": "report_draft",
+			"input": {
+				"answer": "# IndexedDBとWeb Storageの比較\n\n| 観点 | IndexedDB | Web Storage |\n|---|---|---|\n| 同期・非同期 | 非同期操作とトランザクションを使う。[出典](https://fixture.example/indexed) | 操作は同期的。大きな操作はメインスレッドをブロックし得る。[出典](https://fixture.example/storage) |\n| 保存データ | オブジェクトやBlobを含むstructured-clone値を保存する。[出典](https://fixture.example/indexed) | キーも値も文字列。[出典](https://fixture.example/storage) |\n| 容量・追い出し | 容量・追い出し規則はブラウザー固有。確実なバックアップではない。[出典](https://fixture.example/indexed) | ブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。[出典](https://fixture.example/storage) |\n| 保持・削除 | 資料は具体的な削除方法や保持期間を説明していない。容量・追い出し規則がブラウザー固有であることのみ記載。[出典](https://fixture.example/indexed) | localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。ユーザーが消去できる。[出典](https://fixture.example/storage) |\n| 向く用途 | 大きめの構造化されたオフラインデータ。[出典](https://fixture.example/indexed) | 小さな設定値。[出典](https://fixture.example/storage) |\n\n## 個人用オフラインメモアプリでの判断\nメモ本文や構造化データを保存する候補としては、資料が「大きめの構造化オフラインデータ」向けとするIndexedDBが適します。小さな設定値にはWeb Storageが適します。ただし、これは資料の用途説明に基づく選択目安であり、特定アプリでの性能や容量を比較測定した結論ではありません。Web Storageの同期操作は大きな処理でメインスレッドをブロックし得るため、大量のメモ保存用途には注意が必要です。\n\n## 判断できない点・矛盾・限界\n- 資料間に明示的な矛盾は見当たりません。ただし、これは取得した2本文の範囲に限ります。\n- 実際の容量上限、ブラウザー別の追い出し条件・順序、削除APIや復旧方法は資料にありません。\n- IndexedDBのトランザクションの詳細、Web Storageの具体的な容量値や例外処理も判断できません。\n- したがって、必要な容量や保持保証をこの資料だけから確定することはできず、IndexedDBもバックアップの代替とはみなせません。\n\n## 出典\n- [IndexedDB test reference](https://fixture.example/indexed) (e1)\n- [Web Storage test reference](https://fixture.example/storage) (e2)",
+				"summary": "取得した2つの資料に基づき、同期性、保存データ、容量・削除、用途を日本語Markdown表で比較した。個人用オフラインメモアプリでは、本文・構造化データはIndexedDB、小さな設定値はWeb Storageを選ぶ目安を示し、判断できない点と資料の限界も記載。",
+				"claims": [
+					{
+						"text": "IndexedDBは非同期操作とトランザクションを使う。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "IndexedDBはオブジェクトやBlobを含むstructured-clone値を保存する。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "IndexedDBの容量・追い出し規則はブラウザー固有で、確実なバックアップではない。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "IndexedDBは大きめの構造化オフラインデータに向く。",
+						"status": "verified",
+						"evidence": ["e1"]
+					},
+					{
+						"text": "Web Storageの操作は同期的で、キーと値は文字列。大きな操作はメインスレッドをブロックし得る。",
+						"status": "verified",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。",
+						"status": "verified",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "Web Storageにはブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。",
+						"status": "verified",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "Web Storageは小さな設定値に適する。",
+						"status": "verified",
+						"evidence": ["e2"]
+					},
+					{
+						"text": "実際の容量上限、ブラウザー別の追い出し条件・順序、具体的な削除方法や復旧方法は、取得資料だけでは判断できない。",
+						"status": "unknown",
+						"evidence": ["e1", "e2"]
+					},
+					{
+						"text": "取得した2本文の範囲では明示的な矛盾は見当たらないが、資料全体で矛盾がないとは判断できない。",
+						"status": "unknown",
+						"evidence": ["e1", "e2"]
+					}
+				],
+				"limitations": [
+					"出典は指定された2つの固定資料に限られ、他の仕様書やブラウザー別資料は確認していない。",
+					"具体的な容量値、追い出しの実装・順序、削除や復旧の手順は資料にない。",
+					"特定アプリでの性能・容量を実測しておらず、用途の案内は資料記述からの選択目安である。",
+					"IndexedDBも確実なバックアップではないと資料に記載されている。"
+				],
+				"completion": "complete",
+				"stopReason": "指定された2つの入口URLから本文を取得し、本文に裏付けられた比較、判断不能点、限界、出典リンクをreport.jsonに保存した。"
+			},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "report.jsonが更新され、比較表・主張別のe1/e2根拠・不明点・限界が保存される。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "取得済みのe1とe2を出典として、固定資料の記述に沿う日本語Markdown比較と主張一覧をreport.jsonへ保存する。",
+			"fingerprint": "v2:eee591a27b4f08fdbbf7bc83b03e2358:0581d9a73b5b1b1a0ca76e2b531de16b",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"saved": "report.json"
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155808244,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"# IndexedDBとWeb Storageの比較\\n\\n| 観点 | IndexedDB | Web Storage |\\n|---|---|---|\\n| 同期・非同期 | 非同期操作とトランザクションを使う。[出典](https://fixture.example/indexed) | 操作は同期的。大きな操作はメインスレッドをブロックし得る。[出典](https://fixture.example/storage) |\\n| 保存データ | オブジェクトやBlobを含むstructured-clone値を保存する。[出典](https://fixture.example/indexed) | キーも値も文字列。[出典](https://fixture.example/storage) |\\n| 容量・追い出し | 容量・追い出し規則はブラウザー固有。確実なバックアップではない。[出典](https://fixture.example/indexed) | ブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。[出典](https://fixture.example/storage) |\\n| 保持・削除 | 資料は具体的な削除方法や保持期間を説明していない。容量・追い出し規則がブラウザー固有であることのみ記載。[出典](https://fixture.example/indexed) | localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。ユーザーが消去できる。[出典](https://fixture.example/storage) |\\n| 向く用途 | 大きめの構造化されたオフラインデータ。[出典](https://fixture.example/indexed) | 小さな設定値。[出典](https://fixture.example/storage) |\\n\\n## 個人用オフラインメモアプリでの判断\\nメモ本文や構造化データを保存する候補としては、資料が「大きめの構造化オフラインデータ」向けとするIndexedDBが適します。小さな設定値にはWeb Storageが適します。ただし、これは資料の用途説明に基づく選択目安であり、特定アプリでの性能や容量を比較測定した結論ではありません。Web Storageの同期操作は大きな処理でメインスレッドをブロックし得るため、大量のメモ保存用途には注意が必要です。\\n\\n## 判断できない点・矛盾・限界\\n- 資料間に明示的な矛盾は見当たりません。ただし、これは取得した2本文の範囲に限ります。\\n- 実際の容量上限、ブラウザー別の追い出し条件・順序、削除APIや復旧方法は資料にありません。\\n- IndexedDBのトランザクションの詳細、Web Storageの具体的な容量値や例外処理も判断できません。\\n- したがって、必要な容量や保持保証をこの資料だけから確定することはできず、IndexedDBもバックアップの代替とはみなせません。\\n\\n## 出典\\n- [IndexedDB test reference](https://fixture.example/indexed) (e1)\\n- [Web Storage test reference](https://fixture.example/storage) (e2)\",\"summary\":\"取得した2つの資料に基づき、同期性、保存データ、容量・削除、用途を日本語Markdown表で比較した。個人用オフラインメモアプリでは、本文・構造化データはIndexedDB、小さな設定値はWeb Storageを選ぶ目安を示し、判断できない点と資料の限界も記載。\",\"claims\":[{\"text\":\"IndexedDBは非同期操作とトランザクションを使う。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"IndexedDBはオブジェクトやBlobを含むstructured-clone値を保存する。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"IndexedDBの容量・追い出し規則はブラウザー固有で、確実なバックアップではない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"IndexedDBは大きめの構造化オフラインデータに向く。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"Web Storageの操作は同期的で、キーと値は文字列。大きな操作はメインスレッドをブロックし得る。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"Web Storageにはブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"Web Storageは小さな設定値に適する。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"実際の容量上限、ブラウザー別の追い出し条件・順序、具体的な削除方法や復旧方法は、取得資料だけでは判断できない。\",\"status\":\"unknown\",\"evidence\":[\"e1\",\"e2\"]},{\"text\":\"取得した2本文の範囲では明示的な矛盾は見当たらないが、資料全体で矛盾がないとは判断できない。\",\"status\":\"unknown\",\"evidence\":[\"e1\",\"e2\"]}],\"limitations\":[\"出典は指定された2つの固定資料に限られ、他の仕様書やブラウザー別資料は確認していない。\",\"具体的な容量値、追い出しの実装・順序、削除や復旧の手順は資料にない。\",\"特定アプリでの性能・容量を実測しておらず、用途の案内は資料記述からの選択目安である。\",\"IndexedDBも確実なバックアップではないと資料に記載されている。\"],\"completion\":\"complete\",\"stopReason\":\"指定された2つの入口URLから本文を取得し、本文に裏付けられた比較、判断不能点、限界、出典リンクをreport.jsonに保存した。\"}",
+				"effects": null
+			}
+		},
+		{
+			"id": "att_a3173506-ed1e-41fe-9e2e-0fed342dbc2b",
+			"hypothesisId": "hyp_d8428771-133d-4676-a367-6c390bb88c04",
+			"seq": 4,
+			"state": "settled",
+			"tool": "report_read",
+			"input": {},
+			"prediction": {
+				"expectedStatus": "ok",
+				"expectedObservation": "保存済みreport.jsonの全文が返り、比較表の各観点、出典リンク、根拠付き主張、不明点・矛盾・限界、および完了状態を照合できる。",
+				"refutedIf": "status:error"
+			},
+			"whatChanged": "新たな情報取得ではなく、直前に保存した成果物の内容と受入条件の適合を独立に確認する。",
+			"fingerprint": "v2:238fe4d6a2b7c08c6c7f91f7b72b953b:8ce821e3c22f14dfffd26d34f163e174",
+			"rejection": null,
+			"observation": {
+				"status": "ok",
+				"output": {
+					"path": "report.json",
+					"report": {
+						"answer": "# IndexedDBとWeb Storageの比較\n\n| 観点 | IndexedDB | Web Storage |\n|---|---|---|\n| 同期・非同期 | 非同期操作とトランザクションを使う。[出典](https://fixture.example/indexed) | 操作は同期的。大きな操作はメインスレッドをブロックし得る。[出典](https://fixture.example/storage) |\n| 保存データ | オブジェクトやBlobを含むstructured-clone値を保存する。[出典](https://fixture.example/indexed) | キーも値も文字列。[出典](https://fixture.example/storage) |\n| 容量・追い出し | 容量・追い出し規則はブラウザー固有。確実なバックアップではない。[出典](https://fixture.example/indexed) | ブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。[出典](https://fixture.example/storage) |\n| 保持・削除 | 資料は具体的な削除方法や保持期間を説明していない。容量・追い出し規則がブラウザー固有であることのみ記載。[出典](https://fixture.example/indexed) | localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。ユーザーが消去できる。[出典](https://fixture.example/storage) |\n| 向く用途 | 大きめの構造化されたオフラインデータ。[出典](https://fixture.example/indexed) | 小さな設定値。[出典](https://fixture.example/storage) |\n\n## 個人用オフラインメモアプリでの判断\nメモ本文や構造化データを保存する候補としては、資料が「大きめの構造化オフラインデータ」向けとするIndexedDBが適します。小さな設定値にはWeb Storageが適します。ただし、これは資料の用途説明に基づく選択目安であり、特定アプリでの性能や容量を比較測定した結論ではありません。Web Storageの同期操作は大きな処理でメインスレッドをブロックし得るため、大量のメモ保存用途には注意が必要です。\n\n## 判断できない点・矛盾・限界\n- 資料間に明示的な矛盾は見当たりません。ただし、これは取得した2本文の範囲に限ります。\n- 実際の容量上限、ブラウザー別の追い出し条件・順序、削除APIや復旧方法は資料にありません。\n- IndexedDBのトランザクションの詳細、Web Storageの具体的な容量値や例外処理も判断できません。\n- したがって、必要な容量や保持保証をこの資料だけから確定することはできず、IndexedDBもバックアップの代替とはみなせません。\n\n## 出典\n- [IndexedDB test reference](https://fixture.example/indexed) (e1)\n- [Web Storage test reference](https://fixture.example/storage) (e2)",
+						"summary": "取得した2つの資料に基づき、同期性、保存データ、容量・削除、用途を日本語Markdown表で比較した。個人用オフラインメモアプリでは、本文・構造化データはIndexedDB、小さな設定値はWeb Storageを選ぶ目安を示し、判断できない点と資料の限界も記載。",
+						"claims": [
+							{
+								"text": "IndexedDBは非同期操作とトランザクションを使う。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "IndexedDBはオブジェクトやBlobを含むstructured-clone値を保存する。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "IndexedDBの容量・追い出し規則はブラウザー固有で、確実なバックアップではない。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "IndexedDBは大きめの構造化オフラインデータに向く。",
+								"status": "verified",
+								"evidence": ["e1"]
+							},
+							{
+								"text": "Web Storageの操作は同期的で、キーと値は文字列。大きな操作はメインスレッドをブロックし得る。",
+								"status": "verified",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。",
+								"status": "verified",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "Web Storageにはブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。",
+								"status": "verified",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "Web Storageは小さな設定値に適する。",
+								"status": "verified",
+								"evidence": ["e2"]
+							},
+							{
+								"text": "実際の容量上限、ブラウザー別の追い出し条件・順序、具体的な削除方法や復旧方法は、取得資料だけでは判断できない。",
+								"status": "unknown",
+								"evidence": ["e1", "e2"]
+							},
+							{
+								"text": "取得した2本文の範囲では明示的な矛盾は見当たらないが、資料全体で矛盾がないとは判断できない。",
+								"status": "unknown",
+								"evidence": ["e1", "e2"]
+							}
+						],
+						"limitations": [
+							"出典は指定された2つの固定資料に限られ、他の仕様書やブラウザー別資料は確認していない。",
+							"具体的な容量値、追い出しの実装・順序、削除や復旧の手順は資料にない。",
+							"特定アプリでの性能・容量を実測しておらず、用途の案内は資料記述からの選択目安である。",
+							"IndexedDBも確実なバックアップではないと資料に記載されている。"
+						],
+						"completion": "complete",
+						"stopReason": "指定された2つの入口URLから本文を取得し、本文に裏付けられた比較、判断不能点、限界、出典リンクをreport.jsonに保存した。"
+					}
+				},
+				"errorCode": null
+			},
+			"outcome": "success",
+			"refs": [],
+			"features": {
+				"filesTouched": ["report.json"],
+				"linesChanged": 1,
+				"protectedTouched": [],
+				"match": null,
+				"progress": null
+			},
+			"startedAt": 1794155812066,
+			"settlement": {
+				"stage": "done",
+				"digest": "{\"answer\":\"# IndexedDBとWeb Storageの比較\\n\\n| 観点 | IndexedDB | Web Storage |\\n|---|---|---|\\n| 同期・非同期 | 非同期操作とトランザクションを使う。[出典](https://fixture.example/indexed) | 操作は同期的。大きな操作はメインスレッドをブロックし得る。[出典](https://fixture.example/storage) |\\n| 保存データ | オブジェクトやBlobを含むstructured-clone値を保存する。[出典](https://fixture.example/indexed) | キーも値も文字列。[出典](https://fixture.example/storage) |\\n| 容量・追い出し | 容量・追い出し規則はブラウザー固有。確実なバックアップではない。[出典](https://fixture.example/indexed) | ブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。[出典](https://fixture.example/storage) |\\n| 保持・削除 | 資料は具体的な削除方法や保持期間を説明していない。容量・追い出し規則がブラウザー固有であることのみ記載。[出典](https://fixture.example/indexed) | localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。ユーザーが消去できる。[出典](https://fixture.example/storage) |\\n| 向く用途 | 大きめの構造化されたオフラインデータ。[出典](https://fixture.example/indexed) | 小さな設定値。[出典](https://fixture.example/storage) |\\n\\n## 個人用オフラインメモアプリでの判断\\nメモ本文や構造化データを保存する候補としては、資料が「大きめの構造化オフラインデータ」向けとするIndexedDBが適します。小さな設定値にはWeb Storageが適します。ただし、これは資料の用途説明に基づく選択目安であり、特定アプリでの性能や容量を比較測定した結論ではありません。Web Storageの同期操作は大きな処理でメインスレッドをブロックし得るため、大量のメモ保存用途には注意が必要です。\\n\\n## 判断できない点・矛盾・限界\\n- 資料間に明示的な矛盾は見当たりません。ただし、これは取得した2本文の範囲に限ります。\\n- 実際の容量上限、ブラウザー別の追い出し条件・順序、削除APIや復旧方法は資料にありません。\\n- IndexedDBのトランザクションの詳細、Web Storageの具体的な容量値や例外処理も判断できません。\\n- したがって、必要な容量や保持保証をこの資料だけから確定することはできず、IndexedDBもバックアップの代替とはみなせません。\\n\\n## 出典\\n- [IndexedDB test reference](https://fixture.example/indexed) (e1)\\n- [Web Storage test reference](https://fixture.example/storage) (e2)\",\"summary\":\"取得した2つの資料に基づき、同期性、保存データ、容量・削除、用途を日本語Markdown表で比較した。個人用オフラインメモアプリでは、本文・構造化データはIndexedDB、小さな設定値はWeb Storageを選ぶ目安を示し、判断できない点と資料の限界も記載。\",\"claims\":[{\"text\":\"IndexedDBは非同期操作とトランザクションを使う。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"IndexedDBはオブジェクトやBlobを含むstructured-clone値を保存する。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"IndexedDBの容量・追い出し規則はブラウザー固有で、確実なバックアップではない。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"IndexedDBは大きめの構造化オフラインデータに向く。\",\"status\":\"verified\",\"evidence\":[\"e1\"]},{\"text\":\"Web Storageの操作は同期的で、キーと値は文字列。大きな操作はメインスレッドをブロックし得る。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"Web Storageにはブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"Web Storageは小さな設定値に適する。\",\"status\":\"verified\",\"evidence\":[\"e2\"]},{\"text\":\"実際の容量上限、ブラウザー別の追い出し条件・順序、具体的な削除方法や復旧方法は、取得資料だけでは判断できない。\",\"status\":\"unknown\",\"evidence\":[\"e1\",\"e2\"]},{\"text\":\"取得した2本文の範囲では明示的な矛盾は見当たらないが、資料全体で矛盾がないとは判断できない。\",\"status\":\"unknown\",\"evidence\":[\"e1\",\"e2\"]}],\"limitations\":[\"出典は指定された2つの固定資料に限られ、他の仕様書やブラウザー別資料は確認していない。\",\"具体的な容量値、追い出しの実装・順序、削除や復旧の手順は資料にない。\",\"特定アプリでの性能・容量を実測しておらず、用途の案内は資料記述からの選択目安である。\",\"IndexedDBも確実なバックアップではないと資料に記載されている。\"],\"completion\":\"complete\",\"stopReason\":\"指定された2つの入口URLから本文を取得し、本文に裏付けられた比較、判断不能点、限界、出典リンクをreport.jsonに保存した。\"}",
+				"effects": null
+			}
+		}
+	],
+	"decisions": [
+		{
+			"seq": 1,
+			"kind": "complete",
+			"reason": "report_readで読み戻したreport.jsonには、日本語Markdownの比較表、個人用オフラインメモアプリでの用途判断、判断できない点・限界、出典リンクが保存されています。取得本文e1・e2に基づく主張には対応する出典があり、本文で確認できた範囲を越える容量値や削除方法などは不明として記載されています。",
+			"basis": {
+				"verified": true
+			},
+			"decidedBy": "rules"
+		}
+	],
+	"verifications": [
+		{
+			"attemptId": null,
+			"trigger": "claim",
+			"passed": true,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "report.jsonの保存確認（persistedPath: report.json、読み戻し1回）があります。回答は取得した2資料に基づき、同期・非同期、保存データ、容量・削除、用途を出典リンク付きの日本語Markdown比較表にまとめ、個人用オフラインメモでの選択目安も示しています。資料にない容量上限や削除・復旧の詳細は不明として扱い、資料の限界も記載しています。取得済みの事実を残したまま、completionはcompleteです。",
+					"assurance": "model"
+				}
+			]
+		},
+		{
+			"attemptId": null,
+			"trigger": "final",
+			"passed": true,
+			"criteria": [
+				{
+					"id": "citations",
+					"passed": true,
+					"evidence": "IDs matched",
+					"assurance": "exact"
+				},
+				{
+					"id": "answer",
+					"passed": true,
+					"evidence": "report.jsonの保存確認（persistedPath: report.json、読み戻し1回）があります。回答は取得した2資料に基づき、同期・非同期、保存データ、容量・削除、用途を出典リンク付きの日本語Markdown比較表にまとめ、個人用オフラインメモでの選択目安も示しています。資料にない容量上限や削除・復旧の詳細は不明として扱い、資料の限界も記載しています。取得済みの事実を残したまま、completionはcompleteです。",
+					"assurance": "model"
+				}
+			]
+		}
+	],
+	"findings": [
+		{
+			"id": "fnd_9d226ea2-f898-4452-ad42-fa2d750498ee",
+			"seq": 1,
+			"kind": "observation",
+			"statement": "指定されたIndexedDB入口URLからe1として資料本文を取得できた。本文は非同期操作とトランザクション、structured-clone値、ブラウザー固有の容量・追い出し規則、バックアップではないこと、大きめの構造化オフラインデータへの用途を記載している。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_3b56ede9-dd08-4548-9f93-495ac579be94",
+			"sourceVerificationId": null,
+			"scope": "hypothesis",
+			"strategyId": "str_7167cce2-743c-4b16-994a-5dda59575288",
+			"hypothesisId": "hyp_d8428771-133d-4676-a367-6c390bb88c04",
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_d805d274-15b2-41b5-9afe-707afae2268d",
+			"seq": 2,
+			"kind": "observation",
+			"statement": "指定されたWeb Storage入口URLからe2として本文を取得でき、同期操作、文字列キー・値、localStorageとsessionStorageの保持範囲、容量・ユーザー消去、小さな設定用途とメインスレッド阻害の記述が返った。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_9229ec14-55a8-47b2-8946-19b37f774a03",
+			"sourceVerificationId": null,
+			"scope": "pursuit",
+			"strategyId": null,
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		},
+		{
+			"id": "fnd_9bc45ad1-50da-48f5-906b-67b371b305a2",
+			"seq": 3,
+			"kind": "observation",
+			"statement": "取得本文e1とe2には、それぞれIndexedDBとWeb Storageの同期性、保存値、容量関連、用途に関する比較表に使える記述が含まれている。",
+			"assurance": "unverified",
+			"sourceAttemptId": "att_9229ec14-55a8-47b2-8946-19b37f774a03",
+			"sourceVerificationId": null,
+			"scope": "strategy",
+			"strategyId": "str_7167cce2-743c-4b16-994a-5dda59575288",
+			"hypothesisId": null,
+			"status": "active",
+			"reason": null
+		}
+	],
+	"report": {
+		"pursuitId": "pur_5c0a7327-cc0f-412b-b7fb-88b9fb0847fa",
+		"outcome": "completed",
+		"verified": true,
+		"reason": "report_readで読み戻したreport.jsonには、日本語Markdownの比較表、個人用オフラインメモアプリでの用途判断、判断できない点・限界、出典リンクが保存されています。取得本文e1・e2に基づく主張には対応する出典があり、本文で確認できた範囲を越える容量値や削除方法などは不明として記載されています。",
+		"criteria": [
+			{
+				"id": "citations",
+				"passed": true,
+				"evidence": "IDs matched",
+				"assurance": "exact"
+			},
+			{
+				"id": "answer",
+				"passed": true,
+				"evidence": "report.jsonの保存確認（persistedPath: report.json、読み戻し1回）があります。回答は取得した2資料に基づき、同期・非同期、保存データ、容量・削除、用途を出典リンク付きの日本語Markdown比較表にまとめ、個人用オフラインメモでの選択目安も示しています。資料にない容量上限や削除・復旧の詳細は不明として扱い、資料の限界も記載しています。取得済みの事実を残したまま、completionはcompleteです。",
+				"assurance": "model"
+			}
+		],
+		"needs": [],
+		"refs": [
+			{
+				"kind": "source",
+				"uri": "https://fixture.example/indexed",
+				"note": "e1"
+			},
+			{
+				"kind": "source",
+				"uri": "https://fixture.example/storage",
+				"note": "e2"
+			}
+		],
+		"stats": {
+			"attempts": 4,
+			"rejected": 0,
+			"hypotheses": 1,
+			"strategies": 1,
+			"stepBacks": 0,
+			"consultations": 0
+		},
+		"findings": {
+			"total": 3,
+			"checked": []
+		}
+	},
+	"draft": {
+		"answer": "# IndexedDBとWeb Storageの比較\n\n| 観点 | IndexedDB | Web Storage |\n|---|---|---|\n| 同期・非同期 | 非同期操作とトランザクションを使う。[出典](https://fixture.example/indexed) | 操作は同期的。大きな操作はメインスレッドをブロックし得る。[出典](https://fixture.example/storage) |\n| 保存データ | オブジェクトやBlobを含むstructured-clone値を保存する。[出典](https://fixture.example/indexed) | キーも値も文字列。[出典](https://fixture.example/storage) |\n| 容量・追い出し | 容量・追い出し規則はブラウザー固有。確実なバックアップではない。[出典](https://fixture.example/indexed) | ブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。[出典](https://fixture.example/storage) |\n| 保持・削除 | 資料は具体的な削除方法や保持期間を説明していない。容量・追い出し規則がブラウザー固有であることのみ記載。[出典](https://fixture.example/indexed) | localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。ユーザーが消去できる。[出典](https://fixture.example/storage) |\n| 向く用途 | 大きめの構造化されたオフラインデータ。[出典](https://fixture.example/indexed) | 小さな設定値。[出典](https://fixture.example/storage) |\n\n## 個人用オフラインメモアプリでの判断\nメモ本文や構造化データを保存する候補としては、資料が「大きめの構造化オフラインデータ」向けとするIndexedDBが適します。小さな設定値にはWeb Storageが適します。ただし、これは資料の用途説明に基づく選択目安であり、特定アプリでの性能や容量を比較測定した結論ではありません。Web Storageの同期操作は大きな処理でメインスレッドをブロックし得るため、大量のメモ保存用途には注意が必要です。\n\n## 判断できない点・矛盾・限界\n- 資料間に明示的な矛盾は見当たりません。ただし、これは取得した2本文の範囲に限ります。\n- 実際の容量上限、ブラウザー別の追い出し条件・順序、削除APIや復旧方法は資料にありません。\n- IndexedDBのトランザクションの詳細、Web Storageの具体的な容量値や例外処理も判断できません。\n- したがって、必要な容量や保持保証をこの資料だけから確定することはできず、IndexedDBもバックアップの代替とはみなせません。\n\n## 出典\n- [IndexedDB test reference](https://fixture.example/indexed) (e1)\n- [Web Storage test reference](https://fixture.example/storage) (e2)",
+		"summary": "取得した2つの資料に基づき、同期性、保存データ、容量・削除、用途を日本語Markdown表で比較した。個人用オフラインメモアプリでは、本文・構造化データはIndexedDB、小さな設定値はWeb Storageを選ぶ目安を示し、判断できない点と資料の限界も記載。",
+		"claims": [
+			{
+				"text": "IndexedDBは非同期操作とトランザクションを使う。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "IndexedDBはオブジェクトやBlobを含むstructured-clone値を保存する。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "IndexedDBの容量・追い出し規則はブラウザー固有で、確実なバックアップではない。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "IndexedDBは大きめの構造化オフラインデータに向く。",
+				"status": "verified",
+				"evidence": ["e1"]
+			},
+			{
+				"text": "Web Storageの操作は同期的で、キーと値は文字列。大きな操作はメインスレッドをブロックし得る。",
+				"status": "verified",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "localStorageはセッションをまたいで保持され、sessionStorageはページセッションの範囲。",
+				"status": "verified",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "Web Storageにはブラウザーの容量制限があり、ユーザーによる消去でデータが失われる場合がある。",
+				"status": "verified",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "Web Storageは小さな設定値に適する。",
+				"status": "verified",
+				"evidence": ["e2"]
+			},
+			{
+				"text": "実際の容量上限、ブラウザー別の追い出し条件・順序、具体的な削除方法や復旧方法は、取得資料だけでは判断できない。",
+				"status": "unknown",
+				"evidence": ["e1", "e2"]
+			},
+			{
+				"text": "取得した2本文の範囲では明示的な矛盾は見当たらないが、資料全体で矛盾がないとは判断できない。",
+				"status": "unknown",
+				"evidence": ["e1", "e2"]
+			}
+		],
+		"limitations": [
+			"出典は指定された2つの固定資料に限られ、他の仕様書やブラウザー別資料は確認していない。",
+			"具体的な容量値、追い出しの実装・順序、削除や復旧の手順は資料にない。",
+			"特定アプリでの性能・容量を実測しておらず、用途の案内は資料記述からの選択目安である。",
+			"IndexedDBも確実なバックアップではないと資料に記載されている。"
+		],
+		"completion": "complete",
+		"stopReason": "指定された2つの入口URLから本文を取得し、本文に裏付けられた比較、判断不能点、限界、出典リンクをreport.jsonに保存した。"
+	},
+	"modelCalls": [
+		{
+			"purpose": "plan",
+			"latencyMs": 14298.880792,
+			"input": 3,
+			"cache": 2029,
+			"output": 1341
+		},
+		{
+			"purpose": "hypothesize",
+			"latencyMs": 3963.5065830000003,
+			"input": 2762,
+			"cache": 0,
+			"output": 318
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 3212.7221670000035,
+			"input": 4463,
+			"cache": 0,
+			"output": 187
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 3820.7083330000023,
+			"input": 3606,
+			"cache": 1108,
+			"output": 312
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 22445.39175,
+			"input": 3965,
+			"cache": 1108,
+			"output": 2531
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 3792.5914170000033,
+			"input": 4570,
+			"cache": 1108,
+			"output": 250
+		},
+		{
+			"purpose": "propose",
+			"latencyMs": 5450.662707999996,
+			"input": 6110,
+			"cache": 1108,
+			"output": 433
+		},
+		{
+			"purpose": "grade",
+			"latencyMs": 3686.529042000002,
+			"input": 1841,
+			"cache": 0,
+			"output": 367
+		}
+	]
+}

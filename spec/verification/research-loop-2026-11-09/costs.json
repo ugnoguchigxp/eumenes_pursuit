@@ -1,0 +1,24 @@
+{
+	"scope": "all trials, including invalidated and interrupted experiments; not invoice charges",
+	"reportedCalls": 380,
+	"knownUsd": 0.34878211999999953,
+	"unknownCostResponses": 0,
+	"reservations": [
+		{
+			"callId": "ea8f3a3b-3333-4e7c-bfbb-c240ce39e55e",
+			"upperUsd": 0.268875,
+			"state": "dispatched"
+		},
+		{
+			"callId": "e4e164a9-ccc0-4a6f-9d9d-4f24c1f9898e",
+			"upperUsd": 0.26925,
+			"state": "dispatched"
+		},
+		{
+			"callId": "d387c368-c587-4ca9-830c-ae9b6e7550bd",
+			"upperUsd": 0.2745,
+			"state": "dispatched"
+		}
+	],
+	"unconfirmedUpperUsd": 0.8126249999999999
+}

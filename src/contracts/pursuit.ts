@@ -10,6 +10,8 @@ export const versionRefSchema = z.strictObject({
 
 /** Which layers run. E0..E4 of the experiment plan are combinations of these. */
 export const conditionsSchema = z.strictObject({
+	/** Explicit host opt-in: semantic progress control and event-driven asynchronous work. */
+	execution: z.literal("productive").optional(),
 	/** Rule layer: budgets per hypothesis, fingerprints, prediction required, verified completion. */
 	rules: z.boolean(),
 	judge: z.boolean(),
@@ -148,6 +150,13 @@ export type StepEvent =
 	| "finished";
 
 export interface StepResult {
+	/** Productive hosts keep stepping while true, and await receipts only while false. */
+	readonly workReady?: boolean;
+	readonly pendingTools?: readonly {
+		readonly attemptId: string;
+		readonly operationId: string;
+	}[];
+	readonly pendingDecision?: { readonly operationId: string };
 	readonly pursuitId: string;
 	readonly status: PursuitStatus;
 	readonly revision: number;

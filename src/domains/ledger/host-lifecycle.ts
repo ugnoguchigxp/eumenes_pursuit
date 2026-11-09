@@ -52,12 +52,13 @@ export function forgetPursuit(
 		.get(pursuitId) as { forgotten_at: number | null } | null;
 	if (!row || row.forgotten_at !== null) return false;
 	db.query(
-		"UPDATE pursuit_pursuit SET goal='', input_json='{}', status='stopped', current_strategy_id=NULL, current_hypothesis_id=NULL, forgotten_at=?, updated_at=?, finished_at=?, revision=revision+1 WHERE id=?",
+		"UPDATE pursuit_pursuit SET goal='', input_json='{}', action_plan_json=NULL, productive_json=NULL, status='stopped', current_strategy_id=NULL, current_hypothesis_id=NULL, forgotten_at=?, updated_at=?, finished_at=?, revision=revision+1 WHERE id=?",
 	).run(now, now, now, pursuitId);
 	db.query(
 		"UPDATE pursuit_operation SET digest='', forgotten_at=? WHERE pursuit_id=?",
 	).run(now, pursuitId);
 	for (const table of [
+		"pursuit_progress",
 		"pursuit_finding",
 		"pursuit_report",
 		"pursuit_verification",
