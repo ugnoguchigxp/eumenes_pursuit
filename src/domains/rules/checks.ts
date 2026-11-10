@@ -311,6 +311,15 @@ function revisits(
 
 export type BudgetStop = "attempts" | "wall_time" | "transitions";
 
+/** A running attempt reserves a slot even before its result is adopted. */
+export function remainingAttemptSlots(view: PursuitView): number {
+	return Math.max(
+		0,
+		view.input.policy.budget.attempts -
+			view.attempts.filter((a) => a.state !== "rejected").length,
+	);
+}
+
 export function pursuitBudgetExceeded(
 	view: PursuitView,
 	now: number,

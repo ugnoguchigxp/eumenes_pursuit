@@ -112,7 +112,7 @@ export interface EngineSteps {
 		reason: string,
 		decidedBy: DecidedBy,
 		signal: AbortSignal,
-		known?: readonly CriterionResult[],
+		known?: readonly CriterionResult[] | "failed",
 		basisExtra?: JsonObject,
 	): Promise<StepResult>;
 	stepBack(

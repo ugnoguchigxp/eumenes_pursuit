@@ -43,22 +43,25 @@ export function makeTransitions(
 		reason: string,
 		decidedBy: DecidedBy,
 		signal: AbortSignal,
-		known?: readonly CriterionResult[],
+		known?: readonly CriterionResult[] | "failed",
 		basisExtra: JsonObject = {},
 	): Promise<StepResult> {
 		const deferred = outcome !== "completed" && known === undefined;
 		if (!deferred) checkTime(view, signal);
-		const criteria = deferred
-			? []
-			: (known ?? (await runtime.acceptance.verify(signal)));
+		const criteria =
+			deferred || known === "failed"
+				? []
+				: (known ?? (await runtime.acceptance.verify(signal)));
 		if (!deferred) checkTime(view, signal);
-		const verified = acceptancePassed(view.acceptance, criteria);
+		const verified =
+			known !== "failed" && acceptancePassed(view.acceptance, criteria);
 		const refs = new Map<string, ArtifactRef>();
 		for (const a of view.attempts) for (const r of a.refs) refs.set(r.uri, r);
 		const report: Report = {
 			pursuitId: view.id,
 			outcome,
 			verified,
+			...(known === "failed" ? { verificationIssue: "failed" } : {}),
 			reason,
 			criteria,
 			needs:
@@ -147,29 +150,21 @@ export function makeTransitions(
 		let finalReport: Report;
 		try {
 			signal.throwIfAborted();
-			if (known) {
+			const raced = await raceAcceptance(signal, () =>
+				runtime.acceptance.verify(signal),
+			);
+			if (raced.issue) {
+				finalReport = { ...report, verificationIssue: raced.issue };
+				warn("final_verification_unavailable", {
+					pursuitId: view.id,
+					issue: raced.issue,
+				});
+			} else {
 				finalReport = {
 					...report,
-					criteria: known,
-					verified: acceptancePassed(view.acceptance, known),
+					criteria: raced.criteria,
+					verified: acceptancePassed(view.acceptance, raced.criteria),
 				};
-			} else {
-				const raced = await raceAcceptance(signal, () =>
-					runtime.acceptance.verify(signal),
-				);
-				if (raced.issue) {
-					finalReport = { ...report, verificationIssue: raced.issue };
-					warn("final_verification_unavailable", {
-						pursuitId: view.id,
-						issue: raced.issue,
-					});
-				} else {
-					finalReport = {
-						...report,
-						criteria: raced.criteria,
-						verified: acceptancePassed(view.acceptance, raced.criteria),
-					};
-				}
 			}
 		} catch {
 			const issue = signal.aborted ? "aborted" : "failed";

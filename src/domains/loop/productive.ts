@@ -7,6 +7,7 @@ import {
 	type ToolDescriptor,
 	type LlmResult,
 } from "../../contracts/index.ts";
+import { budgetCounted } from "../generation/prompts.ts";
 import { productiveRequest, decisionSchema } from "../generation/productive.ts";
 import * as ledger from "../ledger/index.ts";
 import {
@@ -21,7 +22,11 @@ import {
 	fingerprint,
 } from "../rules/fingerprint.ts";
 import { acceptancePassed } from "../rules/acceptance.ts";
-import { pursuitBudgetExceeded } from "../rules/checks.ts";
+import {
+	attemptsOf,
+	pursuitBudgetExceeded,
+	remainingAttemptSlots,
+} from "../rules/checks.ts";
 import type { EngineCtx, EngineSteps } from "./context.ts";
 import type { PursuitRuntime } from "./engine.ts";
 import { normalPath, raceAcceptance } from "./helpers.ts";
@@ -78,12 +83,11 @@ function reusePartialArtifact(
 	const [write, readBack] = choice.actions;
 	if (
 		choice.choice !== "partial" ||
-		!choice.sequence ||
 		!saved ||
 		!write ||
 		write.tool !== saved.writer.tool ||
 		choice.actions.length > 2 ||
-		(readBack && readBack.tool !== saved.readBack.tool)
+		(readBack && (!choice.sequence || readBack.tool !== saved.readBack.tool))
 	)
 		return undefined;
 	const ignored = tools.find((t) => t.name === write.tool)?.reuseWriteIgnoring;
@@ -116,6 +120,30 @@ function reusePartialArtifact(
 		return { write: saved.writer.seq, readBack: saved.readBack.seq };
 	return undefined;
 }
+
+function exceedsHypothesisBudget(
+	v: PursuitView,
+	c: ProductiveChoice,
+	tools: readonly ToolDescriptor[],
+) {
+	if (!v.input.conditions.rules) return false;
+	const hypothesis = v.hypotheses.find((h) => h.id === v.currentHypothesisId);
+	if (!hypothesis) return false;
+	let remaining = c.renewHypothesis
+		? v.input.policy.budget.attemptsPerHypothesis
+		: hypothesis.budget -
+			budgetCounted(v, attemptsOf(v, hypothesis.id), tools).length;
+	for (const action of c.actions) {
+		if (remaining <= 0) return true;
+		if (
+			v.input.conditions.attemptCount !== "mutating" ||
+			tools.some((t) => t.name === action.tool && t.sideEffect === "workspace")
+		)
+			remaining--;
+	}
+	return false;
+}
+
 function verificationKey(
 	v: PursuitView,
 	ws: string | null,
@@ -298,8 +326,9 @@ export function makeProductive(
 		);
 		if (unsettled)
 			return wrap(await ctx.resumeSettlement(v, runtime, unsettled.id, signal));
-		if (pursuitBudgetExceeded(v, clock.now()))
-			return wrap(
+		const budgetStop = pursuitBudgetExceeded(v, clock.now());
+		const stopAtBudget = async () =>
+			wrap(
 				await ctx.finish(
 					v,
 					runtime,
@@ -309,6 +338,18 @@ export function makeProductive(
 					signal,
 				),
 			);
+		// The attempt cap prevents new tools. A fully dispatched terminal plan may
+		// still settle and verify, subject to the time and transition limits.
+		if (
+			budgetStop &&
+			!(
+				budgetStop === "attempts" &&
+				v.revision < v.input.policy.budget.transitions &&
+				s.plan?.finish &&
+				!s.plan.actions.length
+			)
+		)
+			return stopAtBudget();
 		if (v.status === "planning")
 			return wrap(await ctx.plan(v, runtime, signal));
 		if (v.status === "hypothesizing")
@@ -365,6 +406,7 @@ export function makeProductive(
 			) {
 				s = { ...s, plan: null, waitBasis: null };
 				v = await save(v, s);
+				if (budgetStop) return stopAtBudget();
 				b = basis(v, ws, tools, s);
 			} else if (p.actions.length) {
 				const a = p.actions[0]!;
@@ -432,7 +474,7 @@ export function makeProductive(
 								"独立した最終検証の結果を受領できませんでした",
 								"rules",
 								signal,
-								[],
+								"failed",
 							),
 						);
 					verdict = {
@@ -455,7 +497,10 @@ export function makeProductive(
 						ledger.setProductiveState(db, v.id, {
 							...s,
 							verification: verdict,
-							plan: null,
+							plan:
+								p.finish === "completed" && !verdict!.passed && !budgetStop
+									? null
+									: p,
 						});
 						ledger.advancePursuit(db, {
 							id: v.id,
@@ -466,7 +511,8 @@ export function makeProductive(
 					v = await read(v.id);
 					s = v.productive!;
 				}
-				if (p.finish === "completed" && !verdict!.passed) {
+				const refused = p.finish === "completed" && !verdict!.passed;
+				if (refused && !budgetStop) {
 					if (s.verification?.basis === verificationBasis && s.plan) {
 						v = await save(v, { ...s, plan: null });
 					}
@@ -476,9 +522,11 @@ export function makeProductive(
 					await ctx.finish(
 						v,
 						runtime,
-						p.finish,
-						p.reason,
-						"review",
+						refused ? "incomplete" : p.finish,
+						refused
+							? "独立した最終検証が不合格で、試行の上限に達しました"
+							: p.reason,
+						refused ? "rules" : "review",
 						signal,
 						verdict!.criteria,
 					),
@@ -585,6 +633,7 @@ export function makeProductive(
 			return wrap(result(v, v.revision + 1, v.status, "interrupted"));
 		}
 		const errors: string[] = [];
+		const finalizing = c.choice === "complete" || c.choice === "partial";
 		const reusedArtifact = reusePartialArtifact(
 			c,
 			savedArtifact(v, ws, tools),
@@ -704,12 +753,14 @@ export function makeProductive(
 				errors.push("dependent_actions");
 		}
 
-		if (
-			(c.choice === "complete" || c.choice === "partial") &&
-			c.actions.length &&
-			!c.sequence
-		)
+		if (finalizing && c.actions.length > 1 && !c.sequence)
 			errors.push("finalization_sequence");
+		if (!reusedArtifact && c.actions.length) {
+			if (c.actions.length > remainingAttemptSlots(v))
+				errors.push("plan_budget");
+			if (exceedsHypothesisBudget(v, c, tools))
+				errors.push("plan_hypothesis_budget");
+		}
 		if (
 			c.actions.some(
 				(a) => tools.find((t) => t.name === a.tool)?.sideEffect === "workspace",
@@ -863,7 +914,7 @@ export function makeProductive(
 				c.actions.length || c.choice === "complete" || c.choice === "partial"
 					? {
 							actions: reusedArtifact ? [] : c.actions,
-							sequence: c.sequence,
+							sequence: finalizing || c.sequence,
 							finish:
 								c.choice === "complete"
 									? "completed"

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { LlmRequest, ToolDescriptor } from "../../contracts/index.ts";
 import type { ProductiveChoice } from "../ledger/productivity.ts";
 import type { PursuitView } from "../ledger/types.ts";
+import { remainingAttemptSlots } from "../rules/checks.ts";
 import {
 	toolsBlock,
 	observationText,
@@ -115,7 +116,7 @@ Select one:
 - act: execute concrete permitted tools with known JSON inputs, a falsifiable prediction, and a specific expected contribution. For independent work use sequence=false: batch read-only actions that do not read the workspace, and optionally ONE independent workspace write. Include ready evidence acquisitions in the same batch as an initial checkpoint when their inputs are independent. If a later action needs a successful receipt and its input is already known, use sequence=true. No concurrent workspace writers or workspace reads during a pending write. Follow every required field in each tool input_schema and give each action an explicit prediction and refutedIf when required, including save and read-back. Fit the whole sequence, including read-back, within the remaining attempt budget or renew scope for genuinely new work. Set waitAfterDispatch=true when no useful independent work can proceed before the batch returns.
 - think: persist genuinely new concise conclusions/ruled-out routes derived from existing evidence while IO is pending or when further reasoning is productive. Use progress.kind=reasoning, nonempty conclusions and their basis. Do not manufacture reasoning to fill a wait. The next independent assessment will compare these conclusions to the previous ones.
 - wait: only if real pending operations contain the information needed and no independent useful work remains. The host will wake on new results; unchanged wait state never requests this model again.
-- complete/partial: request conditional finalization in the same decision that provides the finished content. Include any required save then read-back with sequence=true. The host executes them and independently verifies the actual artifact without another controller turn after read-back. Choose partial when a required source is unavailable and no permitted useful route remains, retaining supported facts, conflicts and missing requirements. If the saved content is suitable and savedReadBack confirms it is current, return actions=[] and renew neither hypothesis nor strategy. Put a new stopping explanation in reason. Rewording alone does not warrant another save. Unknowns expressly allowed by the request do not block completion.
+- complete/partial: request conditional finalization in the same decision that provides the finished content. Fit the plan within remainingAttemptSlots and the hypothesis budget. Use sequence=true for multiple actions such as save then read-back. If only one slot remains and a partial answer needs saving, return just the save. The host waits for the receipt and independently verifies the actual saved artifact without another controller turn. Choose partial when a required source is unavailable and no permitted useful route remains, retaining supported facts, conflicts and missing requirements. If the saved content is suitable and savedReadBack confirms it is current, return actions=[] and renew neither hypothesis nor strategy. Put a new stopping explanation in reason. Rewording alone does not warrant another save. Unknowns expressly allowed by the request do not block completion.
 - consult: only for information/permission/a decision the user can supply; explain precisely what changes. Do not repeat an answered question without new evidence.
 When progress is none/blocked, an act must be an executable alternative (route=alternative) or an actual checkpoint/verification. Never return an abstract continue or step-back. If an alternative made no progress, another neutral alternative is not advancement. Either establish a substantive new constraint, evidence or conclusion that opens a route, or save the partial result and finish/consult. An identical operation under unchanged conditions does not open a route. If a prior choice was refused, correct the listed contract violations and choose a different viable action, wait for actual pending results, or save a supported partial result; do not submit the same choice.
 If the current hypothesis has no remaining attempts but concrete useful work exists, explicitly renew it (and, only when necessary, the strategy) with a new testable claim and expected contribution within the original budgets. Do not renew merely to evade failure or lack of progress. No tools are executed by renaming scope. For unused fields return null/empty arrays/empty strings/false. Echo basis exactly. Write free text in Japanese.`;
@@ -202,8 +203,7 @@ export function productiveRequest(
 				remainingHypothesisAttempts: hypothesis
 					? Math.max(0, hypothesis.budget - attemptsInHypothesis)
 					: null,
-				totalAttempts: view.attempts.filter((a) => a.state !== "rejected")
-					.length,
+				remainingAttemptSlots: remainingAttemptSlots(view),
 				newlyUnassessed: view.attempts
 					.filter(
 						(a) => a.state !== "started" && !state?.assessed.includes(a.seq),

@@ -126,7 +126,7 @@ test.each(["missing", "cap"] as const)(
 		const host = await openExample(options);
 		try {
 			const { view, markdown } = await host.drive();
-			expect(view.status).not.toBe("completed");
+			expect(view.status).toBe("incomplete");
 			expect(view.report?.verified).toBe(false);
 			expect(host.snapshot().documents).toHaveLength(1);
 			expect(host.snapshot().state.draft?.completion).toBe("incomplete");
@@ -137,6 +137,140 @@ test.each(["missing", "cap"] as const)(
 		}
 	},
 );
+
+test.each([false, true])(
+	"one remaining slot saves the partial report and grades it once (overlong plan=%s)",
+	async (overlong) => {
+		const { options, events } = await config("cap");
+		const base = options.generator;
+		const host = await openExample({
+			...options,
+			generator: {
+				async complete(request, signal) {
+					const response = await base.complete(request, signal);
+					if (request.purpose !== "propose") return response;
+					const value = response.value as {
+						choice: string;
+						progress: { kind: string };
+						actions: { inputJson: string }[];
+					};
+					if (value.progress.kind === "initial") {
+						const [read] = value.actions;
+						const save = {
+							...read,
+							tool: "report_draft",
+							inputJson: JSON.stringify({
+								title: "資料比較",
+								completion: "incomplete",
+								answer: "施設Aと施設Bの本文は未確認",
+								summary: "本文取得待ち",
+								claims: [],
+								limitations: ["本文未確認"],
+								stopReason: "本文取得前の下書き",
+							}),
+						};
+						return {
+							...response,
+							value: request.schema.parse({
+								...value,
+								actions: [save, read],
+								waitAfterDispatch: true,
+							}),
+						};
+					}
+					if (value.choice !== "partial") return response;
+					const packet = JSON.parse(request.prompt);
+					const state = JSON.parse(packet.state.split("\n\n").at(-1));
+					expect(state.remainingAttemptSlots).toBe(1);
+					if (overlong && !state.choiceViolations.length) return response;
+					if (overlong) {
+						expect(state.choiceViolations).toEqual(["plan_budget"]);
+						expect(state.attempts.map((a: { tool: string }) => a.tool)).toEqual(
+							["report_draft", "web_read"],
+						);
+					}
+					return {
+						...response,
+						value: request.schema.parse({
+							...value,
+							actions: value.actions.slice(0, 1),
+							sequence: false,
+						}),
+					};
+				},
+			},
+		});
+		try {
+			const { view, markdown } = await host.drive();
+			expect(view.status).toBe("incomplete");
+			expect(view.report?.criteria.map((c) => c.passed)).toEqual([true, false]);
+			expect(view.attempts.map((a) => [a.tool, a.state])).toEqual([
+				["report_draft", "settled"],
+				["web_read", "settled"],
+				["report_draft", "settled"],
+			]);
+			expect(view.progress?.at(-1)?.choice.sequence).toBe(false);
+			expect(host.snapshot().state.draft?.claims[0]?.evidence).toEqual(["e1"]);
+			expect(await readFile(markdown!, "utf8")).toContain("禁止表示");
+			const purposes = events
+				.filter((e) => e.kind === "model_finished")
+				.map((e) => e.purpose);
+			expect(purposes).toEqual([
+				"plan",
+				"hypothesize",
+				"propose",
+				"propose",
+				...(overlong ? ["propose"] : []),
+				"grade",
+			]);
+		} finally {
+			await host.close();
+		}
+	},
+);
+
+test("a completed plan can pass acceptance at the attempt cap", async () => {
+	const { options, events } = await config("museum");
+	const base = options.generator;
+	const host = await openExample({
+		...options,
+		limits: { ...options.limits, childCalls: 2 },
+		generator: {
+			async complete(request, signal) {
+				const response = await base.complete(request, signal);
+				const value = response.value as { choice?: string; actions: object[] };
+				if (value.choice !== "complete") return response;
+				const { sources } = JSON.parse(request.prompt);
+				const reads = sources.map(({ evidence }: { evidence: string }) => ({
+					...value.actions[0],
+					tool: "source_read",
+					inputJson: JSON.stringify({ evidence, start: 0, limit: 200 }),
+				}));
+				return {
+					...response,
+					value: request.schema.parse({
+						...value,
+						actions: [...reads, ...value.actions],
+					}),
+				};
+			},
+		},
+	});
+	try {
+		const { view } = await host.drive();
+		expect(view.attempts).toHaveLength(view.input.policy.budget.attempts);
+		expect(view.attempts.at(-1)?.tool).toBe("report_read");
+		expect(view.status).toBe("completed");
+		expect(view.report?.verified).toBe(true);
+		expect(
+			events.filter(
+				(e) => e.kind === "model_finished" && e.purpose === "grade",
+			),
+		).toHaveLength(1);
+	} finally {
+		await host.close();
+	}
+});
 
 test("successful tool without progress cannot repeat the identical action", async () => {
 	const { options } = await config("museum", {
@@ -859,6 +993,75 @@ test("an unchanged failed final verification cannot trigger another grade", asyn
 		expect(view.status).toBe("incomplete");
 		expect(view.report?.verified).toBe(false);
 		expect(view.report?.reason).toContain("unchanged_failed_claim");
+	} finally {
+		await host.close();
+	}
+});
+
+test("reopening after a terminal write failure reuses the stored verdict and plan", async () => {
+	const { options, events } = await config("missing");
+	let host = await openExample(options);
+	try {
+		const db = new Database(join(options.directory, "example.sqlite"));
+		try {
+			db.exec(
+				"CREATE TRIGGER fixture_fail_finish BEFORE INSERT ON pursuit_report BEGIN SELECT RAISE(ABORT, 'fixture_storage_failure'); END",
+			);
+			await expect(host.drive()).rejects.toThrow("fixture_storage_failure");
+			const interrupted = (await host.engine.view(host.coreId))!;
+			expect(interrupted.report).toBeNull();
+			expect(interrupted.productive?.plan?.finish).toBe("incomplete");
+			expect(interrupted.verifications.map((v) => v.trigger)).toEqual([
+				"claim",
+			]);
+			db.exec("DROP TRIGGER fixture_fail_finish");
+		} finally {
+			db.close();
+		}
+		await host.close();
+		const countBefore = events.filter((e) => e.kind === "model_started").length;
+		host = await openExample(options);
+		const { view, markdown } = await host.drive();
+		expect(view.status).toBe("incomplete");
+		expect(view.report?.criteria.map((c) => c.passed)).toEqual([true, false]);
+		expect(view.verifications.map((v) => v.trigger)).toEqual([
+			"claim",
+			"final",
+		]);
+		expect(await readFile(markdown!, "utf8")).toBe(
+			host.snapshot().state.draft!.answer,
+		);
+		expect(events.filter((e) => e.kind === "model_started")).toHaveLength(
+			countBefore,
+		);
+	} finally {
+		await host.close();
+	}
+});
+
+test("an unavailable verifier leaves the saved report eligible for reverify", async () => {
+	const { options } = await config("museum");
+	const host = await openExample(options);
+	const verify = host.runtime.acceptance.verify;
+	let calls = 0;
+	host.runtime.acceptance.verify = async (signal) => {
+		if (++calls === 1) throw new Error("fixture_verifier_unavailable");
+		const pending = (await host.engine.view(host.coreId))!.report;
+		expect(pending?.verificationIssue).toBe("failed");
+		return verify(signal);
+	};
+	try {
+		const { view, markdown } = await host.drive();
+		expect(calls).toBe(2);
+		expect(view.status).toBe("incomplete");
+		expect(view.report?.verified).toBe(true);
+		expect(view.report?.verificationIssue).toBeUndefined();
+		expect(view.attempts.filter((a) => a.tool === "report_draft")).toHaveLength(
+			1,
+		);
+		expect(await readFile(markdown!, "utf8")).toBe(
+			host.snapshot().state.draft!.answer,
+		);
 	} finally {
 		await host.close();
 	}

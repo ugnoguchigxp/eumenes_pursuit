@@ -17,6 +17,7 @@ import {
 	attemptOutcome,
 	attemptsOf,
 	invariantRejections,
+	remainingAttemptSlots,
 	ruleRejections,
 } from "../rules/checks.ts";
 import {
@@ -116,10 +117,7 @@ export function makeAttempt(
 			grant: view.input.grant,
 		});
 		if (conditions.execution === "productive") {
-			if (
-				view.attempts.filter((a) => a.state !== "rejected").length >=
-				policy.budget.attempts
-			)
+			if (remainingAttemptSlots(view) === 0)
 				rejections.push({
 					rule: "attempt_budget",
 					detail: "実行中の予約を含めて試行上限に達しました",
