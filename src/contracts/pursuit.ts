@@ -175,7 +175,11 @@ export interface Report {
 	/** True only when the host's acceptance verification passed. */
 	readonly verified: boolean;
 	/** Non-completion is durable even while final verification is pending or unavailable. */
-	readonly verificationIssue?: "pending" | "aborted" | "failed";
+	readonly verificationIssue?:
+		| "pending"
+		| "aborted"
+		| "failed"
+		| "evidence_unavailable";
 	readonly reason: string;
 	readonly criteria: readonly CriterionResult[];
 	/** Open questions the user must answer to continue. */

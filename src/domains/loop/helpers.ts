@@ -1,9 +1,10 @@
-import type {
-	CriterionResult,
-	DecidedBy,
-	DecisionKind,
-	JsonObject,
-	WorkspaceChanges,
+import {
+	AcceptanceVerificationError,
+	type CriterionResult,
+	type DecidedBy,
+	type DecisionKind,
+	type JsonObject,
+	type WorkspaceChanges,
 } from "../../contracts/index.ts";
 import type { Review } from "../generation/prompts.ts";
 import { findQuestionSet } from "../judge/question-sets.ts";
@@ -127,7 +128,8 @@ export async function raceAcceptance(
 		criteria = await Promise.race([verify(), aborted]);
 		signal.throwIfAborted();
 		return { criteria, issue: null };
-	} catch {
+	} catch (error) {
+		if (error instanceof AcceptanceVerificationError) criteria = error.criteria;
 		return { criteria, issue: signal.aborted ? "aborted" : "failed" };
 	} finally {
 		signal.removeEventListener("abort", onAbort);

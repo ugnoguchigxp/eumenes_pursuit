@@ -1728,3 +1728,128 @@ test("reopening the example excludes an old Steer generation and its queued supp
 		await reopened.close();
 	}
 });
+
+test.each([true, false])(
+	"final verification exposes recoverable evidence gaps only for sources that were clipped (%s)",
+	async (clipped) => {
+		const base = scripted("museum");
+		const f = fixture("museum", { lookup: 1, read: 1, stagger: 1 });
+		const padding = "補足".repeat(34000);
+		const { options, events } = await config("museum", {
+			async web(request, signal) {
+				const response = await f.web(request, signal);
+				return {
+					...response,
+					documents: response.documents.map((d) =>
+						clipped && d.url === f.sources[0]!.url
+							? { ...d, text: padding + d.text }
+							: d,
+					),
+				};
+			},
+			generator: {
+				async complete(request, signal) {
+					const response = await base.complete(request, signal);
+					const packet = JSON.parse(request.prompt);
+					if (request.purpose === "grade") {
+						const { evidence } = JSON.parse(packet.state);
+						const source = evidence.find(
+							(d: { url: string }) => d.url === f.sources[0]!.url,
+						);
+						expect(
+							source.excerpts.some((e: { text: string }) =>
+								e.text.includes(f.sources[0]!.text),
+							),
+						).toBe(!clipped);
+						return {
+							...response,
+							value: request.schema.parse({
+								passed: false,
+								evidence: "必要な記載を確認できませんでした",
+								missingEvidence: [source.evidence],
+							}),
+						};
+					}
+					if (request.purpose !== "propose") return response;
+					const snapshot = JSON.parse(packet.state.split("\n\n").at(-1));
+					if (!snapshot.verifications.length) return response;
+					return {
+						...response,
+						value: request.schema.parse({
+							...(response.value as object),
+							choice: "partial",
+							actions: [],
+						}),
+					};
+				},
+			},
+		});
+		const host = await openExample(options);
+		try {
+			const { view } = await host.drive();
+			expect(view.status).toBe("incomplete");
+			expect(view.report?.verified).toBe(false);
+			expect(view.report?.verificationIssue).toBe(
+				clipped ? "evidence_unavailable" : undefined,
+			);
+			const inputs = events.filter((e) => e.kind === "acceptance_input");
+			expect(inputs).toHaveLength(1);
+			expect(events.find((e) => e.kind === "acceptance_result")).toMatchObject({
+				inputDigest: inputs[0]!.inputDigest,
+				passed: false,
+				unavailable: clipped,
+			});
+			expect(
+				view.report?.criteria.find((c) => c.id === "answer")?.verification
+					?.missingEvidenceIds?.length,
+			).toBe(clipped ? 1 : undefined);
+			expect(
+				view.report?.criteria.find((c) => c.id === "answer")?.verification
+					?.failure,
+			).toBe(clipped ? "missing_evidence" : "unknown");
+			let verifies = 0;
+			const attempts = view.attempts;
+			await host.engine.reverify(
+				host.coreId,
+				{
+					...host.runtime,
+					acceptance: {
+						async verify() {
+							verifies++;
+							const { state, documents } = host.snapshot();
+							const complete = f.sources.every((source) => {
+								const stored = documents.find((d) => d.url === source.url);
+								return (
+									!!stored &&
+									stored.text.includes(source.text) &&
+									state.draft?.answer.includes(source.text) &&
+									state.draft.claims.some((c) => c.evidence.includes(stored.id))
+								);
+							});
+							return [
+								{ id: "citations", passed: true, evidence: "出典照合" },
+								{
+									id: "answer",
+									passed: complete,
+									evidence: "保存済みの全文で照合",
+								},
+							];
+						},
+					},
+				},
+				new AbortController().signal,
+			);
+			const revised = (await host.engine.view(host.coreId))!;
+			expect(verifies).toBe(clipped ? 1 : 0);
+			expect(revised.report?.verified).toBe(clipped);
+			expect(revised.report?.verificationIssue).toBeUndefined();
+			expect(revised.status).toBe("incomplete");
+			expect(revised.attempts).toEqual(attempts);
+			expect(events.filter((e) => e.kind === "acceptance_input")).toHaveLength(
+				1,
+			);
+		} finally {
+			await host.close();
+		}
+	},
+);

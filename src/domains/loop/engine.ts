@@ -13,6 +13,7 @@ import {
 	type LlmResult,
 	type PursuitStatus,
 	type PursuitStore,
+	type Report,
 	type StepResult,
 	type ToolPort,
 	type ToolOutcome,
@@ -21,7 +22,10 @@ import {
 import * as ledger from "../ledger/index.ts";
 import { decisionSchema } from "../generation/productive.ts";
 import type { PursuitView } from "../ledger/types.ts";
-import { acceptancePassed } from "../rules/acceptance.ts";
+import {
+	acceptanceEvidenceUnavailable,
+	acceptancePassed,
+} from "../rules/acceptance.ts";
 import { pursuitBudgetExceeded, remainingWallMs } from "../rules/checks.ts";
 import { digestJson } from "../rules/fingerprint.ts";
 import { makeAttempt } from "./attempt.ts";
@@ -369,9 +373,13 @@ export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
 				runtime.acceptance.verify(signal),
 			);
 			const criteria = raced.criteria;
-			const issue = raced.issue;
+			const issue =
+				raced.issue ??
+				(acceptanceEvidenceUnavailable(view.acceptance, criteria)
+					? "evidence_unavailable"
+					: null);
 			const { verificationIssue: _previous, ...previous } = view.report;
-			const report = {
+			const report: Report = {
 				...previous,
 				criteria,
 				verified: !issue && acceptancePassed(view.acceptance, criteria),

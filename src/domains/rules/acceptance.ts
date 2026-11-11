@@ -17,3 +17,21 @@ export function acceptancePassed(
 		criteria.every((c) => expected.has(c.id) && c.passed)
 	);
 }
+
+/** Reverification is useful only if the unresolved criteria were all blocked by missing evidence. */
+export function acceptanceEvidenceUnavailable(
+	acceptance: readonly { readonly id: string }[],
+	criteria: readonly CriterionResult[],
+): boolean {
+	const missingEvidence = (c: CriterionResult) =>
+		!c.passed &&
+		c.verification?.failure === "missing_evidence" &&
+		!!c.verification.missingEvidenceIds?.length;
+	return (
+		criteria.some(missingEvidence) &&
+		acceptancePassed(
+			acceptance,
+			criteria.map((c) => ({ ...c, passed: c.passed || missingEvidence(c) })),
+		)
+	);
+}

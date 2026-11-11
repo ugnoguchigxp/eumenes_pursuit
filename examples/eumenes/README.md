@@ -24,6 +24,16 @@ bun run format
 bun test ./test/scenario/eumenes-example.test.ts
 ```
 
+## 最終照合の確認
+
+`events.jsonl` の `acceptance_input` と `acceptance_result` は、採点入力のハッシュで突き合わせられます。台帳の条件別結果には、対象の報告の版、実際に送った出典の範囲、現行Markdownの保存記録が残ります。
+
+必須条件の不適合と、採点に渡った根拠が足りず判定できなかった場合を区別します。後者で `verificationIssue` が `evidence_unavailable` のときは、ホストが必要な根拠を用意した後に既存の `engine.reverify` で照合だけをやり直せます。同じ入力での自動再照合は行いません。再照合は検証結果を更新し、確定済み操作や終了状態には影響しません。
+
+`bun test ./test/scenario/eumenes-long-research.test.ts` で、15資料の取得と長い資料の再読、方針更新時の保存、中断・再開、現行Markdownと全出典の最終照合を固定応答で確認できます。入力サイズを測る場合は `PURSUIT_MEASURE_FIXTURE=1` を付けます。
+
+`openExample` の `sourceRanges: true` は、出典ID・保存版・実際に表示した本文の範囲をSolverに渡す比較用の設定です。通常は検証情報の引き継ぎを使い、範囲表示は設定を明示した実行で有効になります。 [Solverのフリーズ記録](../../spec/verification/long-term-pursuit/solver-freeze.md)
+
 ## 実行中の補足（Steer）
 
 `openExample` の `steering` に共有 Inbox、補足に使える入力バイト数、対象 Pursuit に結び付く出典と版を照合する `resolve` を渡すと、`productive` の次手判断に補足を渡せます。送信側は、起動後に返る `steeringTarget` の対象ID・世代と、確定済みの出典ID・版を使って Inbox に登録します。

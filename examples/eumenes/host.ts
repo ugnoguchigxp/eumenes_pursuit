@@ -75,6 +75,7 @@ export interface HostOptions {
 	wallMs?: number;
 	markdownDelayMs?: number;
 	steering?: SteeringOptions;
+	sourceRanges?: boolean;
 	limits?: State["limits"];
 	baseline?: {
 		create: typeof createPursuitEngine;
@@ -102,6 +103,8 @@ CREATE TABLE IF NOT EXISTS example_config(fingerprint TEXT PRIMARY KEY);
 
 export async function openExample(options: HostOptions) {
 	const steer = options.steering;
+	const sourceRanges =
+		options.execution === "productive" && options.sourceRanges === true;
 	if (options.evaluator && options.execution !== "productive")
 		throw new Error("example_evaluator_requires_productive");
 	if (steer && (options.execution !== "productive" || options.baseline))
@@ -147,6 +150,7 @@ export async function openExample(options: HostOptions) {
 		instructions,
 		policy,
 		...(options.evaluator ? { evaluator: true } : {}),
+		...(sourceRanges ? { sourceRanges: true } : {}),
 		migrations: (options.baseline?.migrations ?? migrations).map(
 			(m) => m.sha256,
 		),
@@ -283,18 +287,79 @@ export async function openExample(options: HostOptions) {
 		: null;
 	const runtime = {
 		workspace: copied.workspace,
-		acceptance: acceptance(ctx, run, epoch, reviewer, (db, attemptId) => {
-			const job = db
-				.query<{ id: string; result: string }, [string]>(
-					"SELECT id,result FROM example_jobs WHERE kind='markdown' AND attempt_id=? AND state IN ('ready','adopted') AND result IS NOT NULL",
-				)
-				.get(attemptId);
-			return job
-				? { path: staged(job.id), receipt: JSON.parse(job.result) }
-				: null;
-		}),
+		acceptance: acceptance(
+			ctx,
+			run,
+			epoch,
+			reviewer,
+			(db, attemptId) => {
+				const job = db
+					.query<{ id: string; result: string }, [string]>(
+						"SELECT id,result FROM example_jobs WHERE kind='markdown' AND attempt_id=? AND state IN ('ready','adopted') AND result IS NOT NULL",
+					)
+					.get(attemptId);
+				return job
+					? { path: staged(job.id), receipt: JSON.parse(job.result) }
+					: null;
+			},
+			log,
+		),
 		tools: {
 			...copied.tools,
+			async invoke(
+				call: Parameters<typeof copied.tools.invoke>[0],
+				signal: AbortSignal,
+			): Promise<ToolOutcome> {
+				const outcome = await copied.tools.invoke(call, signal);
+				if (
+					!sourceRanges ||
+					outcome.status !== "ok" ||
+					(call.tool !== "source_read" && call.tool !== "source_find") ||
+					typeof call.input.evidence !== "string"
+				)
+					return outcome;
+				const doc = store.readSnapshot((db) =>
+					documents(db, current(ctx, db, run, epoch)).find(
+						(item) => item.id === call.input.evidence,
+					),
+				);
+				const output = outcome.output;
+				if (
+					!doc ||
+					!output ||
+					typeof output !== "object" ||
+					Array.isArray(output)
+				)
+					return outcome;
+				const matchIndex =
+					typeof output.index === "number" ? output.index : undefined;
+				const start =
+					typeof output.start === "number"
+						? Math.min(output.start, doc.text.length)
+						: matchIndex === undefined || matchIndex < 0
+							? null
+							: Math.max(0, matchIndex - 200);
+				if (
+					typeof output.text !== "string" ||
+					(start === null
+						? output.text !== ""
+						: doc.text.slice(start, start + output.text.length) !== output.text)
+				)
+					return outcome;
+				return {
+					...outcome,
+					sourceExcerpt: {
+						id: doc.id,
+						version: hash(doc.text),
+						start,
+						storedLength: doc.text.length,
+						sourceTruncated: !!doc.truncated,
+						...(matchIndex === undefined
+							? {}
+							: { matchIndex: matchIndex < 0 ? null : matchIndex }),
+					},
+				};
+			},
 			list: () => [
 				...copied.tools
 					.list()
@@ -899,12 +964,17 @@ export async function openExample(options: HostOptions) {
 			if (
 				referencesCurrent() &&
 				view.report?.verificationIssue &&
+				view.report.verificationIssue !== "evidence_unavailable" &&
 				!workerSignal.aborted
 			) {
 				await engine.reverify(coreId, runtime, workerSignal);
 			}
+			const needsEvidence =
+				(await engine.view(coreId))?.report?.verificationIssue ===
+				"evidence_unavailable";
 			await store.write((db) => {
-				db.query("UPDATE pursuit_runs SET closed=1 WHERE id=?").run(run);
+				if (!needsEvidence)
+					db.query("UPDATE pursuit_runs SET closed=1 WHERE id=?").run(run);
 				db.query(
 					"UPDATE example_jobs SET state='abandoned' WHERE state IN ('queued','running','ready')",
 				).run();

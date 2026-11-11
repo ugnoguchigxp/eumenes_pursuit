@@ -479,7 +479,7 @@ export function makeProductive(
 								"独立した最終検証の結果を受領できませんでした",
 								"rules",
 								signal,
-								"failed",
+								{ issue, criteria },
 							),
 						);
 					verdict = {

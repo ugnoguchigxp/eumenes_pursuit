@@ -5,7 +5,7 @@ import {
 	recordVariant,
 	type PlannedJob,
 } from "./run-config.ts";
-import type { PursuitView } from "../src/index.ts";
+import type { PursuitView, Report } from "../src/index.ts";
 import type { EvalTask, OutcomeFacts, TaskDiagnostics } from "./contracts.ts";
 import type { DirectResult } from "./direct.ts";
 
@@ -34,7 +34,7 @@ export interface RunRecord {
 	 * whether the work passed is unknown. Such a record is never correct and is left out of
 	 * correctness rates (spec/fixes-2026-10-22.md §h).
 	 */
-	readonly verificationIssue?: "pending" | "aborted" | "failed";
+	readonly verificationIssue?: NonNullable<Report["verificationIssue"]>;
 	/** Matches the task's correct terminal outcome. */
 	readonly correct: boolean;
 	readonly falseCompletion: boolean;
@@ -350,7 +350,7 @@ export function verificationIssues(
 ): string {
 	const n = (k: string) => rs.filter((r) => r.verificationIssue === k).length;
 	return rs.some((r) => r.verificationIssue)
-		? `${n("pending")}/${n("aborted")}/${n("failed")}`
+		? `${n("pending")}/${n("aborted")}/${n("failed") + n("evidence_unavailable")}`
 		: "-";
 }
 

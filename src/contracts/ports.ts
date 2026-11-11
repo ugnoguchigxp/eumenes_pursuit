@@ -56,10 +56,23 @@ export interface FindingInput {
 	readonly assurance: Assurance;
 }
 
+/** Coordinates of output.text in a saved source, in UTF-16 code units. */
+export interface SourceExcerpt {
+	readonly id: string;
+	readonly version: string;
+	/** Null when a search returned no excerpt. */
+	readonly start: number | null;
+	readonly storedLength: number;
+	readonly sourceTruncated: boolean;
+	/** Present for search results; null means the requested string was not found. */
+	readonly matchIndex?: number | null;
+}
+
 export interface ToolOutcome {
 	readonly status: "ok" | "error";
 	/** Bounded, already summarized by the host. */
 	readonly output: JsonValue;
+	readonly sourceExcerpt?: SourceExcerpt;
 	readonly errorCode?: string;
 	/**
 	 * Full text of streams the host clipped in `output`. refutedIf is judged on it as well, so a
@@ -130,6 +143,36 @@ export interface CriterionResult {
 	readonly assurance?: Assurance;
 	/** Parts the check established on their own (e.g. lemmas graded within one proof). */
 	readonly findings?: readonly FindingInput[];
+	/** Optional provenance and diagnosis. The host's acceptance predicate still uses the verdict. */
+	readonly verification?: {
+		readonly targetVersion: string | null;
+		/** Digest of the input prepared for model-based verification, when available. */
+		readonly inputDigest?: string;
+		readonly failure?:
+			| "nonconforming"
+			| "missing_evidence"
+			| "verification_failed"
+			| "verification_timeout"
+			| "unknown";
+		readonly usedEvidence: readonly (
+			| {
+					readonly kind: "source";
+					readonly id: string;
+					readonly version: string;
+					readonly truncated: boolean;
+					readonly totalCharacters: number;
+					readonly ranges: readonly { start: number; length: number }[];
+			  }
+			| {
+					readonly kind: "artifact" | "review";
+					readonly id: string;
+					readonly version: string;
+					readonly attempt: number;
+			  }
+		)[];
+		/** Source IDs needed to resolve the criterion when failure is missing_evidence. */
+		readonly missingEvidenceIds?: readonly string[];
+	};
 }
 
 export type Assurance = "exact" | "numeric" | "model";

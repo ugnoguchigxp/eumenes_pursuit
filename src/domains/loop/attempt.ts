@@ -418,6 +418,9 @@ export function makeAttempt(
 				observation: {
 					status: outcome.status,
 					output: outcome.output,
+					...(outcome.sourceExcerpt
+						? { sourceExcerpt: outcome.sourceExcerpt }
+						: {}),
 					errorCode: outcome.errorCode ?? null,
 					...(outcome.unclipped?.length
 						? { unclipped: outcome.unclipped }

@@ -95,6 +95,7 @@ export interface Rejection {
 export interface Observation {
 	readonly status: "ok" | "error";
 	readonly output: JsonValue;
+	readonly sourceExcerpt?: import("../../contracts/index.ts").SourceExcerpt;
 	readonly errorCode: string | null;
 	/**
 	 * Full text of what the host clipped in `output` (spec/fixes-2026-10-22-d.md §3.1): judged by

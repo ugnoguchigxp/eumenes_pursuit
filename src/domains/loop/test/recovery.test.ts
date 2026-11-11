@@ -1,6 +1,7 @@
 import { proposalRequest } from "../../generation/prompts.ts";
 import { expect, test } from "bun:test";
 import {
+	AcceptanceVerificationError,
 	createPursuitEngine,
 	type LlmPort,
 	type JudgePort,
@@ -9,6 +10,24 @@ import {
 import { migrations } from "../../../sqlite.ts";
 import { openStore } from "../../../../standalone/store.ts";
 import { startInput } from "../../../../test/support.ts";
+import { raceAcceptance } from "../helpers.ts";
+
+test("a failed verifier preserves partial observations without a successful verdict", async () => {
+	const criteria = [
+		{ id: "answer", passed: false, evidence: "検証結果を受領できなかった" },
+	];
+	const signal = new AbortController().signal;
+	expect(
+		await raceAcceptance(signal, async () => {
+			throw new AcceptanceVerificationError(criteria);
+		}),
+	).toEqual({ criteria, issue: "failed" });
+	expect(
+		await raceAcceptance(signal, async () => {
+			throw new Error("unavailable");
+		}),
+	).toEqual({ criteria: [], issue: "failed" });
+});
 
 async function fixture(
 	judge: JudgePort | null = null,

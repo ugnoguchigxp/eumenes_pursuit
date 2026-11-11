@@ -12,9 +12,12 @@ import type {
 import { hypothesisRequest, planRequest } from "../generation/prompts.ts";
 import * as ledger from "../ledger/index.ts";
 import type { PursuitView } from "../ledger/types.ts";
-import { acceptancePassed } from "../rules/acceptance.ts";
+import {
+	acceptanceEvidenceUnavailable,
+	acceptancePassed,
+} from "../rules/acceptance.ts";
 import { executed } from "../rules/checks.ts";
-import type { EngineCtx, EngineSteps } from "./context.ts";
+import type { EngineCtx, EngineSteps, FailedVerification } from "./context.ts";
 import type { PursuitRuntime } from "./engine.ts";
 import { normalPath, raceAcceptance } from "./helpers.ts";
 
@@ -43,25 +46,33 @@ export function makeTransitions(
 		reason: string,
 		decidedBy: DecidedBy,
 		signal: AbortSignal,
-		known?: readonly CriterionResult[] | "failed",
+		known?: readonly CriterionResult[] | FailedVerification,
 		basisExtra: JsonObject = {},
 	): Promise<StepResult> {
 		const deferred = outcome !== "completed" && known === undefined;
 		if (!deferred) checkTime(view, signal);
-		const criteria =
-			deferred || known === "failed"
+		const failure = known && "issue" in known ? known : null;
+		const criteria = known
+			? "issue" in known
+				? known.criteria
+				: known
+			: deferred
 				? []
-				: (known ?? (await runtime.acceptance.verify(signal)));
+				: await runtime.acceptance.verify(signal);
 		if (!deferred) checkTime(view, signal);
-		const verified =
-			known !== "failed" && acceptancePassed(view.acceptance, criteria);
+		const verified = !failure && acceptancePassed(view.acceptance, criteria);
+		const issue = failure
+			? failure.issue
+			: acceptanceEvidenceUnavailable(view.acceptance, criteria)
+				? "evidence_unavailable"
+				: null;
 		const refs = new Map<string, ArtifactRef>();
 		for (const a of view.attempts) for (const r of a.refs) refs.set(r.uri, r);
 		const report: Report = {
 			pursuitId: view.id,
 			outcome,
 			verified,
-			...(known === "failed" ? { verificationIssue: "failed" } : {}),
+			...(issue ? { verificationIssue: issue } : {}),
 			reason,
 			criteria,
 			needs:
@@ -154,7 +165,11 @@ export function makeTransitions(
 				runtime.acceptance.verify(signal),
 			);
 			if (raced.issue) {
-				finalReport = { ...report, verificationIssue: raced.issue };
+				finalReport = {
+					...report,
+					criteria: raced.criteria,
+					verificationIssue: raced.issue,
+				};
 				warn("final_verification_unavailable", {
 					pursuitId: view.id,
 					issue: raced.issue,
@@ -164,6 +179,9 @@ export function makeTransitions(
 					...report,
 					criteria: raced.criteria,
 					verified: acceptancePassed(view.acceptance, raced.criteria),
+					...(acceptanceEvidenceUnavailable(view.acceptance, raced.criteria)
+						? { verificationIssue: "evidence_unavailable" as const }
+						: {}),
 				};
 			}
 		} catch {

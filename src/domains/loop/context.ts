@@ -22,6 +22,11 @@ import { WallTimeExpired } from "./helpers.ts";
 import type { EngineDeps, PursuitRuntime } from "./engine.ts";
 import type { makeSupport } from "./support.ts";
 
+export type FailedVerification = {
+	readonly issue: "aborted" | "failed";
+	readonly criteria: readonly CriterionResult[];
+};
+
 export function makeBase(deps: EngineDeps) {
 	const { store, clock, ids } = deps;
 	const warn = (code: string, detail: JsonObject) =>
@@ -112,7 +117,7 @@ export interface EngineSteps {
 		reason: string,
 		decidedBy: DecidedBy,
 		signal: AbortSignal,
-		known?: readonly CriterionResult[] | "failed",
+		known?: readonly CriterionResult[] | FailedVerification,
 		basisExtra?: JsonObject,
 	): Promise<StepResult>;
 	stepBack(

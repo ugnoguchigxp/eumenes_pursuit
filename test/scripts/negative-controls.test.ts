@@ -54,9 +54,17 @@ for (const kind of ["acceptance", "comparison", "os-boundary"] as const)
 			const normal = await run();
 			expect(normal.code, normal.output.slice(-2000)).toBe(0);
 			if (kind === "acceptance") {
+				const path = join(dir, "src/domains/rules/acceptance.ts");
+				const source = await readFile(path, "utf8");
+				const predicate =
+					/(?<=export function acceptancePassed\([^]*?\): boolean \{)[^]*?(?=\n\})/;
+				expect(source).toMatch(predicate);
 				await writeFile(
-					join(dir, "src/domains/rules/acceptance.ts"),
-					`import type {CriterionResult} from '../../contracts/index.ts';export function acceptancePassed(_a:readonly {id:string}[],c:readonly CriterionResult[]){return c.every(r=>r.passed)}`,
+					path,
+					source.replace(
+						predicate,
+						"\n\treturn criteria.every((c) => c.passed);",
+					),
 				);
 			} else if (kind === "comparison") {
 				const path = join(dir, "eval/analyze.ts");
