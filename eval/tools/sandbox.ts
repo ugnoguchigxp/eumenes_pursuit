@@ -39,6 +39,8 @@ export interface SandboxOptions {
 	readonly signal?: AbortSignal;
 	/** Bytes kept per stream. */
 	readonly maxOutput?: number;
+	/** Preserve program stdout for an exact output comparison. */
+	readonly rawStdout?: boolean;
 }
 
 export function bwrapArgs(options: SandboxOptions): string[] {
@@ -148,7 +150,7 @@ export async function runSandboxed(
 	return {
 		exitCode: timedOut ? null : exitCode,
 		timedOut,
-		stdout: stripAnsi(stdout),
+		stdout: options.rawStdout ? stdout : stripAnsi(stdout),
 		stderr: stripAnsi(stderr),
 		ms,
 	};

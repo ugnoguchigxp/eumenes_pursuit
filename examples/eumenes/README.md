@@ -63,4 +63,4 @@ bun examples/eumenes/run.ts api productive museum,missing artifacts/evaluator-ap
 
 各課題の `evaluation.json` に対象の識別子・ダイジェスト、指摘、根拠の位置、資料ごとの確認状態を保存します。Evaluator の `completed` は評価処理が完了した状態であり、指摘は `findings` で確認できます。エラー・取消・期限超過は実行の終了コードにも反映されます。固定試験では定型応答で入出力を検証します。実モデルでは `llm.reviewer` を使い、`summary.json` の `evaluation` に所要時間とトークン数、`usage.byRole.evaluator` に呼出回数と費用が入ります。APIには報告と引用本文が送信されます。
 
-開発用依存は eumenes-evaluator 0.1.0、アーカイブ SHA-256 `1178a3fad04b8708b9cb1f0c8dd7ece50056ab317c3f5ba6b5afa037d943b708` に固定しています。
+開発用依存は eumenes-evaluator 0.1.0（`6aec373`）、アーカイブ SHA-256 `f0dc0fd7e6821a9562c08b019224150f7fa65fb72b2d29e0e26cde63d6c6aa2d` に固定しています。

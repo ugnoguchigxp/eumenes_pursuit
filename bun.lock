@@ -11,7 +11,7 @@
         "@anthropic-ai/sdk": "0.131.0",
         "@types/bun": "1.3.14",
         "@types/node": "25.9.3",
-        "eumenes-evaluator": "./vendor/evaluator/eumenes-evaluator-0.1.0-1178a3fad04b.tgz",
+        "eumenes-evaluator": "./vendor/evaluator/eumenes-evaluator-0.1.0-6aec373bc597.tgz",
         "eumenes-steer": "./vendor/steer/eumenes-steer-0.1.0-1ca04b8bee9b.tgz",
         "katex": "0.18.2",
         "openai": "7.51.0",
@@ -112,7 +112,7 @@
 
     "commander": ["commander@8.3.0", "", {}, "sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww=="],
 
-    "eumenes-evaluator": ["eumenes-evaluator@./vendor/evaluator/eumenes-evaluator-0.1.0-1178a3fad04b.tgz", { "dependencies": { "zod": "4.6.7" } }, "sha512-pCI1maFV2Tak7uPg2Myht/BLro1tWeLbV6qQE4ulA5I8oJhTmNplKEKzIluTOQjQ/TgwgQ3dDet5SXu84KqREQ=="],
+    "eumenes-evaluator": ["eumenes-evaluator@./vendor/evaluator/eumenes-evaluator-0.1.0-6aec373bc597.tgz", { "dependencies": { "zod": "4.6.7" } }, "sha512-3Cj8Qchw3tsvQcLYRs4zCs+KVVJPGyljIma8v+/AYHSi2Q4kgxXCXxXvSDfMR+HZSliOpIYMV7PTkxDsiyQaCw=="],
 
     "eumenes-steer": ["eumenes-steer@./vendor/steer/eumenes-steer-0.1.0-1ca04b8bee9b.tgz", {}, "sha512-d3viR9CIK/qNKPBav9hR2bIY+kNl1fPyQW4a893LrkKvlA8EsUzQRH9StDWfku3QTBnNoBNjYK/lCbeCmcQHYg=="],
 
