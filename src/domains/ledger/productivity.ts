@@ -43,6 +43,8 @@ export interface ProductiveChoice {
 export interface ProductivePlan {
 	actions: PlannedAction[];
 	sequence: boolean;
+	/** A renewed strategy's leading write must settle before its other actions. */
+	waitForCheckpoint?: true;
 	finish: "completed" | "incomplete" | null;
 	reason: string;
 	cancelPending: boolean;

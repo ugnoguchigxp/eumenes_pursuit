@@ -13,12 +13,10 @@ const sources: Record<
 	string,
 	{ source: string; sha256: string; adaptations: string }
 > = {};
-for (const [file, dest] of [
-	["api/domains/pursuit/service/tools.ts", "tools.ts"],
-	["api/domains/pursuit/service/acceptance.ts", "acceptance.ts"],
-]) {
-	const original = readFileSync(join(root, file!), "utf8");
-	writeFileSync(join(out, "source-snapshot", dest! + ".txt"), original);
+{
+	const file = "api/domains/pursuit/service/tools.ts";
+	const original = readFileSync(join(root, file), "utf8");
+	writeFileSync(join(out, "source-snapshot", "tools.ts.txt"), original);
 	const code = original
 		.replaceAll('"eumenes-pursuit"', '"../../src/index.ts"')
 		.replaceAll('"eumenes-pursuit/sqlite"', '"../../src/sqlite.ts"')
@@ -29,15 +27,28 @@ for (const [file, dest] of [
 		.replaceAll('"./model"', '"./model.ts"')
 		.replaceAll('"./tools"', '"./tools.ts"');
 	writeFileSync(
-		join(out, dest!),
+		join(out, "tools.ts"),
 		"// Copied from Eumenes; import paths adapted only. See provenance.json.\n" +
 			code,
 	);
-	sources[dest!] = {
-		source: file!,
+	sources["tools.ts"] = {
+		source: file,
 		sha256: hash(original),
 		adaptations:
 			"Import bindings only; function bodies and validation preserved",
+	};
+}
+// The example owns its evidence packing and checks its own Markdown storage.
+// Refresh the upstream reference without replacing the local verifier.
+{
+	const file = "api/domains/pursuit/service/acceptance.ts";
+	const original = readFileSync(join(root, file), "utf8");
+	writeFileSync(join(out, "source-snapshot", "acceptance.ts.txt"), original);
+	sources["acceptance.ts"] = {
+		source: file,
+		sha256: hash(original),
+		adaptations:
+			"Example-owned evidence packing and verified Markdown receipt; upstream retained as reference",
 	};
 }
 const file = "api/domains/pursuit/contracts/index.ts",

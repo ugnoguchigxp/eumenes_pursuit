@@ -9,7 +9,7 @@
 		"acceptance.ts": {
 			"source": "api/domains/pursuit/service/acceptance.ts",
 			"sha256": "5a2da6cbfb3f6741ea878b1bb0c176c33f68cea5f8e33b94223bc523fb6c67c2",
-			"adaptations": "Import bindings only; function bodies and validation preserved"
+			"adaptations": "Example-owned evidence packing and verified Markdown receipt; upstream retained as reference"
 		},
 		"contracts.ts": {
 			"source": "api/domains/pursuit/contracts/index.ts",

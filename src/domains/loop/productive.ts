@@ -430,7 +430,10 @@ export function makeProductive(
 							...p,
 							actions: p.actions.slice(1),
 							owned: [...p.owned, id],
-							awaiting: p.sequence ? id : null,
+							awaiting:
+								p.sequence || (p.waitForCheckpoint && !p.owned.length)
+									? id
+									: null,
 						};
 						ledger.setProductiveState(db, v.id, {
 							...s,
@@ -901,6 +904,14 @@ export function makeProductive(
 				: null;
 		checkTime(v, signal);
 
+		const waitForCheckpoint =
+			renewal &&
+			c.renewStrategy &&
+			c.choice === "act" &&
+			tools.some(
+				(tool) =>
+					tool.name === c.actions[0]?.tool && tool.sideEffect === "workspace",
+			);
 		const recordId = ids.next("progress");
 		const next: ProductiveState = {
 			...s,
@@ -915,6 +926,9 @@ export function makeProductive(
 					? {
 							actions: reusedArtifact ? [] : c.actions,
 							sequence: finalizing || c.sequence,
+							...(waitForCheckpoint
+								? { waitForCheckpoint: true as const }
+								: {}),
 							finish:
 								c.choice === "complete"
 									? "completed"

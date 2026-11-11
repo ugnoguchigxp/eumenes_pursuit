@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { afterEach, expect, test } from "bun:test";
 import { createSteeringInbox } from "eumenes-steer";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -47,22 +47,22 @@ async function config(name: Case, extra: Partial<HostOptions> = {}) {
 	};
 }
 
-test("copied tool bodies and acceptance match Eumenes source snapshots", async () => {
-	for (const [name, marker] of [
-		["tools.ts", "const inputs"],
-		["acceptance.ts", "const grade"],
-	] as const) {
+test("upstream snapshots retain provenance and the copied tool bodies match", async () => {
+	for (const name of ["tools.ts", "acceptance.ts"] as const) {
 		const path = new URL(`../../examples/eumenes/${name}`, import.meta.url);
 		const original = await Bun.file(
 			new URL(`source-snapshot/${name}.txt`, path),
 		).text();
-		const copied = await Bun.file(path).text();
 		expect(new Bun.CryptoHasher("sha256").update(original).digest("hex")).toBe(
 			provenance.sources[name].sha256,
 		);
-		expect(copied.slice(copied.indexOf(marker)).replace(/\s/g, "")).toBe(
-			original.slice(original.indexOf(marker)).replace(/\s/g, ""),
-		);
+		if (name === "tools.ts") {
+			const copied = await Bun.file(path).text();
+			const marker = "const inputs";
+			expect(copied.slice(copied.indexOf(marker)).replace(/\s/g, "")).toBe(
+				original.slice(original.indexOf(marker)).replace(/\s/g, ""),
+			);
+		}
 	}
 });
 
@@ -921,6 +921,194 @@ test("the final verifier cannot extend a cancellation even when it ignores its s
 	}
 });
 
+test("a full strategy can checkpoint acquired evidence, renew scope, and finish", async () => {
+	const base = scripted("museum");
+	const f = fixture("museum", { lookup: 1, read: 1, stagger: 1 });
+	const extras = ["context-a", "context-b"].map((name) => ({
+		url: "https://fixture.example/" + name,
+		title: name,
+		text: "比較の対象範囲を説明する補足資料。",
+		fetchedAt: 0,
+		truncated: false,
+	}));
+	const ordered = [...extras, ...f.sources];
+	const action = (tool: string, input: object) => ({
+		tool,
+		inputJson: JSON.stringify(input),
+		text: null,
+		expectedStatus: "ok",
+		expectedObservation: "指定した資料または保存記録が得られる",
+		whatChanged: "比較に必要な根拠を取得または保存する",
+		refutedIf: "対象が異なるか記録がない",
+	});
+	const { events, options } = await config("museum", {
+		markdownDelayMs: 30,
+		async web(request, signal) {
+			const extra = extras.find(
+				({ url }) => url === (request.arguments as { url?: string }).url,
+			);
+			return extra
+				? { state: "finished", hits: [], documents: [extra], failures: [] }
+				: f.web(request, signal);
+		},
+		generator: {
+			async complete(request, signal) {
+				const response = await base.complete(request, signal);
+				if (request.purpose !== "propose") return response;
+				const packet = JSON.parse(request.prompt);
+				const state = JSON.parse(packet.state.split("\n\n").at(-1));
+				const choice = response.value as Record<string, unknown>;
+				if (state.pending.length) return response;
+				const source = ordered[packet.sources.length];
+				if (!source)
+					return {
+						...response,
+						value: request.schema.parse({ ...choice, choice: "complete" }),
+					};
+				const renewing = state.choiceViolations.includes("hypothesis_budget");
+				const actions = [action("web_read", { url: source.url })];
+				const hypothesis = {
+					body: "次の資料を照合する",
+					expected: "指定本文を確認できる",
+					targets: [source.url],
+				};
+				if (packet.sources.length === 3)
+					expect(state.remainingHypothesisRenewals).toBe(0);
+				if (renewing) {
+					expect(state.remainingStrategyRenewals).toBeGreaterThan(0);
+					expect(state.attemptsPerNewHypothesis).toBeGreaterThanOrEqual(2);
+					const known = f.sources[0]!;
+					const reference = packet.sources.find(
+						(d: { url: string }) => d.url === known.url,
+					);
+					actions.unshift(
+						action("report_draft", {
+							completion: "incomplete",
+							title: "資料比較",
+							answer: known.text + " " + known.url,
+							summary: "施設Aを確認済み",
+							claims: [
+								{
+									text: known.text,
+									status: "verified",
+									evidence: [reference.evidence],
+								},
+							],
+							limitations: ["施設Bは未確認"],
+							stopReason: "残る本文の取得前に根拠を保存",
+						}),
+					);
+				}
+				return {
+					...response,
+					value: request.schema.parse({
+						...choice,
+						choice: "act",
+						actions,
+						sequence: false,
+						waitAfterDispatch: true,
+						renewHypothesis: hypothesis,
+						renewStrategy: renewing
+							? {
+									body: "確定した比較条件を保存し、未確認資料を照合する",
+									rationale: "既存方針は仮説数の上限に達した",
+									parts: ["本文取得と比較"],
+									alternatives: [],
+								}
+							: null,
+					}),
+				};
+			},
+		},
+	});
+	const host = await openExample(options);
+	try {
+		const { view } = await host.drive();
+		expect(view.status).toBe("completed");
+		expect(view.strategies).toHaveLength(2);
+		expect(
+			view.hypotheses.filter((h) => h.strategyId === view.strategies[0]?.id),
+		).toHaveLength(4);
+		expect(
+			view.progress
+				?.find((p) => p.choice.renewStrategy)
+				?.choice.actions.map((a) => a.tool),
+		).toEqual(["report_draft", "web_read"]);
+		const checkpoint = view.attempts.find((a) => a.tool === "report_draft")!;
+		expect(checkpoint.input).toMatchObject({
+			completion: "incomplete",
+			claims: [
+				{ text: f.sources[0]!.text, status: "verified", evidence: ["e3"] },
+			],
+		});
+		const nextRead = view.attempts.find((a) => a.seq === checkpoint.seq + 1)!;
+		expect(nextRead.input).toEqual({ url: f.sources[1]!.url });
+		const readJob = events.find(
+			(event) =>
+				event.kind === "tool_adopted" && event.attemptId === nextRead.id,
+		);
+		const saved = events.findIndex(
+			(event) =>
+				event.kind === "tool_adopted" && event.attemptId === checkpoint.id,
+		);
+		const finalRead = events.findIndex(
+			(event) => event.kind === "job_started" && event.id === readJob?.id,
+		);
+		expect(saved).toBeGreaterThanOrEqual(0);
+		expect(finalRead).toBeGreaterThan(saved);
+	} finally {
+		await host.close();
+	}
+});
+
+test("the final grade checks the current Markdown bytes and rejects a corrupt artifact", async () => {
+	const base = scripted("museum");
+	const gradePackets: unknown[] = [];
+	const { events, options } = await config("museum", {
+		generator: {
+			async complete(request, signal) {
+				if (request.purpose === "grade")
+					gradePackets.push(
+						JSON.parse(JSON.parse(request.prompt).state).markdownSave,
+					);
+				return base.complete(request, signal);
+			},
+		},
+	});
+	const host = await openExample(options);
+	const signal = new AbortController().signal;
+	try {
+		const paused = await host.drive(signal, () =>
+			events.some(
+				(event) => event.kind === "tool_adopted" && event.job === "markdown",
+			),
+		);
+		expect(paused.paused).toBe(true);
+		const saved = events.find((event) => event.kind === "markdown_saved")!;
+		const original = await host.runtime.acceptance.verify(signal);
+		expect(
+			original.find((criterion) => criterion.id === "answer")?.passed,
+		).toBe(true);
+		expect(gradePackets[0]).toMatchObject({
+			attempt: paused.view.attempts.at(-1)?.seq,
+			mediaType: "text/markdown",
+			bytes: saved.bytes,
+			sha256: saved.hash,
+		});
+		const staged = join(options.directory, "private", saved.id + ".md");
+		const file = await readFile(staged);
+		file[0] = file[0]! ^ 1;
+		await writeFile(staged, file);
+		const corrupted = await host.runtime.acceptance.verify(signal);
+		expect(
+			corrupted.find((criterion) => criterion.id === "answer")?.passed,
+		).toBe(false);
+		expect(gradePackets[1]).toBeNull();
+	} finally {
+		await host.close();
+	}
+});
+
 test("restart does not repeat an external call of unknown outcome or lose an accepted receipt", async () => {
 	const f = fixture("museum", { lookup: 10, read: 15, stagger: 100 });
 	const base = scripted("museum");
@@ -1181,6 +1369,18 @@ test("conflicting records beyond the Web preview are checked against both stored
 		generator: {
 			async complete(request, signal) {
 				const response = await base.complete(request, signal);
+				if (request.purpose === "grade") {
+					const { evidence } = JSON.parse(JSON.parse(request.prompt).state) as {
+						evidence: { url: string; excerpts: unknown[] }[];
+					};
+					for (const source of f.sources.slice(1)) {
+						expect(
+							evidence.find((item) => item.url === source.url)?.excerpts,
+						).toEqual([
+							{ start: 0, text: padding + source.text, clipped: false },
+						]);
+					}
+				}
 				if (request.purpose !== "propose") return response;
 				const v = response.value as {
 					choice: string;

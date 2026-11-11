@@ -105,6 +105,7 @@ export async function openExample(options: HostOptions) {
 		throw new Error("example_invalid_steering_budget");
 	const directory = resolve(options.directory);
 	await mkdir(join(directory, "private"), { recursive: true });
+	const staged = (jobId: string) => join(directory, "private", jobId + ".md");
 	const database = join(directory, "example.sqlite");
 	const raw = openStore(database, options.baseline?.migrations ?? migrations);
 	const reader = new Database(database, { readonly: true, strict: true });
@@ -257,7 +258,16 @@ export async function openExample(options: HostOptions) {
 		);
 	const runtime = {
 		workspace: copied.workspace,
-		acceptance: acceptance(ctx, run, epoch, reviewer),
+		acceptance: acceptance(ctx, run, epoch, reviewer, (db, attemptId) => {
+			const job = db
+				.query<{ id: string; result: string }, [string]>(
+					"SELECT id,result FROM example_jobs WHERE kind='markdown' AND attempt_id=? AND state IN ('ready','adopted') AND result IS NOT NULL",
+				)
+				.get(attemptId);
+			return job
+				? { path: staged(job.id), receipt: JSON.parse(job.result) }
+				: null;
+		}),
 		tools: {
 			...copied.tools,
 			list: () =>
@@ -369,7 +379,6 @@ export async function openExample(options: HostOptions) {
 		);
 	const active = new Map<string, Promise<void>>();
 	const lifecycle = new AbortController();
-	const staged = (job: Job) => join(directory, "private", job.id + ".md");
 	const deadline = store.readSnapshot((db) => rowOf(db, run)!.deadline);
 	const closeJob = (db: Database, job: Job, status: "adopted" | "abandoned") =>
 		db
@@ -425,10 +434,10 @@ export async function openExample(options: HostOptions) {
 				const writer = localMarkdown(
 					{
 						async put(item) {
-							const tmp = staged(job) + ".tmp";
+							const tmp = staged(job.id) + ".tmp";
 							await writeFile(tmp, item.data, { signal });
 							signal.throwIfAborted();
-							await rename(tmp, staged(job));
+							await rename(tmp, staged(job.id));
 							return { id: item.id };
 						},
 					},
@@ -547,7 +556,7 @@ export async function openExample(options: HostOptions) {
 					if (r.error) throw new Error(r.error);
 					const draft = researchDocumentDraft.parse(JSON.parse(job.input));
 					if (
-						hash(await Bun.file(staged(job)).text()) !== r.hash ||
+						hash(await Bun.file(staged(job.id)).text()) !== r.hash ||
 						hash(draft.answer) !== r.hash
 					)
 						throw new Error("markdown_receipt_mismatch");

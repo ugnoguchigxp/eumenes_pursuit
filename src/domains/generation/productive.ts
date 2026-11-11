@@ -119,7 +119,9 @@ Select one:
 - complete/partial: request conditional finalization in the same decision that provides the finished content. Fit the plan within remainingAttemptSlots and the hypothesis budget. Use sequence=true for multiple actions such as save then read-back. If only one slot remains and a partial answer needs saving, return just the save. The host waits for the receipt and independently verifies the actual saved artifact without another controller turn. Choose partial when a required source is unavailable and no permitted useful route remains, retaining supported facts, conflicts and missing requirements. If the saved content is suitable and savedReadBack confirms it is current, return actions=[] and renew neither hypothesis nor strategy. Put a new stopping explanation in reason. Rewording alone does not warrant another save. Unknowns expressly allowed by the request do not block completion.
 - consult: only for information/permission/a decision the user can supply; explain precisely what changes. Do not repeat an answered question without new evidence.
 When progress is none/blocked, an act must be an executable alternative (route=alternative) or an actual checkpoint/verification. Never return an abstract continue or step-back. If an alternative made no progress, another neutral alternative is not advancement. Either establish a substantive new constraint, evidence or conclusion that opens a route, or save the partial result and finish/consult. An identical operation under unchanged conditions does not open a route. If a prior choice was refused, correct the listed contract violations and choose a different viable action, wait for actual pending results, or save a supported partial result; do not submit the same choice.
-If the current hypothesis has no remaining attempts but concrete useful work exists, explicitly renew it (and, only when necessary, the strategy) with a new testable claim and expected contribution within the original budgets. Do not renew merely to evade failure or lack of progress. No tools are executed by renaming scope. For unused fields return null/empty arrays/empty strings/false. Echo basis exactly. Write free text in Japanese.`;
+Before proposing actions, check how many fit in remainingHypothesisAttempts. If useful work requires a new hypothesis, use renewHypothesis with a testable claim for the next concrete actions. If remainingHypothesisRenewals is 0, an in-strategy renewal is unavailable: when remainingStrategyRenewals permits it, return BOTH renewStrategy and renewHypothesis in the same decision. If hypothesis_budget is listed in choiceViolations, use this same rule to repair the rejected choice. Check attemptsPerNewHypothesis and remainingAttemptSlots for the entire new plan.
+At a strategy boundary with a viable route, carry forward verified findings and remaining requirements. If they add substantive content to a stale report, use the available save tool as the first action of the renewed plan. The host waits for this save's receipt before dispatching the rest of the plan. Keep the remaining actions in parallel if independent; use sequence=true if they depend on one another. You can also save alone and continue from its receipt. If a write is pending, wait for it before renewing. If no useful route remains, retain supported findings in a partial result. Renew only for concrete work that advances the original goal.
+For unused fields return null/empty arrays/empty strings/false. Echo basis exactly. Write free text in Japanese.`;
 
 export function productiveRequest(
 	view: PursuitView,
@@ -131,6 +133,10 @@ export function productiveRequest(
 	const hypothesis = view.hypotheses.find(
 		(h) => h.id === view.currentHypothesisId,
 	);
+	const { budget } = view.input.policy;
+	const hypothesesInStrategy = view.hypotheses.filter(
+		(h) => h.strategyId === view.currentStrategyId,
+	).length;
 	const attemptsInHypothesis = budgetCounted(
 		view,
 		view.attempts.filter((a) => a.hypothesisId === hypothesis?.id),
@@ -196,9 +202,18 @@ export function productiveRequest(
 				),
 				currentHypothesis: hypothesis,
 				strategiesUsed: view.strategies.length,
-				hypothesesInStrategy: view.hypotheses.filter(
-					(h) => h.strategyId === view.currentStrategyId,
-				).length,
+				hypothesesInStrategy,
+				remainingHypothesisRenewals: Math.max(
+					0,
+					budget.hypothesesPerStrategy - hypothesesInStrategy,
+				),
+				remainingStrategyRenewals: Math.max(
+					0,
+					budget.strategies - view.strategies.length,
+				),
+				attemptsPerNewHypothesis: view.input.conditions.rules
+					? budget.attemptsPerHypothesis
+					: budget.attempts,
 				attemptsInHypothesis,
 				remainingHypothesisAttempts: hypothesis
 					? Math.max(0, hypothesis.budget - attemptsInHypothesis)
