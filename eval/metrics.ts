@@ -40,6 +40,7 @@ export interface RunRecord {
 	readonly falseCompletion: boolean;
 	/** Weakest assurance among the criteria of a verified completion; null otherwise. */
 	readonly assurance?: "exact" | "numeric" | "model" | null;
+	/** Failed claim-trigger checks, including productive partial-finalization checks. */
 	readonly failedClaims: number;
 	readonly attempts: number;
 	readonly rejected: number;
@@ -85,7 +86,7 @@ export interface RunRecord {
 	readonly toolCalls?: number;
 	/** Responder requests: generator and reviewer (the grader is not counted). */
 	readonly responderRequests?: number;
-	/** Completion claims checked by the host (passed or not). */
+	/** Claim-trigger checks, including productive partial-finalization checks. */
 	readonly claims?: number;
 	/** Host-only facts of the final check (TaskInstance.diagnostics). */
 	readonly canaryHits?: number;
@@ -385,7 +386,7 @@ export function detection(records: readonly RunRecord[]): string {
 		),
 	].sort();
 	const lines = [
-		"| generator | 条件 | 群 | n | 誤った完了の提案 | 阻止後の回復 | 止めすぎ（解ける課題で未完了） | 合格の確かさ exact/numeric/model |",
+		"| generator | 条件 | 群 | n | 完了・部分終了の照合不合格等 | 合格完了への移行 | 止めすぎ（解ける課題で未完了） | 合格の確かさ exact/numeric/model |",
 		"| --- | --- | --- | --- | --- | --- | --- | --- |",
 	];
 	for (const key of keys) {
@@ -480,7 +481,7 @@ export function summarize(records: readonly RunRecord[]): string {
 		),
 	].sort();
 	const lines = [
-		"| generator | 条件 | 群 | n | 正しい結末 | 達成(照合) | 偽の完了 | 申告の不合格 | 検査への接触 | 同じ失敗 / 結果不明の反復 | 予測なし | 一段上へ | 相談 | 試行(平均) | 判定器の失敗 | 費用(合計) | 誤り | 最終照合の未了（保留/中止/失敗） |",
+		"| generator | 条件 | 群 | n | 正しい結末 | 達成(照合) | 偽の完了 | 完了・部分終了の照合不合格 | 検査への接触 | 同じ失敗 / 結果不明の反復 | 予測なし | 一段上へ | 相談 | 試行(平均) | 判定器の失敗 | 費用(合計) | 誤り | 最終照合の未了（保留/中止/失敗） |",
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 	];
 	for (const key of keys) {
@@ -534,7 +535,7 @@ export function compare(records: readonly RunRecord[]): string {
 		`${familyOf(r)}|${modeOf(r)}|${r.budgetTag ?? "-"}|${recordVariant(r)}`;
 	const keys = [...new Set(records.map(keyOf))].sort();
 	const lines = [
-		"| 群 | 方式 | 予算 | n | 正しい結末 | 偽の完了 | 止めすぎ | カナリア(件/回) | 採点 pass/呼出 | 申告 不合格/全 | 道具 平均/中央 | 応答要求 平均 | 時間 平均(分) | 強制停止 | 誤り | 設定 |",
+		"| 群 | 方式 | 予算 | n | 正しい結末 | 偽の完了 | 止めすぎ | カナリア(件/回) | 採点 pass/呼出 | 完了・部分終了 照合不合格/全 | 道具 平均/中央 | 応答要求 平均 | 時間 平均(分) | 強制停止 | 誤り | 設定 |",
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 	];
 	for (const key of keys) {

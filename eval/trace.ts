@@ -1,21 +1,48 @@
-/** Print one pursuit's course from the ledger: bun eval/trace.ts <run> [pursuitId|task] */
+/** Print pursuit history from a benchmark run or an existing host ledger. */
+import { Database } from "bun:sqlite";
 import { resolve } from "node:path";
+import { parseArgs } from "node:util";
+import type { LedgerDb } from "../src/contracts/index.ts";
 import { listPursuitIds, loadPursuit, migrations } from "../src/sqlite.ts";
 import { openStore } from "../standalone/store.ts";
 
-const [run, filter] = process.argv.slice(2);
-if (!run) throw new Error("usage: bun eval/trace.ts <run> [pursuitId|task]");
-const store = openStore(
-	resolve(import.meta.dir, "results", run, "ledger.sqlite"),
-	migrations,
-);
+const { positionals, values } = parseArgs({
+	allowPositionals: true,
+	options: { ledger: { type: "string" } },
+});
+const [run, filter] = values.ledger ? [null, positionals[0]] : positionals;
+if ((!run && !values.ledger) || positionals.length > (values.ledger ? 1 : 2))
+	throw new Error(
+		"usage: bun eval/trace.ts <run> [pursuitId|task] | --ledger <path> [pursuitId|task]",
+	);
+const load = (db: LedgerDb) =>
+	listPursuitIds(db)
+		.map((id) => loadPursuit(db, id)!)
+		.filter((v) => !filter || v.id === filter || v.input.label === filter);
+async function loadViews() {
+	if (values.ledger) {
+		const db = new Database(resolve(values.ledger), {
+			readonly: true,
+			strict: true,
+		});
+		try {
+			return db.transaction(() => load(db)).deferred();
+		} finally {
+			db.close();
+		}
+	}
+	const store = openStore(
+		resolve(import.meta.dir, "results", run!, "ledger.sqlite"),
+		migrations,
+	);
+	try {
+		return await store.readSnapshot(load);
+	} finally {
+		store.close();
+	}
+}
 const clip = (s: string, n = 160) => (s.length > n ? `${s.slice(0, n)}…` : s);
-const views = await store.readSnapshot((db) =>
-	listPursuitIds(db).map((id) => loadPursuit(db, id)!),
-);
-for (const v of views.filter(
-	(v) => !filter || v.id === filter || v.input.label === filter,
-)) {
+for (const v of await loadViews()) {
 	console.log(
 		`\n=== ${v.input.label} ${v.id} → ${v.status} ${v.report ? `verified=${v.report.verified} 「${clip(v.report.reason)}」` : ""}`,
 	);
@@ -70,6 +97,28 @@ for (const v of views.filter(
 		console.log(
 			`判断${d.seq}: ${d.kind} by ${d.decidedBy} 「${clip(d.reason, 120)}」 ${clip(JSON.stringify(d.basis), 160)}`,
 		);
+	for (const p of v.progress ?? []) {
+		const { verdict, choice } = p;
+		const attempts = (seqs: readonly number[]) =>
+			seqs.map((seq) => `#${seq}`).join(",") || "-";
+		console.log(
+			`進展 ${p.id} [${p.assurance}/${p.status ?? "記録済み"}] ${verdict.kind} → ${choice.choice}/${choice.route}`,
+		);
+		console.log(
+			`  評価した試行: ${attempts(verdict.assessed)} / 根拠: ${attempts(verdict.evidence)} / 条件: ${verdict.criteria.join(",") || "-"}`,
+		);
+		console.log(
+			`  変化: ${clip(verdict.change)} / 判断理由: ${clip(choice.reason)}`,
+		);
+		if (p.reusedArtifact)
+			console.log(
+				`  再利用した保存・読戻し: ${attempts([p.reusedArtifact.write, p.reusedArtifact.readBack])}`,
+			);
+	}
+	for (const check of v.verifications)
+		console.log(
+			`照合 ${check.trigger} ${check.passed ? "合格" : "不合格"}: ${check.criteria.map((c) => `${c.id}=${c.passed ? "合格" : "不合格"}(${c.assurance ?? "exact"})`).join(", ")}`,
+		);
 	for (const q of v.consultations)
 		console.log(
 			`相談: ${clip(q.question, 120)} → ${clip(q.answer ?? "未回答", 80)}`,
@@ -84,4 +133,3 @@ for (const v of views.filter(
 		`推論: LLM ${inf.filter((i) => !i.purpose.startsWith("judge")).length}回 / d1 ${inf.filter((i) => i.purpose.startsWith("judge")).length}回 平均${Math.round(inf.filter((i) => i.purpose.startsWith("judge")).reduce((s, i) => s + i.latencyMs, 0) / Math.max(1, inf.filter((i) => i.purpose.startsWith("judge")).length))}ms`,
 	);
 }
-store.close();

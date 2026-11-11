@@ -26,7 +26,20 @@ import { documentName } from "./document-name.ts";
 import { hash } from "./hash.ts";
 import { localMarkdown } from "./markdown-write.ts";
 import { model, type Log } from "./model.ts";
-import { documents, rowOf, stateOf, type State } from "./repository.ts";
+import {
+	documents,
+	rowOf,
+	save,
+	stateOf,
+	type Row,
+	type State,
+} from "./repository.ts";
+import {
+	prepareSteering,
+	SteeringReferenceRevoked,
+	type SteeringOptions,
+	type SteeringReference,
+} from "./steering.ts";
 import { researchTools } from "./tools.ts";
 import instructions from "./instructions.json";
 import policy from "./policy.json";
@@ -54,6 +67,7 @@ export interface HostOptions {
 	log?: Log;
 	wallMs?: number;
 	markdownDelayMs?: number;
+	steering?: SteeringOptions;
 	limits?: State["limits"];
 	baseline?: {
 		create: typeof createPursuitEngine;
@@ -80,6 +94,15 @@ CREATE TABLE IF NOT EXISTS example_config(fingerprint TEXT PRIMARY KEY);
 `;
 
 export async function openExample(options: HostOptions) {
+	const steer = options.steering;
+	if (steer && (options.execution !== "productive" || options.baseline))
+		throw new Error("example_steering_requires_productive");
+	if (
+		steer &&
+		(!Number.isSafeInteger(steer.maxSupplementBytes) ||
+			steer.maxSupplementBytes < 0)
+	)
+		throw new Error("example_invalid_steering_budget");
 	const directory = resolve(options.directory);
 	await mkdir(join(directory, "private"), { recursive: true });
 	const database = join(directory, "example.sqlite");
@@ -122,6 +145,26 @@ export async function openExample(options: HostOptions) {
 			raw.write((db) => op(db as Database) as never) as Promise<T>,
 		readSnapshot: (op) => reader.transaction(() => op(reader)).deferred(),
 	};
+	function validateSteering(
+		db: Database,
+		row: Row,
+		extra: readonly SteeringReference[] = [],
+	) {
+		const state = stateOf(row);
+		if (state.steeringRevoked) throw new SteeringReferenceRevoked();
+		const refs = [...(state.steeringReferences ?? []), ...extra];
+		if (state.references.length + refs.length > 32)
+			throw new SteeringReferenceRevoked();
+		for (const ref of refs) {
+			try {
+				if (row.core_id && steer?.resolve(db, row.core_id, ref) != null)
+					continue;
+			} catch {
+				// A saved decision can only be used while its sources can be checked.
+			}
+			throw new SteeringReferenceRevoked();
+		}
+	}
 	const put = (
 		db: Database,
 		jobId: string,
@@ -136,6 +179,7 @@ export async function openExample(options: HostOptions) {
 		store,
 		now: Date.now,
 		id,
+		validateSteering,
 		web: {
 			startInTransaction(db, input) {
 				put(db, input.requestId, input.kind, input, null);
@@ -237,10 +281,19 @@ export async function openExample(options: HostOptions) {
 			}) as NonNullable<typeof copied.tools.deferInTransaction>,
 		},
 	};
+	let cancellingRevoked = false;
 	const engine: PursuitEngine = (
 		options.baseline?.create ?? createPursuitEngine
 	)({
-		store: raw,
+		store: {
+			...raw,
+			write: (op) =>
+				raw.write((db) => {
+					if (!cancellingRevoked)
+						validateSteering(db as Database, rowOf(db as Database, run)!);
+					return op(db) as never;
+				}),
+		},
 		clock: { now: Date.now },
 		ids: { next: (prefix) => prefix + "_" + id() },
 		generator: gen,
@@ -288,6 +341,23 @@ export async function openExample(options: HostOptions) {
 	await store.write((db) =>
 		db.query("UPDATE pursuit_runs SET core_id=? WHERE id=?").run(coreId, run),
 	);
+	const initialRow = store.readSnapshot((db) => rowOf(db, run)!);
+	const scope =
+		steer &&
+		!initialRow.closed &&
+		Date.now() < initialRow.deadline &&
+		!terminalStatuses.includes((await engine.view(coreId))!.status)
+			? { targetId: `pursuit:${coreId}`, generation: id() }
+			: null;
+	const opened = scope
+		? steer!.inbox.open(scope.targetId, scope.generation)
+		: null;
+	if (opened && opened.status !== "opened") {
+		reader.close();
+		raw.close();
+		throw new Error(`example_steering_${opened.status}`);
+	}
+	const steeringTarget = opened?.target;
 	const jobs = () =>
 		store.readSnapshot(
 			(db) =>
@@ -320,12 +390,34 @@ export async function openExample(options: HostOptions) {
 		const started = performance.now();
 		log({ kind: "job_started", job: job.kind, id: job.id });
 		let result: unknown;
+		let steeringReferences: readonly SteeringReference[] = [];
 		try {
 			if (job.kind === "decision") {
-				result = await reviewer.complete(
-					await engine.decisionRequest(coreId, job.id),
-					signal,
-				);
+				const { steeringReferences: refs, ...response } =
+					await reviewer.complete(
+						await engine.decisionRequest(coreId, job.id),
+						signal,
+						steer && steeringTarget
+							? () =>
+									store.readSnapshot((db) => {
+										const row = current(ctx, db, run, epoch);
+										const state = stateOf(row);
+										const presented = state.steeringReferences ?? [];
+										return prepareSteering({
+											target: steeringTarget,
+											boundaryId: job.id,
+											now: ctx.now,
+											resolve: (ref) => steer.resolve(db, coreId, ref),
+											presented,
+											remainingReferences:
+												32 - state.references.length - presented.length,
+											maxSupplementBytes: steer.maxSupplementBytes,
+										});
+									})
+							: undefined,
+					);
+				steeringReferences = refs ?? [];
+				result = response;
 			} else if (job.kind === "markdown") {
 				const draft = researchDocumentDraft.parse(JSON.parse(job.input));
 				if (options.markdownDelayMs)
@@ -380,13 +472,29 @@ export async function openExample(options: HostOptions) {
 				lifecycle.signal.aborted
 			)
 				return false;
-			return (
+			let steeringState: State | undefined;
+			if (job.kind === "decision" && steeringReferences.length) {
+				steeringState = stateOf(row);
+				try {
+					validateSteering(db, row, steeringReferences);
+					steeringState.steeringReferences = [
+						...(steeringState.steeringReferences ?? []),
+						...steeringReferences,
+					];
+				} catch (error) {
+					if (!(error instanceof SteeringReferenceRevoked)) throw error;
+					steeringState.steeringRevoked = true;
+					result = { error: error.message };
+				}
+			}
+			const saved =
 				db
 					.query(
 						"UPDATE example_jobs SET state='ready',result=? WHERE id=? AND state='running'",
 					)
-					.run(JSON.stringify(result), job.id).changes === 1
-			);
+					.run(JSON.stringify(result), job.id).changes === 1;
+			if (saved && steeringState) save(db, row, steeringState, ctx.now());
+			return saved;
 		});
 		log({
 			kind: saved ? "job_ready" : "late_job_ignored",
@@ -586,22 +694,23 @@ export async function openExample(options: HostOptions) {
 					view.status === "awaiting_consultation"
 				)
 					break;
-				if (workerSignal.aborted) {
-					await engine.cancel(
-						coreId,
-						signal.aborted ? "検証を取り消しました" : "期限に達しました",
-						runtime,
-						workerSignal,
-					);
-					break;
-				}
-				const ready = jobs()
-					.filter((j) => j.state === "ready")
-					.sort(
-						(a, b) =>
-							Number(a.kind === "decision") - Number(b.kind === "decision"),
-					)[0];
 				try {
+					store.readSnapshot((db) => validateSteering(db, rowOf(db, run)!));
+					if (workerSignal.aborted) {
+						await engine.cancel(
+							coreId,
+							signal.aborted ? "検証を取り消しました" : "期限に達しました",
+							runtime,
+							workerSignal,
+						);
+						break;
+					}
+					const ready = jobs()
+						.filter((j) => j.state === "ready")
+						.sort(
+							(a, b) =>
+								Number(a.kind === "decision") - Number(b.kind === "decision"),
+						)[0];
 					if (ready) step = await adopt(ready, workerSignal);
 					else if (!step || (step.workReady ?? !step.pendingTool))
 						step = await engine.step(coreId, runtime, workerSignal);
@@ -615,6 +724,30 @@ export async function openExample(options: HostOptions) {
 						continue;
 					}
 				} catch (error) {
+					if (error instanceof SteeringReferenceRevoked) {
+						lifecycle.abort(error);
+						await store.write((db) => {
+							const row = rowOf(db, run)!;
+							save(
+								db,
+								row,
+								{ ...stateOf(row), steeringRevoked: true },
+								ctx.now(),
+							);
+						});
+						cancellingRevoked = true;
+						try {
+							await engine.cancel(
+								coreId,
+								error.message,
+								runtime,
+								lifecycle.signal,
+							);
+						} finally {
+							cancellingRevoked = false;
+						}
+						break;
+					}
 					if (!workerSignal.aborted) throw error;
 					await engine.cancel(
 						coreId,
@@ -649,7 +782,22 @@ export async function openExample(options: HostOptions) {
 		const view = (await engine.view(coreId))!;
 		let markdown: string | null = null;
 		if (terminalStatuses.includes(view.status)) {
-			if (view.report?.verificationIssue && !workerSignal.aborted) {
+			steeringTarget?.close();
+			const referencesCurrent = () =>
+				store.readSnapshot((db) => {
+					try {
+						validateSteering(db, rowOf(db, run)!);
+						return true;
+					} catch (error) {
+						if (!(error instanceof SteeringReferenceRevoked)) throw error;
+						return false;
+					}
+				});
+			if (
+				referencesCurrent() &&
+				view.report?.verificationIssue &&
+				!workerSignal.aborted
+			) {
 				await engine.reverify(coreId, runtime, workerSignal);
 			}
 			await store.write((db) => {
@@ -661,6 +809,7 @@ export async function openExample(options: HostOptions) {
 			const latest = store.readSnapshot((db) => stateOf(rowOf(db, run)!).draft);
 			if (
 				latest &&
+				referencesCurrent() &&
 				"title" in latest &&
 				typeof latest.title === "string" &&
 				!signal.aborted
@@ -681,6 +830,7 @@ export async function openExample(options: HostOptions) {
 		return { view: (await engine.view(coreId))!, paused: false, markdown };
 	}
 	return {
+		steeringTarget: scope,
 		drive,
 		engine,
 		coreId,
@@ -692,6 +842,7 @@ export async function openExample(options: HostOptions) {
 				documents: documents(db, rowOf(db, run)!),
 			})),
 		async close() {
+			steeringTarget?.close();
 			lifecycle.abort();
 			await Promise.allSettled(active.values());
 			reader.close();

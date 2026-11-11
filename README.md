@@ -110,6 +110,8 @@ bun standalone/cli.ts spend reconcile <call-id> <USD> <operator> upper_bound '<d
 
 `--conditions D0,E1R,AUTO` で、直接解法・追求・LLMによる方式選択を比較できます。AUTOは開始時に目標・道具・モデル・予算を見てD0/E1Rを選び、判断理由を記録します。選択の費用・時間・要求数も予算に含みます。`--selection-evidence <file>` は比較の観測記録を選択役へ渡す任意の資料です。課題名やモデル名による選択規則はありません。
 
+`--conditions D0,E1R,productive` では、直接解法、振り返り付きの追求、進展評価付きの追求を同じ課題・道具・受入検証で比較できます。この3条件はLARMなしで実行でき、`productive` の判断には設定済みのreviewerを使います。評価実行器は判断と道具を順次処理します。ホスト上の非同期実行や待機の検証には [Eumenesエミュレータ](examples/eumenes/README.md) を使います。
+
 `--advisor` は設定の `llm.strong` を上位レビューの道具として貸します。呼ぶかどうかはLLMが判断します。直接解法にも同じ道具を貸し、費用はadvisorとして計測します。追求では既存の保留道具の仕組みで予約・結果を永続化します。`--pause-on-advice` または `--pause-after-tools N` で対応課題を保留し、同じ実行引数に `--resume` を加えると、追求ID・作業領域・費用scopeを維持して再開します。設定・ソースが違う場合は再開を拒否します。送出済みで結果不明のレビューは自動再送しません。直接解法の途中再開には対応していません。
 
 `hz12-study-cache` と `hz12-study-scheduler` は唯一の正解を持たない調査課題です。実験から費用・処理量・公平性のトレードオフを調べ、未確定の結論も報告できます。受入検査は引用した実験の出典と数値を照合し、自由記述の品質や最適性は保証しません。2題の小規模比較の範囲は [検証計画](spec/adaptive-study-2026-11-07.md) を参照してください。
@@ -128,6 +130,7 @@ bun eval/analyze.ts base                # 失敗の傾向（止まり方・落�
 bun eval/analyze.ts math --depth        # 照合の通過（95% 区間）・部分点・深さ
 bun eval/analyze.ts math --strategies   # 追求ごとの方針の一覧
 bun eval/trace.ts base <task>           # 一つの追求の経緯
+bun eval/trace.ts --ledger /path/to/example.sqlite  # 既存の台帳を読み取り専用で確認
 
 # 追求と直接解法の比較（ablation-1。実行ごとに別の名前）
 bun eval/main.ts run --name abl1-direct-r1 --conditions D0 --policy config/policy.v5.json ...

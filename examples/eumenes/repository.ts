@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { ResearchDraft } from "./contracts.ts";
+import type { SteeringReference } from "./steering.ts";
 
 export interface Reference {
 	ref: string;
@@ -12,6 +13,8 @@ export interface State {
 	request: string;
 	instructions: string;
 	references: Reference[];
+	steeringReferences?: SteeringReference[];
+	steeringRevoked?: true;
 	saveDocument: boolean;
 	draft: ResearchDraft | null;
 	snapshots: Record<string, ResearchDraft | null>;

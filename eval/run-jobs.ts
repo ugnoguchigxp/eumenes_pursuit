@@ -2,6 +2,7 @@ import { verificationEvidence } from "./efficiency.ts";
 import { remainingWallMs } from "../src/domains/rules/checks.ts";
 import { deadlineSignal } from "../standalone/deadline.ts";
 import { createAdvisor } from "../standalone/advisor.ts";
+import { findPursuitByOperation } from "../src/sqlite.ts";
 import {
 	readCheckpoint,
 	writeCheckpoint,
@@ -36,6 +37,7 @@ import {
 	type LlmPort,
 	type Policy,
 	type PursuitEngine,
+	type StepResult,
 } from "../src/index.ts";
 import { conditionsFor, type ConditionName } from "./conditions.ts";
 import type { EvalTask, ToolTier } from "./contracts.ts";
@@ -265,6 +267,7 @@ export async function executeJobs(session: JobSession): Promise<void> {
 			key: checkpointKey,
 			configId,
 			pursuitId: "",
+			stepsStarted: 0,
 			directory,
 			started,
 			scope,
@@ -441,29 +444,34 @@ export async function executeJobs(session: JobSession): Promise<void> {
 		let pursuitId = checkpoint.pursuitId;
 		let error: string | null = null;
 		try {
-			const startedPursuit = pursuitId
-				? { pursuitId, replayed: false }
-				: await engine.start(
-						{
-							goal,
-							acceptance: task.acceptance,
-							grant: [...task.grant, ...(advisor ? ["pursuit.advice"] : [])],
-							policy: executionPolicy,
-							conditions: conditionsFor(
-								selectedCondition as Exclude<ConditionName, "D0">,
-								conditionFlags,
-							),
-							goalRef: null,
-							label: task.id,
-							...(experience.length ? { experience } : {}),
-						},
-						// A fresh job starts once; --resume retains the saved pursuit and scope.
-						`${values.name}:${label}:${crypto.randomUUID()}`,
-					);
-			if (startedPursuit.replayed) throw new Error("unexpected_replay");
-			pursuitId = startedPursuit.pursuitId;
+			const operationKey = `eval-start:${scope.jobId}`;
+			if (saved && !pursuitId)
+				pursuitId =
+					(await store.readSnapshot((db) =>
+						findPursuitByOperation(db, operationKey),
+					)) ?? "";
+			pursuitId ||= (
+				await engine.start(
+					{
+						goal,
+						acceptance: task.acceptance,
+						grant: [...task.grant, ...(advisor ? ["pursuit.advice"] : [])],
+						policy: executionPolicy,
+						conditions: conditionsFor(
+							selectedCondition as Exclude<ConditionName, "D0">,
+							conditionFlags,
+						),
+						goalRef: null,
+						label: task.id,
+						...(experience.length ? { experience } : {}),
+					},
+					operationKey,
+				)
+			).pursuitId;
 			scope.pursuitId = pursuitId;
 			checkpoint.pursuitId = pursuitId;
+			// Legacy checkpoints did not distinguish the runner counter from the ledger revision.
+			checkpoint.stepsStarted ??= (await engine.view(pursuitId))!.revision - 1;
 			if (task.resumable) writeCheckpoint(checkpointPath, checkpoint);
 			const runtime = {
 				tools,
@@ -473,18 +481,44 @@ export async function executeJobs(session: JobSession): Promise<void> {
 					claimOracle,
 				),
 			};
-			for (
-				let i = (await engine.view(pursuitId))!.revision;
-				i < maxSteps - (condition === "AUTO" ? 1 : 0);
-				i++
-			) {
-				const step = await stepWithDeadline(
-					engine,
-					pursuitId,
-					runtime,
-					controller.signal,
-				);
-				if (task.resumable) writeCheckpoint(checkpointPath, checkpoint);
+			// The existing limit charges the start and, for AUTO, the selection as well.
+			const stepLimit = maxSteps - 1 - (condition === "AUTO" ? 1 : 0);
+			while (checkpoint.pausedStep || checkpoint.stepsStarted < stepLimit) {
+				const pausedStep = checkpoint.pausedStep;
+				let step: Pick<
+					StepResult,
+					"done" | "status" | "pendingTool" | "pendingDecision"
+				>;
+				if (pausedStep) {
+					const view = (await engine.view(pursuitId))!;
+					const { pendingTool, pendingDecision } = pausedStep;
+					step = {
+						done: terminalStatuses.includes(view.status),
+						status: view.status,
+						...(pendingTool &&
+						view.attempts.some(
+							(a) =>
+								a.id === pendingTool.attemptId &&
+								a.state === "started" &&
+								a.pendingOperationId === pendingTool.operationId,
+						)
+							? { pendingTool }
+							: {}),
+						...(pendingDecision &&
+						view.productive?.request?.id === pendingDecision.operationId
+							? { pendingDecision }
+							: {}),
+					};
+				} else {
+					checkpoint.stepsStarted++;
+					if (task.resumable) writeCheckpoint(checkpointPath, checkpoint);
+					step = await stepWithDeadline(
+						engine,
+						pursuitId,
+						runtime,
+						controller.signal,
+					);
+				}
 				if (step.done) break;
 				const current = (await engine.view(pursuitId))!;
 				const executed = current.attempts.filter(
@@ -498,11 +532,53 @@ export async function executeJobs(session: JobSession): Promise<void> {
 					if (!task.resumable) throw new Error("task_does_not_support_pause");
 					checkpoint.paused = true;
 					checkpoint.pauseStartedAt = Date.now();
+					if (
+						step.pendingTool ||
+						step.pendingDecision ||
+						step.status === "awaiting_consultation"
+					)
+						checkpoint.pausedStep = {
+							pendingTool: step.pendingTool,
+							pendingDecision: step.pendingDecision,
+						};
 					writeCheckpoint(checkpointPath, checkpoint);
 					console.log(
 						`[paused] ${label} pursuit=${pursuitId} revision=${current.revision} pending=${step.pendingTool?.operationId ?? "none"}`,
 					);
 					return "paused" as const;
+				}
+				if (step.pendingDecision) {
+					const { operationId } = step.pendingDecision;
+					const request = await engine.decisionRequest(pursuitId, operationId);
+					const deadline = deadlineSignal(
+						controller.signal,
+						remainingWallMs(current, Date.now()),
+					);
+					try {
+						deadline.signal.throwIfAborted();
+						const response = await reviewerFor(scope).complete(
+							request,
+							deadline.signal,
+						);
+						step = await engine.completeDecision(
+							pursuitId,
+							operationId,
+							response,
+							runtime,
+							deadline.signal,
+						);
+					} catch (error) {
+						if (!deadline.signal.aborted) throw error;
+						step = await stepWithDeadline(
+							engine,
+							pursuitId,
+							runtime,
+							controller.signal,
+						);
+					} finally {
+						deadline.dispose();
+					}
+					if (step.done) break;
 				}
 				if (step.pendingTool) {
 					if (!advisor)
@@ -558,6 +634,10 @@ export async function executeJobs(session: JobSession): Promise<void> {
 						break;
 					}
 					await engine.answer(pursuitId, open.id, task.consultAnswer);
+				}
+				if (pausedStep) {
+					delete checkpoint.pausedStep;
+					writeCheckpoint(checkpointPath, checkpoint);
 				}
 			}
 			const view = (await engine.view(pursuitId))!;

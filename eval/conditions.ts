@@ -13,6 +13,7 @@ export type ConditionName =
 	| "E3"
 	| "E4"
 	| "D0"
+	| "productive"
 	| "AUTO";
 export type PursuitConditionName = Exclude<ConditionName, "D0">;
 export const conditionNames: readonly ConditionName[] = [
@@ -23,8 +24,13 @@ export const conditionNames: readonly ConditionName[] = [
 	"E3",
 	"E4",
 	"D0",
+	"productive",
 	"AUTO",
 ];
+
+export function usesJudge(name: string): boolean {
+	return !["E0", "E1", "E1R", "D0", "productive", "AUTO"].includes(name);
+}
 
 const questionSet: VersionRef = {
 	id: pursuitGuardsV1.id,
@@ -72,6 +78,14 @@ export function conditionsFor(
 		case "E1R":
 		case "AUTO":
 			return { ...base, rules: true, judge: false, review: true };
+		case "productive":
+			return {
+				...base,
+				rules: true,
+				judge: false,
+				review: true,
+				execution: "productive",
+			};
 		case "E2":
 			return { ...base, rules: true, judge: true, review: false };
 		case "E3":

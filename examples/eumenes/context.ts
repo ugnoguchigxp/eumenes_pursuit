@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { JsonValue } from "../../src/index.ts";
-import { rowOf, type Reference, type State } from "./repository.ts";
+import { rowOf, type Reference, type Row, type State } from "./repository.ts";
 
 export interface WebRequest {
 	requestId: string;
@@ -17,6 +17,7 @@ export interface Context {
 	};
 	now(): number;
 	id(): string;
+	validateSteering?(db: Database, row: Row): void;
 	web: {
 		startInTransaction(
 			db: Database,
@@ -43,5 +44,6 @@ export function current(ctx: Context, db: Database, id: string, epoch: number) {
 	if (!row || row.epoch !== epoch || row.closed)
 		throw new Error("example_run_revoked");
 	if (ctx.now() >= row.deadline) throw new Error("example_run_expired");
+	ctx.validateSteering?.(db, row);
 	return row;
 }

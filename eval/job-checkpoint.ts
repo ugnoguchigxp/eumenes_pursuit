@@ -15,6 +15,15 @@ const checkpointSchema = z.strictObject({
 	key: z.string(),
 	configId: z.string(),
 	pursuitId: z.string(),
+	stepsStarted: z.int().nonnegative().optional(),
+	pausedStep: z
+		.strictObject({
+			pendingTool: z
+				.strictObject({ attemptId: z.string(), operationId: z.string() })
+				.optional(),
+			pendingDecision: z.strictObject({ operationId: z.string() }).optional(),
+		})
+		.optional(),
 	directory: z.string(),
 	started: z.number(),
 	scope: z.strictObject({

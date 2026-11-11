@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { afterEach, expect, test } from "bun:test";
+import { createSteeringInbox } from "eumenes-steer";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +15,10 @@ import {
 	type Case,
 } from "../../examples/eumenes/fixtures.ts";
 import provenance from "../../examples/eumenes/provenance.json";
+import {
+	prepareSteering,
+	type SteeringReference,
+} from "../../examples/eumenes/steering.ts";
 
 const dirs: string[] = [];
 afterEach(async () => {
@@ -1265,5 +1270,261 @@ test("conflicting records beyond the Web preview are checked against both stored
 		).toHaveLength(2);
 	} finally {
 		await host.close();
+	}
+});
+
+test("Steer takes only valid revisions, releases excess input, and does not resend an unknown delivery", () => {
+	let now = 1_000;
+	const inbox = createSteeringInbox({ now: () => now });
+	const opened = inbox.open("pursuit:test", "1");
+	if (opened.status !== "opened") throw new Error(opened.status);
+	const { target } = opened;
+	const event = (id: string, sourceRef: string, sourceRevision = "1") => ({
+		id,
+		sourceRef,
+		sourceRevision,
+	});
+	expect(
+		target.enqueue({ ...event("expired", "old"), expiresAt: now + 1 }).status,
+	).toBe("accepted");
+	expect(target.enqueue(event("outdated", "a", "0")).status).toBe("accepted");
+	expect(target.enqueue(event("current", "a")).status).toBe("accepted");
+	expect(target.enqueue(event("same-source", "a")).status).toBe("accepted");
+	now += 2;
+	const options = {
+		target,
+		boundaryId: "next",
+		now: () => now,
+		resolve: (ref: SteeringReference) =>
+			ref.sourceRef === "a" && ref.sourceRevision === "1"
+				? "確認済みの補足"
+				: null,
+		presented: [],
+		remainingReferences: 32,
+		maxSupplementBytes: 0,
+	};
+	expect(prepareSteering(options)).toBeNull();
+	const prepared = prepareSteering({ ...options, maxSupplementBytes: 4096 })!;
+	expect(prepared.input?.steering.references).toEqual([
+		{ sourceRef: "a", sourceRevision: "1", text: "確認済みの補足" },
+	]);
+	prepared.settle("unknown");
+	expect(target.claim("following").status).toBe("empty");
+	expect(target.close()).toBe(1); // Includes the expired event, which was never delivered.
+});
+
+test("Steer delivers supplements received during reading only to the next existing productive decisions", async () => {
+	const inbox = createSteeringInbox();
+	const base = scripted("museum", { think: true });
+	const { f, options, events } = await config("museum");
+	let binding: { targetId: string; generation: string } | null = null;
+	let sent = false;
+	let pursuitId = "";
+	const packets: { purpose: string; refs?: string[] }[] = [];
+	const host = await openExample({
+		...options,
+		steering: {
+			inbox,
+			maxSupplementBytes: 4096,
+			resolve: (_db, id, ref) =>
+				id === pursuitId && ref.sourceRevision === "1"
+					? "補足 " + ref.sourceRef
+					: null,
+		},
+		async web(request, signal) {
+			if (!sent && request.kind === "read") {
+				sent = true;
+				for (const [id, sourceRef] of [
+					["one", "a"],
+					["two", "b"],
+					["same", "a"],
+				]) {
+					expect(
+						inbox.enqueue(binding!.targetId, binding!.generation, {
+							id: id!,
+							sourceRef: sourceRef!,
+							sourceRevision: "1",
+						}).status,
+					).toBe("accepted");
+				}
+			}
+			return f.web(request, signal);
+		},
+		generator: {
+			async complete(request, signal) {
+				const packet = JSON.parse(request.prompt);
+				const references = packet.steering?.references as
+					| { sourceRef: string; text: string }[]
+					| undefined;
+				packets.push({
+					purpose: request.purpose,
+					...(references ? { refs: references.map((r) => r.sourceRef) } : {}),
+				});
+				if (references?.[0]?.sourceRef === "a") {
+					expect(packet.steering.instruction).toContain("未信頼");
+					expect(
+						inbox.enqueue(binding!.targetId, binding!.generation, {
+							id: "after-claim",
+							sourceRef: "c",
+							sourceRevision: "1",
+						}).status,
+					).toBe("accepted");
+				}
+				const response = await base.complete(request, signal);
+				return references
+					? {
+							...response,
+							value: request.schema.parse(
+								Object.assign({}, response.value, {
+									reason: `補足 ${references.map((ref) => ref.sourceRef).join(",")}`,
+								}),
+							),
+						}
+					: response;
+			},
+		},
+	});
+	try {
+		binding = host.steeringTarget;
+		pursuitId = host.coreId;
+		expect(binding).not.toBeNull();
+		const result = await host.drive();
+		expect(result.view.status).toBe("completed");
+		expect(result.view.report?.verified).toBe(true);
+		expect(packets.filter((p) => p.refs)).toEqual([
+			{ purpose: "propose", refs: ["a", "b"] },
+			{ purpose: "propose", refs: ["c"] },
+		]);
+		expect(
+			host.snapshot().state.steeringReferences?.map((r) => r.sourceRef),
+		).toEqual(["a", "b", "c"]);
+		expect(
+			result.view.progress?.some(
+				(p) => p.choice.reason === "補足 c" && p.status === "accepted",
+			),
+		).toBe(true);
+		expect(
+			inbox.enqueue(binding!.targetId, binding!.generation, {
+				id: "late",
+				sourceRef: "d",
+				sourceRevision: "1",
+			}).status,
+		).toBe("not_open");
+		const plain = await config("museum", {
+			generator: scripted("museum", { think: true }),
+		});
+		const control = await openExample(plain.options);
+		try {
+			const run = await control.drive();
+			expect(run.view.status).toBe("completed");
+			expect(
+				events.filter((e) => e.kind === "model_started").map((e) => e.purpose),
+			).toEqual(
+				plain.events
+					.filter((e) => e.kind === "model_started")
+					.map((e) => e.purpose),
+			);
+		} finally {
+			await control.close();
+		}
+	} finally {
+		await host.close();
+	}
+});
+
+test.each(["during-inference", "after-save"] as const)(
+	"Steer stops adoption if a referenced revision is revoked %s",
+	async (when) => {
+		const inbox = createSteeringInbox();
+		const { options } = await config("museum");
+		const base = scripted("museum");
+		let valid = true;
+		let used = false;
+		const host = await openExample({
+			...options,
+			steering: {
+				inbox,
+				maxSupplementBytes: 4096,
+				resolve: () => (valid ? "確認済み資料" : null),
+			},
+			log(event) {
+				if (
+					when === "after-save" &&
+					used &&
+					event.kind === "job_ready" &&
+					event.job === "decision"
+				)
+					valid = false;
+			},
+			generator: {
+				async complete(request, signal) {
+					if (JSON.parse(request.prompt).steering) {
+						used = true;
+						if (when === "during-inference") valid = false;
+					}
+					return base.complete(request, signal);
+				},
+			},
+		});
+		try {
+			const target = host.steeringTarget!;
+			expect(
+				inbox.enqueue(target.targetId, target.generation, {
+					id: "first",
+					sourceRef: "document",
+					sourceRevision: "1",
+				}).status,
+			).toBe("accepted");
+			const result = await host.drive();
+			expect(used).toBe(true);
+			expect(result.view.status).toBe("stopped");
+			expect(result.view.report?.reason).toBe("steering_reference_revoked");
+			expect(result.view.progress).toHaveLength(0);
+			expect(result.view.attempts).toHaveLength(0);
+			expect(result.markdown).toBeNull();
+			expect(host.snapshot().state.steeringRevoked).toBe(true);
+		} finally {
+			await host.close();
+		}
+	},
+);
+
+test("reopening the example excludes an old Steer generation and its queued supplements", async () => {
+	const inbox = createSteeringInbox();
+	const { options } = await config("museum");
+	let seen = 0;
+	const makeOptions = () => ({
+		...options,
+		steering: { inbox, maxSupplementBytes: 4096, resolve: () => "資料" },
+		generator: {
+			async complete<T>(
+				...args: Parameters<typeof options.generator.complete<T>>
+			) {
+				if (JSON.parse(args[0].prompt).steering) seen++;
+				return options.generator.complete(...args);
+			},
+		},
+	});
+	const initial = await openExample(makeOptions());
+	const old = initial.steeringTarget!;
+	const event = { id: "pending", sourceRef: "doc", sourceRevision: "1" };
+	try {
+		expect(inbox.enqueue(old.targetId, old.generation, event).status).toBe(
+			"accepted",
+		);
+	} finally {
+		await initial.close();
+	}
+	const reopened = await openExample(makeOptions());
+	try {
+		expect(reopened.coreId).toBe(initial.coreId);
+		expect(reopened.steeringTarget?.targetId).toBe(old.targetId);
+		expect(inbox.enqueue(old.targetId, old.generation, event).status).toBe(
+			"generation_conflict",
+		);
+		expect((await reopened.drive()).view.status).toBe("completed");
+		expect(seen).toBe(0);
+	} finally {
+		await reopened.close();
 	}
 });

@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import {
@@ -24,6 +25,27 @@ beforeAll(async () => {
 	for (const file of ["package.json", "bun.lock"])
 		await cp(join(source, file), join(directory, file));
 	await symlink(join(source, "node_modules"), join(directory, "node_modules"));
+	const enginePath = join(directory, "src/domains/loop/engine.ts");
+	const engine = readFileSync(enginePath, "utf8");
+	const factory = "export function createPursuitEngine(";
+	if (!engine.includes(factory)) throw new Error("missing_engine_factory");
+	writeFileSync(
+		enginePath,
+		engine.replace(factory, "function createCore(") +
+			`
+export function createPursuitEngine(deps: EngineDeps): PursuitEngine {
+	const core = createCore(deps);
+	return {
+		...core,
+		async start(...args: Parameters<PursuitEngine["start"]>) {
+			const started = await core.start(...args);
+			if (process.env.PURSUIT_TEST_EXIT_AFTER_START === "1") process.exit(74);
+			return started;
+		},
+	};
+}
+`,
+	);
 	appendFileSync(
 		join(directory, "eval/tasks/index.ts"),
 		`
@@ -120,11 +142,15 @@ const options = [
 	"1",
 ];
 
-test("AUTO resumes the same pursuit in a fresh CLI process without selecting or executing the tool again", async () => {
+async function verifyResume(
+	condition: "AUTO" | "productive",
+	crashAfterStart = false,
+) {
+	const tag = crashAfterStart ? `${condition}-start-crash` : condition;
 	appendFileSync(
 		join(directory, "eval/tasks/index.ts"),
 		`
-tasks.push({id:"resume-fixture",resumable:true,group:"A",title:"fixture",goal:"fixture",
+tasks.push({id:"resume-fixture-${tag}",resumable:true,group:"A",title:"fixture",goal:"fixture",
 acceptance:[{id:"total",text:"one observed operation",method:"machine"}],grant:["data.read"],consultAnswer:"fixture",expected:"completed",traps:[],
 async create(directory){const fs=await import("node:fs"),path=directory+"/observations.txt";
 return {workspace:null,tools:{list:()=>[{name:"read",description:"fixture",inputSchema:{type:"object",properties:{}},permission:"data.read",sideEffect:"none"}],invoke:async()=>{fs.appendFileSync(path,"effect\\n");return {status:"ok",output:"observed",refs:[]}}},
@@ -136,7 +162,7 @@ acceptance:{verify:async()=>[{id:"total",passed:fs.existsSync(path)&&fs.readFile
 	);
 	settings.set("spend.limitUsd", 2);
 	settings.close();
-	const responder = join(directory, "resume-responder");
+	const responder = join(directory, `resume-responder-${tag}`);
 	await mkdir(join(responder, "requests"), { recursive: true });
 	await mkdir(join(responder, "responses"), { recursive: true });
 	let resuming = false;
@@ -147,8 +173,46 @@ acceptance:{verify:async()=>[{id:"total",passed:fs.existsSync(path)&&fs.readFile
 			const request = JSON.parse(
 				readFileSync(join(responder, "requests", filename), "utf8"),
 			);
-			const value =
-				request.purpose === "select"
+			const packet =
+				request.purpose === "propose" && request.role === "reviewer"
+					? JSON.parse(request.prompt.split("\n\n").at(-1)!)
+					: null;
+			const finish = packet ? packet.newlyUnassessed.length > 0 : resuming;
+			const value = packet
+				? {
+						basis: packet.basis,
+						progress: {
+							assessed: packet.newlyUnassessed,
+							kind: finish ? "evidence" : "initial",
+							change: finish ? "observed once" : "",
+							criteria: finish ? ["total"] : [],
+							evidence: packet.newlyUnassessed,
+							conclusions: [],
+						},
+						choice: finish ? "complete" : "act",
+						reason: "fixture",
+						missing: "",
+						contribution: "observation",
+						route: finish ? "verify" : "advance",
+						actions: finish
+							? []
+							: [
+									{
+										tool: "read",
+										inputJson: "{}",
+										text: null,
+										expectedStatus: "ok",
+										expectedObservation: "observed",
+										whatChanged: "",
+										refutedIf: null,
+									},
+								],
+						sequence: false,
+						cancelPending: false,
+						renewHypothesis: null,
+						renewStrategy: null,
+					}
+				: request.purpose === "select"
 					? { condition: "E1R", reason: "fixture selection" }
 					: request.purpose === "plan"
 						? {
@@ -164,7 +228,7 @@ acceptance:{verify:async()=>[{id:"total",passed:fs.existsSync(path)&&fs.readFile
 									expected: "observed",
 								}
 							: {
-									kind: resuming ? "done" : "tool",
+									kind: finish ? "done" : "tool",
 									tool: "read",
 									inputJson: "{}",
 									text: null,
@@ -181,30 +245,51 @@ acceptance:{verify:async()=>[{id:"total",passed:fs.existsSync(path)&&fs.readFile
 	const args = [
 		"run",
 		"--name",
-		"resume-integration",
+		`resume-integration-${tag}`,
 		...options,
 		"--verify-on",
 		"claim",
 		"--conditions",
-		"AUTO",
+		condition,
 		"--tasks",
-		"resume-fixture",
+		`resume-fixture-${tag}`,
 		"--max-steps",
-		"25",
+		condition === "productive" ? "8" : "25",
 		"--pause-after-tools",
 		"1",
 	];
 	try {
-		const initial = await run(args, {}, responder);
+		let initial = await run(
+			args,
+			crashAfterStart ? { PURSUIT_TEST_EXIT_AFTER_START: "1" } : {},
+			responder,
+		);
+		const root = join(directory, `eval/results/resume-integration-${tag}`);
+		const ledgerPath = join(root, "ledger.sqlite");
+		const pursuitIds = () => {
+			const db = new Database(ledgerPath, { readonly: true });
+			try {
+				return db.query("SELECT id FROM pursuit_pursuit").values().flat();
+			} finally {
+				db.close();
+			}
+		};
+		const startedIds = pursuitIds();
+		expect(startedIds).toHaveLength(1);
+		if (crashAfterStart) {
+			expect(initial.code).toBe(74);
+			initial = await run([...args, "--resume"], {}, responder);
+		}
 		expect(initial.code).toBe(0);
 		expect(initial.stdout).toContain("[paused]");
-		const root = join(directory, "eval/results/resume-integration");
 		const checkpoint = JSON.parse(
 			readFileSync(
 				join(root, "checkpoints", readdirSync(join(root, "checkpoints"))[0]!),
 				"utf8",
 			),
 		);
+		expect(pursuitIds()).toEqual(startedIds);
+		expect(checkpoint.pursuitId).toBe(startedIds[0]);
 		resuming = true;
 		const resumed = await run([...args, "--resume"], {}, responder);
 		expect(resumed.code).toBe(0);
@@ -215,14 +300,55 @@ acceptance:{verify:async()=>[{id:"total",passed:fs.existsSync(path)&&fs.readFile
 			pursuitId: checkpoint.pursuitId,
 			correct: true,
 			toolCalls: 1,
-			selectedCondition: "E1R",
-			restarts: 1,
+			restarts: crashAfterStart ? 2 : 1,
 		});
-		expect(record.usage.byRole.selector.calls).toBe(1);
+		if (condition === "AUTO") {
+			expect(record.selectedCondition).toBe("E1R");
+			expect(record.usage.byRole.selector.calls).toBe(1);
+		} else {
+			expect(record.condition).toBe("productive");
+			expect(record.usage.byRole.reviewer.calls).toBe(2);
+		}
+		expect(pursuitIds()).toEqual(startedIds);
+		if (condition === "productive" && !crashAfterStart) {
+			const controlArgs = args.slice(0, -2);
+			controlArgs[2] += "-continuous";
+			const control = await run(controlArgs, {}, responder);
+			expect(control.code).toBe(0);
+			const continuous = JSON.parse(
+				readFileSync(`${root}-continuous/runs.jsonl`, "utf8"),
+			);
+			expect(record).toMatchObject({
+				outcome: continuous.outcome,
+				verified: continuous.verified,
+				toolCalls: continuous.toolCalls,
+				llmCalls: continuous.llmCalls,
+			});
+			expect(continuous.correct).toBe(true);
+		}
 		const config = JSON.parse(
 			readFileSync(join(root, "configs", record.configId + ".json"), "utf8"),
 		);
-		expect(config.roles.selector.provider).toBe("file");
+		if (condition === "AUTO")
+			expect(config.roles.selector.provider).toBe("file");
+		else {
+			expect(config.execution.conditions.execution).toBe("productive");
+			expect(config.judge).toBeNull();
+			const ledger = join(root, "ledger.sqlite");
+			const before = readFileSync(ledger);
+			const trace = Bun.spawnSync([
+				process.execPath,
+				join(directory, "eval/trace.ts"),
+				"--ledger",
+				ledger,
+				checkpoint.pursuitId,
+			]);
+			expect(trace.exitCode).toBe(0);
+			expect(trace.stdout.toString()).toContain("evidence → complete/verify");
+			expect(trace.stdout.toString()).toContain("根拠: #1 / 条件: total");
+			expect(trace.stdout.toString()).toContain("total=合格(exact)");
+			expect(readFileSync(ledger)).toEqual(before);
+		}
 		expect(
 			new Set(
 				record.usage.events.map(
@@ -238,7 +364,25 @@ acceptance:{verify:async()=>[{id:"total",passed:fs.existsSync(path)&&fs.readFile
 		restored.set("spend.limitUsd", 1);
 		restored.close();
 	}
-}, 15000);
+}
+
+test(
+	"AUTO resumes the same pursuit in a fresh CLI process without repeating work",
+	() => verifyResume("AUTO"),
+	20000,
+);
+
+test(
+	"productive resumes the same pursuit and exposes evidence without changing the ledger",
+	() => verifyResume("productive"),
+	20000,
+);
+
+test(
+	"a process exit after start commits resumes the existing pursuit",
+	() => verifyResume("productive", true),
+	20000,
+);
 
 test("grader directories cannot alias or nest inside the generator directory", async () => {
 	const responder = join(directory, "responder");

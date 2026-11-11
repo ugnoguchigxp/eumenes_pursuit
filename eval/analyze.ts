@@ -117,7 +117,7 @@ function toolUse(v: PursuitView | undefined): string {
 const lines = [
 	`# 失敗の傾向: ${run}${values.group ? `（群 ${values.group}）` : ""}`,
 	"",
-	"| 課題 | 段階 | 条件 | 結末 | 最後に落ちた基準 | 申告の不合格 | 拒否 | 一段上へ | 道具 | 費用 |",
+	"| 課題 | 段階 | 条件 | 結末 | 最後に落ちた基準 | 完了・部分終了の照合不合格 | 拒否 | 一段上へ | 道具 | 費用 |",
 	"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 ];
 const byEnding = new Map<string, number>();

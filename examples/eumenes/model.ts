@@ -1,9 +1,18 @@
-import type { LlmPort } from "../../src/index.ts";
+import type { LlmPort, LlmRequest, LlmResult } from "../../src/index.ts";
 import type { Context } from "./context.ts";
 import { current } from "./context.ts";
 import { documents, save, stateOf } from "./repository.ts";
+import type { PreparedSteering, SteeringReference } from "./steering.ts";
 
-export type ResearchModel = LlmPort;
+export interface ResearchModel extends LlmPort {
+	complete<T>(
+		request: LlmRequest<T>,
+		signal: AbortSignal,
+		prepare?: () => PreparedSteering | null,
+	): Promise<
+		LlmResult<T> & { steeringReferences?: readonly SteeringReference[] }
+	>;
+}
 export type Log = (event: Record<string, unknown>) => void;
 
 /** Packet and limits from Eumenes service/model.ts; the example supplies its own provider and receipts. */
@@ -15,7 +24,7 @@ export function model(
 	log: Log,
 ): ResearchModel {
 	return {
-		async complete(request, signal) {
+		async complete(request, signal, prepare) {
 			signal.throwIfAborted();
 			const captured = await ctx.store.write((db) => {
 				const row = current(ctx, db, id, epoch);
@@ -62,36 +71,46 @@ export function model(
 				(outputSchema.examples?.length
 					? "\nOUTPUT_FORMAT=" + JSON.stringify(outputSchema.examples)
 					: "\nOUTPUT_SCHEMA=" + JSON.stringify(outputSchema));
+			let steering: PreparedSteering | null = null;
+			let dispatched = false;
 			const started = performance.now();
-			log({
-				kind: "model_started",
-				number: captured.number,
-				purpose: request.purpose,
-				inputBytes:
-					Buffer.byteLength(JSON.stringify(packet)) + Buffer.byteLength(system),
-			});
 			try {
+				signal.throwIfAborted();
+				steering = grading ? null : (prepare?.() ?? null);
+				const prompt = JSON.stringify(
+					steering?.input ? { ...packet, ...steering.input } : packet,
+				);
+				log({
+					kind: "model_started",
+					number: captured.number,
+					purpose: request.purpose,
+					inputBytes: Buffer.byteLength(prompt) + Buffer.byteLength(system),
+				});
+				const requestSignal = AbortSignal.any([
+					signal,
+					AbortSignal.timeout(
+						Math.max(
+							1,
+							Math.min(
+								captured.deadline - ctx.now(),
+								state.inferenceMs,
+								120000,
+							),
+						),
+					),
+				]);
+				requestSignal.throwIfAborted();
+				dispatched = true;
 				const result = await port.complete(
 					{
 						...request,
 						system,
-						prompt: JSON.stringify(packet),
+						prompt,
 						maxOutputTokens: Math.min(request.maxOutputTokens, 8192),
 					},
-					AbortSignal.any([
-						signal,
-						AbortSignal.timeout(
-							Math.max(
-								1,
-								Math.min(
-									captured.deadline - ctx.now(),
-									state.inferenceMs,
-									120000,
-								),
-							),
-						),
-					]),
+					requestSignal,
 				);
+				steering?.settle("committed");
 				log({
 					kind: "model_finished",
 					number: captured.number,
@@ -103,8 +122,11 @@ export function model(
 					cacheReadTokens: result.cacheReadTokens,
 					outputTokens: result.outputTokens,
 				});
-				return result;
+				return steering?.references.length
+					? { ...result, steeringReferences: steering.references }
+					: result;
 			} catch (error) {
+				steering?.settle(dispatched ? "unknown" : "released");
 				log({
 					kind: "model_failed",
 					number: captured.number,

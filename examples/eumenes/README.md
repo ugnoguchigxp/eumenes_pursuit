@@ -23,3 +23,11 @@ bun examples/eumenes/sync.ts /path/to/eumenes
 bun run format
 bun test ./test/scenario/eumenes-example.test.ts
 ```
+
+## 実行中の補足（Steer）
+
+`openExample` の `steering` に共有 Inbox、補足に使える入力バイト数、対象 Pursuit に結び付く出典と版を照合する `resolve` を渡すと、`productive` の次手判断に補足を渡せます。送信側は、起動後に返る `steeringTarget` の対象ID・世代と、確定済みの出典ID・版を使って Inbox に登録します。
+
+補足本文は既存の次手判断の入力にだけ入り、資料として扱われます。送信済みか不明なバッチは自動再送せず、応答を保存・採用する時点と以後の操作で、使った出典の版を再確認します。受付の状態はメモリ上にあり、終了やホストの閉鎖で破棄されます。再開後は新しい世代を使います。
+
+開発用に固定したパッケージは eumenes-steer 0.1.0、コミット `1250b20`、アーカイブ SHA-256 `1ca04b8bee9b839016a14987fc903282c1b57665eca1e89457681c3990f1e705` です。検証は `bun test ./test/scenario/eumenes-example.test.ts` または `bun run verify` で実行できます。[Steerの公開契約](https://github.com/ugnoguchigxp/eumenes_steer/tree/1250b20)

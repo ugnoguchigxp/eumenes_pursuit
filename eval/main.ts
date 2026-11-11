@@ -38,6 +38,7 @@ import {
 	conditionNames as knownConditions,
 	conditionsFor,
 	type ConditionName,
+	usesJudge,
 } from "./conditions.ts";
 import type { EvalTask, ToolTier } from "./contracts.ts";
 import type { LlmPort } from "../src/index.ts";
@@ -183,9 +184,7 @@ function describeLive(records: RunRecord[]): string {
 			r.generator.includes("/G-file") ? ["採点はファイル経由"] : [],
 		),
 	);
-	const judged = records.some(
-		(r) => !["E0", "E1", "E1R", "D0", "AUTO"].includes(r.condition),
-	);
+	const judged = records.some((r) => usesJudge(r.condition));
 	const conditions = [...new Set(records.map((r) => r.condition))].join("・");
 	return [
 		`LLM: ${[...llm].join("・") || "-"}`,
@@ -206,7 +205,7 @@ function writeSummary() {
 		"",
 		summarize(records),
 		"",
-		"## 誤りを見抜く力（強制とは分けて）",
+		"## 終了時の照合と回復",
 		"",
 		detection(records),
 		"",
@@ -470,10 +469,7 @@ function errorText(error: unknown): string {
 	const safe = redactError(error, secrets);
 	return `${safe.name}: ${safe.message}`;
 }
-// E0, E1 and E1R never ask the judge, so they run without LARM.
-const needsJudge = conditionNames.some(
-	(c) => !["E0", "E1", "E1R", "D0", "AUTO"].includes(c),
-);
+const needsJudge = conditionNames.some(usesJudge);
 const token = process.env.LARM_API_TOKEN;
 if (needsJudge && !token) throw new Error("LARM_API_TOKEN is required");
 const lease = needsJudge
@@ -654,7 +650,7 @@ for (const condition of conditionNames) {
 						? { ...graderRole, provider: graderMode }
 						: null,
 		},
-		judge: needsJudge
+		judge: usesJudge(condition)
 			? {
 					provider: "larm",
 					profile: settings.require("larm.decisionProfile"),
