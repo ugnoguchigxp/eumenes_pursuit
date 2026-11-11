@@ -3,13 +3,14 @@ import { join, resolve } from "node:path";
 import type { LlmPort } from "../../src/index.ts";
 import { createRoleLlm } from "../../standalone/llm.ts";
 import { openSettings } from "../../standalone/settings.ts";
-import { totalUsage } from "../../standalone/usage.ts";
+import { totalUsage, type UsageScope } from "../../standalone/usage.ts";
 import { evaluatorModel, reviewReport } from "./evaluator.ts";
 import {
 	cases,
 	fixture,
 	scripted,
 	scriptedEvaluator,
+	scriptedEvaluatorPort,
 	type Case,
 } from "./fixtures.ts";
 import { openExample, type HostOptions } from "./host.ts";
@@ -17,25 +18,28 @@ import provenance from "./provenance.json";
 
 const args = process.argv.slice(2);
 const useEvaluator = args.includes("--evaluator");
+const useEvaluatorTool = args.includes("--evaluator-tool");
 const [
 	mode = "fixture",
 	variant = "productive",
 	selection = "museum",
 	output = "artifacts/eumenes-example",
 	baselinePath,
-] = args.filter((arg) => arg !== "--evaluator");
+] = args.filter((arg) => arg !== "--evaluator" && arg !== "--evaluator-tool");
 if (
 	!["fixture", "api"].includes(mode) ||
 	!["legacy", "productive"].includes(variant)
 )
 	throw new Error(
-		"Usage: bun examples/eumenes/run.ts fixture|api legacy|productive case[,case] output-dir [baseline-source-dir] [--evaluator]",
+		"Usage: bun examples/eumenes/run.ts fixture|api legacy|productive case[,case] output-dir [baseline-source-dir] [--evaluator] [--evaluator-tool]",
 	);
 const selected = selection.split(",") as Case[];
 if (selected.some((name) => !cases.includes(name)))
 	throw new Error("unknown_fixture");
 if (baselinePath && variant !== "legacy")
 	throw new Error("baseline_requires_legacy");
+if (useEvaluatorTool && variant !== "productive")
+	throw new Error("example_evaluator_requires_productive");
 const baseline = baselinePath
 	? {
 			create: (await import(join(resolve(baselinePath), "index.ts")))
@@ -48,9 +52,10 @@ const root = resolve(output);
 mkdirSync(root, { recursive: true });
 const settings = mode === "api" ? openSettings() : null;
 const role = settings?.require("llm.generator");
-const evaluatorRole = useEvaluator
-	? settings?.require("llm.reviewer")
-	: undefined;
+const evaluatorRole =
+	useEvaluator || useEvaluatorTool
+		? settings?.require("llm.reviewer")
+		: undefined;
 const campaign = "eumenes-example-20261109";
 if (settings) settings.setBudget(`campaign:${campaign}`, 5);
 const summary = [];
@@ -70,7 +75,7 @@ try {
 			appendFileSync(eventPath, JSON.stringify(e) + "\n");
 		};
 		const f = fixture(name);
-		const scope = {
+		const scope: UsageScope = {
 			budgetId: campaign,
 			runId: `emulator-${variant}`,
 			configId: variant,
@@ -91,6 +96,17 @@ try {
 			limits: f.limits,
 			log,
 			...(baseline ? { baseline } : {}),
+			...(useEvaluatorTool
+				? {
+						evaluator:
+							settings && evaluatorRole
+								? createRoleLlm(
+										evaluatorRole,
+										settings.meter(scope, "evaluator_tool"),
+									)
+								: scriptedEvaluatorPort,
+					}
+				: {}),
 		};
 		writeFileSync(
 			join(directory, "input.json"),
@@ -101,6 +117,9 @@ try {
 					mode,
 					role,
 					...(useEvaluator ? { evaluator: evaluatorRole ?? "fixture" } : {}),
+					...(useEvaluatorTool
+						? { evaluatorTool: evaluatorRole ?? "fixture" }
+						: {}),
 					request: f.request,
 					limits: f.limits,
 					sources: f.sources,
@@ -112,6 +131,7 @@ try {
 		);
 		const started = performance.now();
 		const host = await openExample(options);
+		scope.pursuitId = host.coreId;
 		try {
 			let run;
 			try {
@@ -181,7 +201,9 @@ try {
 			const add = (rows: typeof events, key: string) =>
 				rows.reduce((sum, e) => sum + Number(e[key] ?? 0), 0);
 			const callsOf = (purpose: string) =>
-				calls.filter((c) => c.purpose === purpose).length;
+				calls.filter(
+					(c) => c.purpose === purpose && c.channel !== "evaluator_tool",
+				).length;
 			const toolCounts = Object.fromEntries(
 				[...new Set(view.attempts.map((a) => a.tool))].map((tool) => [
 					tool,
@@ -199,7 +221,12 @@ try {
 					e.job !== "decision"
 				)
 					receiptReady.delete(String(e.id));
-				if (e.kind === "model_started" && receiptReady.size) modelDuringIo++;
+				if (
+					e.kind === "model_started" &&
+					e.channel !== "evaluator_tool" &&
+					receiptReady.size
+				)
+					modelDuringIo++;
 			}
 			const stats = {
 				name,
@@ -221,6 +248,13 @@ try {
 							callsOf(p),
 						]),
 					),
+					...(useEvaluatorTool
+						? {
+								evaluatorToolCalls: calls.filter(
+									(c) => c.channel === "evaluator_tool",
+								).length,
+							}
+						: {}),
 					inputTokens: mode === "api" ? add(calls, "inputTokens") : null,
 					cacheReadTokens:
 						mode === "api" ? add(calls, "cacheReadTokens") : null,

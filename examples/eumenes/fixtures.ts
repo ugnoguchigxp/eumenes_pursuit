@@ -68,6 +68,28 @@ export const scriptedEvaluator: EvaluationModel = {
 	},
 };
 
+export const scriptedEvaluatorPort: LlmPort = {
+	async complete(request, signal) {
+		const result = await scriptedEvaluator.complete(
+			{
+				system: request.system,
+				prompt: request.prompt,
+				outputSchema: request.schema.toJSONSchema(),
+				maxOutputTokens: request.maxOutputTokens,
+			},
+			signal,
+		);
+		return {
+			value: request.schema.parse(JSON.parse(result.text)),
+			model: result.model,
+			inputTokens: null,
+			outputTokens: null,
+			cacheReadTokens: null,
+			latencyMs: 0,
+		};
+	},
+};
+
 export function fixture(
 	name: Case,
 	latency = { lookup: 120, read: 120, stagger: 80 },

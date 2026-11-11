@@ -23,6 +23,12 @@ import { acceptance, criteria } from "./acceptance.ts";
 import { current, type Context, type WebRequest } from "./context.ts";
 import { researchDocumentDraft } from "./contracts.ts";
 import { documentName } from "./document-name.ts";
+import {
+	evaluatorModel,
+	reportReviewInput,
+	reportReviewTool,
+	reviewReport,
+} from "./evaluator.ts";
 import { hash } from "./hash.ts";
 import { localMarkdown } from "./markdown-write.ts";
 import { model, type Log } from "./model.ts";
@@ -63,6 +69,7 @@ export interface HostOptions {
 	execution: "legacy" | "productive";
 	generator: LlmPort;
 	reviewer?: LlmPort;
+	evaluator?: LlmPort;
 	web(request: WebRequest, signal: AbortSignal): Promise<WebResult>;
 	log?: Log;
 	wallMs?: number;
@@ -76,7 +83,7 @@ export interface HostOptions {
 }
 type Job = {
 	id: string;
-	kind: "lookup" | "read" | "markdown" | "decision";
+	kind: "lookup" | "read" | "markdown" | "decision" | "evaluation";
 	attempt_id: string | null;
 	state: "queued" | "running" | "ready" | "adopted" | "abandoned";
 	input: string;
@@ -95,6 +102,8 @@ CREATE TABLE IF NOT EXISTS example_config(fingerprint TEXT PRIMARY KEY);
 
 export async function openExample(options: HostOptions) {
 	const steer = options.steering;
+	if (options.evaluator && options.execution !== "productive")
+		throw new Error("example_evaluator_requires_productive");
 	if (steer && (options.execution !== "productive" || options.baseline))
 		throw new Error("example_steering_requires_productive");
 	if (
@@ -137,6 +146,7 @@ export async function openExample(options: HostOptions) {
 		limits,
 		instructions,
 		policy,
+		...(options.evaluator ? { evaluator: true } : {}),
 		migrations: (options.baseline?.migrations ?? migrations).map(
 			(m) => m.sha256,
 		),
@@ -222,10 +232,13 @@ export async function openExample(options: HostOptions) {
 					db.query("UPDATE example_jobs SET state='queued' WHERE id=?").run(
 						job.id,
 					);
-				} else if (job.kind === "decision") {
+				} else if (job.kind === "decision" || job.kind === "evaluation") {
 					db.query(
 						"UPDATE example_jobs SET state='ready',result=? WHERE id=?",
-					).run(JSON.stringify({ error: "decision_outcome_unknown" }), job.id);
+					).run(
+						JSON.stringify({ error: job.kind + "_outcome_unknown" }),
+						job.id,
+					);
 				} else {
 					db.query(
 						"UPDATE example_jobs SET state='ready',result=? WHERE id=?",
@@ -256,6 +269,18 @@ export async function openExample(options: HostOptions) {
 			options.reviewer ?? options.generator,
 			log,
 		);
+	const evaluator = options.evaluator
+		? evaluatorModel(
+				model(
+					ctx,
+					run,
+					epoch,
+					options.evaluator,
+					(event) => log({ ...event, channel: "evaluator_tool" }),
+					"native",
+				),
+			)
+		: null;
 	const runtime = {
 		workspace: copied.workspace,
 		acceptance: acceptance(ctx, run, epoch, reviewer, (db, attemptId) => {
@@ -270,23 +295,39 @@ export async function openExample(options: HostOptions) {
 		}),
 		tools: {
 			...copied.tools,
-			list: () =>
-				copied.tools
+			list: () => [
+				...copied.tools
 					.list()
 					.map((tool) =>
 						tool.name === "report_draft"
 							? { ...tool, reuseWriteIgnoring: ["stopReason"] }
 							: tool,
 					),
+				...(evaluator ? [reportReviewTool] : []),
+			],
 			deferInTransaction: ((db, call, core) => {
-				if (call.tool !== "report_draft")
+				if (call.tool !== "report_draft" && call.tool !== reportReviewTool.name)
 					return copied.tools.deferInTransaction!(db, call, core);
 				const row = current(ctx, db as Database, run, epoch);
 				if (row.core_id !== core.pursuitId)
 					throw new Error("pursuit_core_mismatch");
-				const draft = researchDocumentDraft.parse(call.input);
 				const operationId = id();
-				put(db as Database, operationId, "markdown", draft, core.attemptId);
+				if (call.tool === reportReviewTool.name) {
+					const draft = stateOf(row).draft;
+					if (!evaluator || !draft)
+						throw new Error("report_review_requires_saved_report");
+					const input = reportReviewInput.parse(call.input);
+					put(
+						db as Database,
+						operationId,
+						"evaluation",
+						{ ...input, reportDigest: hash(draft) },
+						core.attemptId,
+					);
+				} else {
+					const draft = researchDocumentDraft.parse(call.input);
+					put(db as Database, operationId, "markdown", draft, core.attemptId);
+				}
 				return { operationId };
 			}) as NonNullable<typeof copied.tools.deferInTransaction>,
 		},
@@ -427,6 +468,27 @@ export async function openExample(options: HostOptions) {
 					);
 				steeringReferences = refs ?? [];
 				result = response;
+			} else if (job.kind === "evaluation") {
+				const { question, reportDigest } = JSON.parse(job.input) as {
+					question: string;
+					reportDigest: string;
+				};
+				const input = store.readSnapshot((db) => {
+					const row = current(ctx, db, run, epoch);
+					const { draft, request } = stateOf(row);
+					if (!draft || hash(draft) !== reportDigest)
+						throw new Error("report_review_stale");
+					return {
+						pursuitId: coreId,
+						request,
+						report: draft,
+						documents: documents(db, row),
+						question,
+					};
+				});
+				if (!evaluator) throw new Error("report_review_unavailable");
+				const review = await reviewReport(input, evaluator, signal);
+				result = { reportDigest, question, review };
 			} else if (job.kind === "markdown") {
 				const draft = researchDocumentDraft.parse(JSON.parse(job.input));
 				if (options.markdownDelayMs)
@@ -543,7 +605,39 @@ export async function openExample(options: HostOptions) {
 		}
 		let attemptId = job.attempt_id;
 		let outcome: ToolOutcome;
-		if (job.kind === "markdown") {
+		if (job.kind === "evaluation") {
+			const currentDigest = store.readSnapshot((db) =>
+				hash(stateOf(current(ctx, db, run, epoch)).draft),
+			);
+			const stale = !r.error && r.reportDigest !== currentDigest;
+			const error =
+				r.error ??
+				(stale
+					? "report_review_stale"
+					: r.review.status === "completed" || r.review.status === "incomplete"
+						? null
+						: "report_review_" + r.review.status);
+			outcome = {
+				status: error ? "error" : "ok",
+				...(error ? { errorCode: error } : {}),
+				output:
+					r.error || stale
+						? null
+						: {
+								status: r.review.status,
+								findings: r.review.findings,
+								reportDigest: r.reportDigest,
+								question: r.question,
+								issues: r.review.issues,
+								unverified: r.review.scopeChecks.filter(
+									(entry: { status: string }) => entry.status === "unverified",
+								),
+								reviewId: r.review.inputDigest,
+								trust: "untrusted",
+							},
+				refs: [],
+			};
+		} else if (job.kind === "markdown") {
 			// Accept the original report_draft operation and its receipt in the same transaction.
 			let out = store.readSnapshot(
 				(db) =>

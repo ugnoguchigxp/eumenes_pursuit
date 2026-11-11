@@ -16,6 +16,8 @@ export interface ToolDescriptor {
 	readonly readsWorkspace?: boolean;
 	/** Returns the current deliverable itself, so calling it is a re-read (spec/completion-design.md). */
 	readonly readsBack?: boolean;
+	/** A successful result adds evidence for acceptance even when the tool reads the workspace. */
+	readonly acceptanceEvidence?: true;
 	/**
 	 * Opt-in for declarative deliverable writes. A successful write can be reused during partial
 	 * finalization if it was read back and the workspace is unchanged. List only input keys whose

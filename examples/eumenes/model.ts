@@ -22,6 +22,7 @@ export function model(
 	epoch: number,
 	port: LlmPort,
 	log: Log,
+	gradeInput: "wrapped" | "native" = "wrapped",
 ): ResearchModel {
 	return {
 		async complete(request, signal, prepare) {
@@ -77,9 +78,12 @@ export function model(
 			try {
 				signal.throwIfAborted();
 				steering = grading ? null : (prepare?.() ?? null);
-				const prompt = JSON.stringify(
-					steering?.input ? { ...packet, ...steering.input } : packet,
-				);
+				const prompt =
+					grading && gradeInput === "native"
+						? request.prompt
+						: JSON.stringify(
+								steering?.input ? { ...packet, ...steering.input } : packet,
+							);
 				log({
 					kind: "model_started",
 					number: captured.number,

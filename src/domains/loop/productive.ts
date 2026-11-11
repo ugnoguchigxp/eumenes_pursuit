@@ -152,7 +152,9 @@ function verificationKey(
 	const nonEvidence = new Set(
 		tools
 			.filter(
-				(t) => t.sideEffect === "workspace" || t.readsBack || t.readsWorkspace,
+				(t) =>
+					!t.acceptanceEvidence &&
+					(t.sideEffect === "workspace" || t.readsBack || t.readsWorkspace),
 			)
 			.map((t) => t.name),
 	);
@@ -777,7 +779,8 @@ export function makeProductive(
 			!s.verification.passed &&
 			c.actions.every((a) => {
 				const t = tools.find((t) => t.name === a.tool);
-				if (t?.readsBack || t?.readsWorkspace) return true;
+				if (!t?.acceptanceEvidence && (t?.readsBack || t?.readsWorkspace))
+					return true;
 				try {
 					return v.attempts.some(
 						(old) =>

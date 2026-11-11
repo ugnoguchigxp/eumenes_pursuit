@@ -32,6 +32,16 @@ bun test ./test/scenario/eumenes-example.test.ts
 
 開発用に固定したパッケージは eumenes-steer 0.1.0、コミット `1250b20`、アーカイブ SHA-256 `1ca04b8bee9b839016a14987fc903282c1b57665eca1e89457681c3990f1e705` です。検証は `bun test ./test/scenario/eumenes-example.test.ts` または `bun run verify` で実行できます。[Steerの公開契約](https://github.com/ugnoguchigxp/eumenes_steer/tree/1250b20)
 
+## タスク実行中のレビュー（Evaluator）
+
+```sh
+bun examples/eumenes/run.ts api productive conflict artifacts/evaluator-during-task --evaluator-tool
+```
+
+`--evaluator-tool` は `productive` に `report_review` を追加します。Pursuitは必要なときに報告を保存し、具体的な確認事項を指定してレビューを依頼できます。Evaluatorには元の依頼、確認事項、保存済みの報告とその引用本文を渡します。Pursuitは指摘を原資料に照らして採用を判断し、最終完了は既存の受入検証で判定します。
+
+レビューは追求の推論・試行予算に含まれます。採用した点検の記録は最終採点にも渡り、点検対象の報告が現行版と同じかを確認できます。出力は通常の試行として `audit.json` に残り、`summary.json` の `model.evaluatorToolCalls` と `usage.byRole.evaluator_tool` で使用量を確認できます。
+
 ## 保存した報告の事後レビュー（Evaluator）
 
 ```sh
