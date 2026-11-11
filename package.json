@@ -33,6 +33,7 @@
 		"@anthropic-ai/sdk": "0.131.0",
 		"@types/bun": "1.3.14",
 		"@types/node": "25.9.3",
+		"eumenes-evaluator": "./vendor/evaluator/eumenes-evaluator-0.1.0-1178a3fad04b.tgz",
 		"eumenes-steer": "./vendor/steer/eumenes-steer-0.1.0-1ca04b8bee9b.tgz",
 		"katex": "0.18.2",
 		"openai": "7.51.0",

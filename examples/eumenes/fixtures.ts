@@ -1,6 +1,7 @@
 import type { LlmPort } from "../../src/index.ts";
 import type { WebRequest } from "./context.ts";
 import type { ResearchDraft } from "./contracts.ts";
+import type { EvaluationModel } from "./evaluator.ts";
 import { delay, type WebResult } from "./host.ts";
 
 type Source = { url: string; title: string; text: string };
@@ -47,6 +48,25 @@ export const cases = [
 	"cap",
 ] as const;
 export type Case = (typeof cases)[number];
+
+export const scriptedEvaluator: EvaluationModel = {
+	async complete({ prompt }, signal) {
+		signal.throwIfAborted();
+		const { scope } = JSON.parse(prompt) as { scope: string[] };
+		return {
+			model: "fixture",
+			text: JSON.stringify({
+				findings: [],
+				scopeChecks: scope.map((evidenceId) => ({
+					evidenceId,
+					status: "checked",
+					reason: null,
+				})),
+				conditionChecks: [],
+			}),
+		};
+	},
+};
 
 export function fixture(
 	name: Case,

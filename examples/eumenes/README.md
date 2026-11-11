@@ -31,3 +31,16 @@ bun test ./test/scenario/eumenes-example.test.ts
 補足本文は既存の次手判断の入力にだけ入り、資料として扱われます。送信済みか不明なバッチは自動再送せず、応答を保存・採用する時点と以後の操作で、使った出典の版を再確認します。受付の状態はメモリ上にあり、終了やホストの閉鎖で破棄されます。再開後は新しい世代を使います。
 
 開発用に固定したパッケージは eumenes-steer 0.1.0、コミット `1250b20`、アーカイブ SHA-256 `1ca04b8bee9b839016a14987fc903282c1b57665eca1e89457681c3990f1e705` です。検証は `bun test ./test/scenario/eumenes-example.test.ts` または `bun run verify` で実行できます。[Steerの公開契約](https://github.com/ugnoguchigxp/eumenes_steer/tree/1250b20)
+
+## 保存した報告の事後レビュー（Evaluator）
+
+```sh
+bun examples/eumenes/run.ts fixture productive museum,missing artifacts/evaluator-fixture --evaluator
+bun examples/eumenes/run.ts api productive museum,missing artifacts/evaluator-api --evaluator
+```
+
+`--evaluator` は保存済み報告を固定JSONとして Evaluator の `workflow-correctness` で1回レビューします。元の依頼、報告、主張が引用した取得本文を渡し、取得できていない引用や切り詰められた引用を未確認として扱います。報告が未保存なら評価を省略します。Pursuit の完了状態と独立した事後レビューで、台帳の実行履歴や判断時点の妥当性は評価範囲に含みません。
+
+各課題の `evaluation.json` に対象の識別子・ダイジェスト、指摘、根拠の位置、資料ごとの確認状態を保存します。Evaluator の `completed` は評価処理が完了した状態であり、指摘は `findings` で確認できます。エラー・取消・期限超過は実行の終了コードにも反映されます。固定試験では定型応答で入出力を検証します。実モデルでは `llm.reviewer` を使い、`summary.json` の `evaluation` に所要時間とトークン数、`usage.byRole.evaluator` に呼出回数と費用が入ります。APIには報告と引用本文が送信されます。
+
+開発用依存は eumenes-evaluator 0.1.0、アーカイブ SHA-256 `1178a3fad04b8708b9cb1f0c8dd7ece50056ab317c3f5ba6b5afa037d943b708` に固定しています。

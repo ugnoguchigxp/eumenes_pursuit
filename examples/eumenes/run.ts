@@ -4,23 +4,32 @@ import type { LlmPort } from "../../src/index.ts";
 import { createRoleLlm } from "../../standalone/llm.ts";
 import { openSettings } from "../../standalone/settings.ts";
 import { totalUsage } from "../../standalone/usage.ts";
-import { cases, fixture, scripted, type Case } from "./fixtures.ts";
+import { evaluatorModel, reviewReport } from "./evaluator.ts";
+import {
+	cases,
+	fixture,
+	scripted,
+	scriptedEvaluator,
+	type Case,
+} from "./fixtures.ts";
 import { openExample, type HostOptions } from "./host.ts";
 import provenance from "./provenance.json";
 
+const args = process.argv.slice(2);
+const useEvaluator = args.includes("--evaluator");
 const [
 	mode = "fixture",
 	variant = "productive",
 	selection = "museum",
 	output = "artifacts/eumenes-example",
 	baselinePath,
-] = process.argv.slice(2);
+] = args.filter((arg) => arg !== "--evaluator");
 if (
 	!["fixture", "api"].includes(mode) ||
 	!["legacy", "productive"].includes(variant)
 )
 	throw new Error(
-		"Usage: bun examples/eumenes/run.ts fixture|api legacy|productive case[,case] output-dir [baseline-source-dir]",
+		"Usage: bun examples/eumenes/run.ts fixture|api legacy|productive case[,case] output-dir [baseline-source-dir] [--evaluator]",
 	);
 const selected = selection.split(",") as Case[];
 if (selected.some((name) => !cases.includes(name)))
@@ -39,6 +48,9 @@ const root = resolve(output);
 mkdirSync(root, { recursive: true });
 const settings = mode === "api" ? openSettings() : null;
 const role = settings?.require("llm.generator");
+const evaluatorRole = useEvaluator
+	? settings?.require("llm.reviewer")
+	: undefined;
 const campaign = "eumenes-example-20261109";
 if (settings) settings.setBudget(`campaign:${campaign}`, 5);
 const summary = [];
@@ -58,16 +70,14 @@ try {
 			appendFileSync(eventPath, JSON.stringify(e) + "\n");
 		};
 		const f = fixture(name);
-		const meter = settings?.meter(
-			{
-				budgetId: campaign,
-				runId: `emulator-${variant}`,
-				configId: variant,
-				jobId: `${root}:${name}`,
-				pursuitId: null,
-			},
-			"subagent",
-		);
+		const scope = {
+			budgetId: campaign,
+			runId: `emulator-${variant}`,
+			configId: variant,
+			jobId: `${root}:${name}`,
+			pursuitId: null,
+		};
+		const meter = settings?.meter(scope, "subagent");
 		const generator: LlmPort =
 			role && meter
 				? createRoleLlm(role, meter)
@@ -90,6 +100,7 @@ try {
 					variant,
 					mode,
 					role,
+					...(useEvaluator ? { evaluator: evaluatorRole ?? "fixture" } : {}),
 					request: f.request,
 					limits: f.limits,
 					sources: f.sources,
@@ -113,7 +124,59 @@ try {
 				throw error;
 			}
 			const { view, markdown } = run;
+			const elapsedMs = performance.now() - started;
 			const snap = host.snapshot();
+			let evaluation;
+			if (useEvaluator) {
+				log({ kind: "evaluation_started", pursuitId: host.coreId });
+				const model =
+					settings && evaluatorRole
+						? evaluatorModel(
+								createRoleLlm(
+									evaluatorRole,
+									settings.meter(
+										{ ...scope, pursuitId: host.coreId },
+										"evaluator",
+									),
+								),
+							)
+						: scriptedEvaluator;
+				const result = snap.state.draft
+					? await reviewReport(
+							{
+								pursuitId: host.coreId,
+								request: f.request,
+								report: snap.state.draft,
+								documents: snap.documents,
+							},
+							model,
+							signal.signal,
+						)
+					: null;
+				writeFileSync(
+					join(directory, "evaluation.json"),
+					JSON.stringify(
+						result ?? { status: "skipped", reason: "no_saved_report" },
+						null,
+						2,
+					),
+				);
+				evaluation = {
+					status: result?.status ?? "skipped",
+					findings: result?.findings.length ?? 0,
+					issues: result?.issues.map((issue) => issue.code) ?? [],
+					durationMs: result?.durationMs ?? 0,
+					model: result?.model,
+					usage: result?.usage,
+				};
+				log({ kind: "evaluation_finished", ...evaluation });
+				if (
+					evaluation.status === "failed" ||
+					evaluation.status === "expired" ||
+					evaluation.status === "cancelled"
+				)
+					process.exitCode = 1;
+			}
 			const calls = events.filter((e) => e.kind === "model_finished");
 			const add = (rows: typeof events, key: string) =>
 				rows.reduce((sum, e) => sum + Number(e[key] ?? 0), 0);
@@ -141,9 +204,10 @@ try {
 			const stats = {
 				name,
 				variant,
-				elapsedMs: performance.now() - started,
+				elapsedMs,
 				status: view.status,
 				verified: view.report?.verified ?? false,
+				...(evaluation ? { evaluation } : {}),
 				expectedComplete: f.expectedComplete,
 				report: view.report,
 				draft: snap.state.draft,
@@ -188,7 +252,7 @@ try {
 					),
 					"durationMs",
 				),
-				usage: meter ? totalUsage(meter.events(`${root}:${name}`)) : null,
+				usage: meter ? totalUsage(meter.events(scope.jobId)) : null,
 			};
 			writeFileSync(
 				join(directory, "audit.json"),
@@ -211,7 +275,10 @@ try {
 				JSON.stringify(summary, null, 2),
 			);
 			console.log(
-				`${variant} ${name}: ${view.status}, ${calls.length} model calls, ${(stats.elapsedMs / 1000).toFixed(2)} s`,
+				`${variant} ${name}: ${view.status}, ${calls.length} model calls, ${(stats.elapsedMs / 1000).toFixed(2)} s` +
+					(evaluation
+						? `, evaluator ${evaluation.status} (${evaluation.findings} findings)`
+						: ""),
 			);
 		} finally {
 			await host.close();
