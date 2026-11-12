@@ -47,6 +47,20 @@ bun examples/optimizer/run.ts api all artifacts/optimizer-examples/api-1
 
 出力先は実行ごとに新しいディレクトリを指定する。各サンプルでモデルの呼び出しは最大17回、道具は最大20回、速度計測は最大6バッチ。モデルに渡す作業領域には、そのサンプルの初期版と共通仕様を置く。
 
+`api` と `compare-selection` が中断した場合は、同じ課題指定、実装、出力先、モデル設定で再開できる。Codexを使う場合はブリッジも同じ場所で起動する。
+
+```sh
+bun examples/optimizer/run.ts api all artifacts/optimizer-examples/api-1 --resume
+```
+
+再開時は候補、測定の校正、台帳、使用済みのモデル呼び出し枠を引き継ぐ。追求の期限は初回起動を基準にする。中断した計測は自動で再実行されず、モデルが明示的に再試行する場合も計測枠を使う。終了済みの課題は結果を読み戻す。プロセス停止などで使用量を取得できなかった呼び出しは `unobservedUsageCalls` に残る。
+
+候補の自動採用だけを比較する場合は、同じ追求ループを両方式で使う `compare-selection` を実行する。手動側は合格した計測のIDを `adopt_candidate` に渡す。両方式とも最良版の復元、正しさ、速度、公開前の独立監査は共通。
+
+```sh
+bun examples/optimizer/run.ts compare-selection inventory-branches artifacts/optimizer-examples/selection-1
+```
+
 ## Codex LunaとWeb検索で比較
 
 Codex CLIの `gpt-6-luna / medium` とネイティブのライブWeb検索を両方式に使う。各方式の最初の呼び出しで、課題の非公開情報を検索語に含めず、一般的な関連技術を1回調べるよう依頼する。検索実行件数と、Codexが返すInput／Cached／Outputを記録する。Codexの作業場所は空の読取り専用ディレクトリで、候補の読取り・編集・検査は実証ランナーの道具で実行する。
@@ -67,6 +81,10 @@ OPTIMIZER_CODEX_BRIDGE=artifacts/optimizer-examples/codex-bridge-1 bun examples/
 3. モデルが完了したら、作業領域から独立した未使用入力をホスト側で照合する。課題が定めた大規模入力を3分布で各7回実行し、出力が期待値と一致し、時間上限を満たし、検証対象版と公開版が一致したときに成果物を公開する。
 
 各サンプルの `initial.json` に初期状態、`calibration.json` に時間計測の校正、`result.json` に終了状態・採点・使用量を保存する。合格版は同じディレクトリの `windowsum.py` に出力する。終了時に検証済みの改善候補を保持している場合は、`best-partial.py` にその候補を保存できる。全体の結果は `summary.json` で確認できる。 [Optimizerの検証計画](../../spec/optimizer-first-validation-plan.md)
+
+監査全体の期限は、正しさ検査の件数、分布ごとの予熱と本計測の回数、1回3秒の上限から設定する。監査の合否・時間切れ・中断・実行エラーは `auditStatus` で確認できる。開発用の正しさ検査は、出力が異なる場合に最初の差分行を返す。計測応答の先頭には、候補版、比較版、分布ごとの差の中央値・閾値・採否の根拠を置く。全測定値は候補台帳に残る。
+
+校正で、ばらつきの閾値が比較版の中央値の20%を超えた分布があれば、課題の各方式を `optimizer_calibration_unstable` の未実行として記録する。このときモデルは呼び出さない。通常の採用閾値は、同一版どうしの測定で得たばらつきを使う。
 
 ## 実モデルでの実行結果
 

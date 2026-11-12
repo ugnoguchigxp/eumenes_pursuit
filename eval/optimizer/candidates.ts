@@ -40,6 +40,20 @@ export function openCandidates(
 				"SELECT version, source FROM selection JOIN candidate ON version = best",
 			)
 			.get()!;
+	const checked = (version: string) =>
+		db
+			.query<{ correct: number | null }, [string]>(
+				"SELECT correct FROM candidate WHERE version = ?",
+			)
+			.get(version)?.correct === 1;
+	const eligible = (
+		row: Measurement,
+		result: readonly Series[],
+		noise: Readonly<Record<string, number>>,
+	) =>
+		best().version === row.control &&
+		checked(row.version) &&
+		promotes(result, noise);
 	try {
 		db.transaction(() => {
 			const stored = db
@@ -82,15 +96,7 @@ export function openCandidates(
 			);
 			return version;
 		},
-		checked(version: string) {
-			return (
-				db
-					.query<{ correct: number | null }, [string]>(
-						"SELECT correct FROM candidate WHERE version = ?",
-					)
-					.get(version)?.correct === 1
-			);
-		},
+		checked,
 		history() {
 			return db
 				.query<Measurement, []>("SELECT * FROM measurement ORDER BY id")
@@ -100,14 +106,7 @@ export function openCandidates(
 			return db
 				.transaction(() => {
 					const control = best();
-					if (
-						!db
-							.query(
-								"SELECT version FROM candidate WHERE version = ? AND correct = 1",
-							)
-							.get(version)
-					)
-						throw new Error("optimizer_unchecked_version");
+					if (!checked(version)) throw new Error("optimizer_unchecked_version");
 					if (version === control.version)
 						return { kind: "unchanged" as const };
 					const old = db
@@ -145,6 +144,7 @@ export function openCandidates(
 			id: number,
 			result: readonly Series[],
 			noise: Readonly<Record<string, number>>,
+			automatic = true,
 		) {
 			return db
 				.transaction(() => {
@@ -155,14 +155,7 @@ export function openCandidates(
 						.get(id);
 					if (row?.state !== "running")
 						throw new Error("optimizer_stale_measurement");
-					const promoted =
-						best().version === row.control &&
-						!!db
-							.query(
-								"SELECT version FROM candidate WHERE version = ? AND correct = 1",
-							)
-							.get(row.version) &&
-						promotes(result, noise);
+					const promoted = automatic && eligible(row, result, noise);
 					db.run(
 						"UPDATE measurement SET state = 'done', result = ?, promoted = ? WHERE id = ?",
 						[JSON.stringify(result), Number(promoted), id],
@@ -170,6 +163,31 @@ export function openCandidates(
 					if (promoted)
 						db.run("UPDATE selection SET best = ? WHERE id = 1", [row.version]);
 					return promoted;
+				})
+				.immediate();
+		},
+		adopt(
+			id: number,
+			version: string,
+			noise: Readonly<Record<string, number>>,
+		) {
+			return db
+				.transaction(() => {
+					const row = db
+						.query<Measurement, [number]>(
+							"SELECT * FROM measurement WHERE id = ? AND state = 'done'",
+						)
+						.get(id);
+					if (
+						!row ||
+						row.version !== version ||
+						row.result === null ||
+						!eligible(row, JSON.parse(row.result) as Series[], noise)
+					)
+						return false;
+					db.run("UPDATE measurement SET promoted = 1 WHERE id = ?", [id]);
+					db.run("UPDATE selection SET best = ? WHERE id = 1", [version]);
+					return true;
 				})
 				.immediate();
 		},

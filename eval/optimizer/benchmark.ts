@@ -5,15 +5,22 @@ import { runSandboxed } from "../tools/sandbox.ts";
 import type { Workload } from "./data.ts";
 
 export const candidateFile = "windowsum.py";
+export const candidateTimeoutMs = 3000;
 export type Sample = {
 	readonly ms: number;
 	readonly status: "ok" | "incorrect" | "timeout" | "failed";
+	readonly mismatch?: {
+		readonly line: number;
+		readonly expected: string | null;
+		readonly actual: string | null;
+	};
 };
 export type Runner = (
 	source: string,
 	input: Workload,
 	timeoutMs: number,
 	signal: AbortSignal,
+	diagnoseMismatch?: boolean,
 ) => Promise<Sample>;
 
 export async function executeCandidate(
@@ -42,13 +49,39 @@ export async function executeCandidate(
 	}
 }
 
+export function firstOutputMismatch(
+	expected: string,
+	actual: string,
+): Sample["mismatch"] {
+	const lines = (text: string) => text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+	const want = lines(expected);
+	const got = lines(actual);
+	for (let i = 0; i < Math.max(want.length, got.length); i++) {
+		if (want[i] !== got[i])
+			return {
+				line: i + 1,
+				expected: want[i]?.slice(0, 160) ?? null,
+				actual: got[i]?.slice(0, 160) ?? null,
+			};
+	}
+}
+
 export const runCandidate: Runner = async (
 	source,
 	input,
 	timeoutMs,
 	signal,
+	diagnoseMismatch,
 ) => {
 	const result = await executeCandidate(source, input.input, timeoutMs, signal);
+	const incorrect =
+		!result.timedOut &&
+		result.exitCode === 0 &&
+		result.stdout !== input.expected;
+	const mismatch =
+		incorrect && diagnoseMismatch
+			? firstOutputMismatch(input.expected, result.stdout)
+			: undefined;
 	return {
 		ms: result.ms,
 		status: result.timedOut
@@ -58,6 +91,7 @@ export const runCandidate: Runner = async (
 				: result.stdout === input.expected
 					? "ok"
 					: "incorrect",
+		...(mismatch ? { mismatch } : {}),
 	};
 };
 
@@ -66,12 +100,23 @@ export async function checkCorrectness(
 	source: string,
 	inputs: readonly Workload[],
 	signal: AbortSignal,
+	diagnoseMismatch = false,
 ) {
 	const results = [];
 	for (const input of inputs) {
 		signal.throwIfAborted();
-		const { status } = await run(source, input, 3000, signal);
-		results.push({ id: input.id, status });
+		const { status, mismatch } = await run(
+			source,
+			input,
+			candidateTimeoutMs,
+			signal,
+			diagnoseMismatch,
+		);
+		results.push({
+			id: input.id,
+			status,
+			...(diagnoseMismatch && mismatch ? { mismatch } : {}),
+		});
 	}
 	signal.throwIfAborted();
 	return results;
@@ -98,8 +143,8 @@ export async function measure(
 	const result: Series[] = [];
 	for (const input of inputs) {
 		const warmup = {
-			control: await run(control, input, 3000, signal),
-			candidate: await run(candidate, input, 3000, signal),
+			control: await run(control, input, candidateTimeoutMs, signal),
+			candidate: await run(candidate, input, candidateTimeoutMs, signal),
 		};
 		const pairs: Pair[] = [];
 		if (warmup.control.status === "ok" && warmup.candidate.status === "ok") {
@@ -109,13 +154,13 @@ export async function measure(
 				const first = await run(
 					firstIsControl ? control : candidate,
 					input,
-					3000,
+					candidateTimeoutMs,
 					signal,
 				);
 				const second = await run(
 					firstIsControl ? candidate : control,
 					input,
-					3000,
+					candidateTimeoutMs,
 					signal,
 				);
 				pairs.push(
@@ -153,21 +198,69 @@ export function improvements(series: Series) {
 	);
 }
 
+export function measurementEvidence(
+	results: readonly Series[],
+	noise: Readonly<Record<string, number>>,
+) {
+	return results.map((series, i) => {
+		const threshold = noise[series.id];
+		const primary = i === 0;
+		if (!completeSeries(series)) {
+			const firstFailure = [series.warmup, ...series.pairs].find(
+				({ control, candidate }) =>
+					control.status !== "ok" || candidate.status !== "ok",
+			);
+			return {
+				id: series.id,
+				primary,
+				reason: "incomplete_series" as const,
+				pairs: series.pairs.length,
+				...(firstFailure
+					? {
+							controlStatus: firstFailure.control.status,
+							candidateStatus: firstFailure.candidate.status,
+						}
+					: {}),
+			};
+		}
+		if (threshold === undefined || !Number.isFinite(threshold) || threshold < 0)
+			return { id: series.id, primary, reason: "invalid_threshold" as const };
+		const differences = improvements(series);
+		const medianGainMs = percentile(differences, 0.5);
+		const fasterPairs = differences.filter((n) => n > 0).length;
+		const reason =
+			medianGainMs < -threshold
+				? primary
+					? "primary_regression"
+					: "secondary_regression"
+				: primary
+					? medianGainMs <= threshold
+						? "gain_within_noise"
+						: fasterPairs < 6
+							? "too_few_faster_pairs"
+							: "passed"
+					: "passed";
+		return {
+			id: series.id,
+			primary,
+			reason,
+			medianGainMs,
+			thresholdMs: threshold,
+			fasterPairs,
+		};
+	});
+}
+
 export function promotes(
 	results: readonly Series[],
 	noise: Readonly<Record<string, number>>,
 ): boolean {
-	if (!results.length || !results.every(completeSeries)) return false;
-	return results.every((series, i) => {
-		const threshold = noise[series.id];
-		if (threshold === undefined || !Number.isFinite(threshold) || threshold < 0)
-			return false;
-		const differences = improvements(series);
-		const median = percentile(differences, 0.5);
-		return i === 0
-			? median > threshold && differences.filter((n) => n > 0).length >= 6
-			: median >= -threshold;
-	});
+	return (
+		results.length > 0 &&
+		measurementEvidence(results, noise).every(
+			({ reason }) => reason === "passed",
+		)
+	);
 }
 
 export async function absoluteTarget(
@@ -178,14 +271,14 @@ export async function absoluteTarget(
 ) {
 	const results = [];
 	for (const input of inputs) {
-		const warmup = await run(source, input, 3000, signal);
+		const warmup = await run(source, input, candidateTimeoutMs, signal);
 		const samples: Sample[] = [];
-		if (warmup.status === "ok" && warmup.ms <= 3000) {
+		if (warmup.status === "ok" && warmup.ms <= candidateTimeoutMs) {
 			for (let i = 0; i < repeats; i++) {
 				signal.throwIfAborted();
-				const sample = await run(source, input, 3000, signal);
+				const sample = await run(source, input, candidateTimeoutMs, signal);
 				samples.push(sample);
-				if (sample.status !== "ok" || sample.ms > 3000) break;
+				if (sample.status !== "ok" || sample.ms > candidateTimeoutMs) break;
 			}
 		}
 		results.push({ id: input.id, warmup, samples });

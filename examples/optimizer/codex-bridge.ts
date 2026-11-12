@@ -45,8 +45,16 @@ async function publish(path: string, value: unknown) {
 	await rename(pending, path);
 }
 
-export function codexBridge(directory: string) {
-	const usage = { calls: 0, input: 0, cached: 0, output: 0, searches: 0 };
+export const emptyCodexUsage = () => ({
+	calls: 0,
+	measuredCalls: 0,
+	input: 0,
+	cached: 0,
+	output: 0,
+	searches: 0,
+});
+
+export function codexBridge(directory: string, usage = emptyCodexUsage()) {
 	const model: LlmPort = {
 		async complete(request, signal) {
 			signal.throwIfAborted();
@@ -75,6 +83,7 @@ export function codexBridge(directory: string) {
 				);
 				const metrics = response.metrics;
 				if (metrics) {
+					usage.measuredCalls++;
 					usage.input += metrics.input;
 					usage.cached += metrics.cached;
 					usage.output += metrics.output;

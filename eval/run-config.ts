@@ -97,7 +97,10 @@ export function recordVariant(r: {
 }
 
 /** Runtime source and fixtures, including dirty contents. Outputs and test code are excluded. */
-export function sourceIdentity(root: string): string {
+export function sourceIdentity(
+	root: string,
+	extraRoots: readonly string[] = [],
+): string {
 	const files: string[] = ["package.json", "bun.lock"];
 	function walk(rel: string) {
 		for (const e of readdirSync(join(root, rel), { withFileTypes: true })) {
@@ -112,7 +115,8 @@ export function sourceIdentity(root: string): string {
 			else if (e.isFile() && !e.name.endsWith(".test.ts")) files.push(path);
 		}
 	}
-	for (const rel of ["src", "standalone", "eval", "config"]) walk(rel);
+	for (const rel of ["src", "standalone", "eval", "config", ...extraRoots])
+		walk(rel);
 	const hash = new Bun.CryptoHasher("sha256");
 	for (const path of files.sort())
 		hash.update(

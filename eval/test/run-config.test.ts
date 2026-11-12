@@ -83,6 +83,7 @@ test("runtime source content changes identity; output files, credentials and tes
 			"config",
 			"eval/results",
 			"src/test",
+			"examples/optimizer",
 		])
 			mkdirSync(join(root, dir), { recursive: true });
 		for (const file of ["package.json", "bun.lock", "src/a.ts"])
@@ -91,6 +92,15 @@ test("runtime source content changes identity; output files, credentials and tes
 		writeFileSync(join(root, "eval/results/runs.jsonl"), "new result");
 		writeFileSync(join(root, ".env"), "credential-rotated");
 		writeFileSync(join(root, "src/test/a.test.ts"), "new test");
+		expect(sourceIdentity(root)).toBe(before);
+		const optimizerBefore = sourceIdentity(root, ["examples/optimizer"]);
+		writeFileSync(
+			join(root, "examples/optimizer/starter.py"),
+			"changed fixture",
+		);
+		expect(sourceIdentity(root, ["examples/optimizer"])).not.toBe(
+			optimizerBefore,
+		);
 		expect(sourceIdentity(root)).toBe(before);
 		writeFileSync(join(root, "src/a.ts"), "dirty source change");
 		expect(sourceIdentity(root)).not.toBe(before);

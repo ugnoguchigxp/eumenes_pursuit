@@ -1,15 +1,18 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readlink, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	checkCorrectness,
+	firstOutputMismatch,
 	measure,
 	promotes,
+	runCandidate,
 	type Runner,
 	type Series,
 } from "./benchmark.ts";
 import { digest, openCandidates } from "./candidates.ts";
+import { sandboxAvailable } from "../tools/sandbox.ts";
 import {
 	bruteForce,
 	correctnessSuite,
@@ -17,6 +20,76 @@ import {
 	profiles,
 	reference,
 } from "./data.ts";
+
+test.skipIf(!sandboxAvailable())(
+	"Python candidates cannot see host files or environment and time out independently",
+	async () => {
+		const directory = await mkdtemp(join(tmpdir(), "optimizer-boundary-"));
+		const marker = join(directory, "marker");
+		const variable = "PURSUIT_OPTIMIZER_TEST_MARKER";
+		const previous = process.env[variable];
+		try {
+			await writeFile(marker, "test marker");
+			process.env[variable] = "test marker";
+			const network = await readlink("/proc/self/ns/net");
+			const source = `
+import os
+print(os.path.exists(${JSON.stringify(marker)}), ${JSON.stringify(variable)} in os.environ,
+      os.readlink("/proc/self/ns/net") != ${JSON.stringify(network)})
+`;
+			const input = {
+				id: "boundary",
+				input: "",
+				expected: "False False True\n",
+			};
+			const signal = AbortSignal.timeout(5000);
+			expect((await runCandidate(source, input, 1500, signal)).status).toBe(
+				"ok",
+			);
+			expect(
+				(await runCandidate("import time; time.sleep(10)", input, 200, signal))
+					.status,
+			).toBe("timeout");
+		} finally {
+			if (previous === undefined) delete process.env[variable];
+			else process.env[variable] = previous;
+			await rm(directory, { recursive: true, force: true });
+		}
+	},
+);
+
+test("diagnoses an exact output mismatch without showing other rows", async () => {
+	expect(
+		firstOutputMismatch("first\nsecond\nsecret\n", "first\ndifferent\n"),
+	).toEqual({
+		line: 2,
+		expected: "second\n",
+		actual: "different\n",
+	});
+	expect(firstOutputMismatch("first\n", "first")).toEqual({
+		line: 1,
+		expected: "first\n",
+		actual: "first",
+	});
+	expect(firstOutputMismatch("first\n", "first\nextra\n")).toEqual({
+		line: 2,
+		expected: null,
+		actual: "extra\n",
+	});
+	expect(
+		firstOutputMismatch("a".repeat(161), "b".repeat(161))?.actual,
+	).toHaveLength(160);
+	const mismatch = { line: 1, expected: "expected\n", actual: "actual\n" };
+	const run: Runner = async () => ({ ms: 1, status: "incorrect", mismatch });
+	const checks = [{ id: "case", input: "", expected: "" }];
+	const signal = new AbortController().signal;
+	expect(await checkCorrectness(run, "", checks, signal)).toEqual([
+		{ id: "case", status: "incorrect" },
+	]);
+	expect(await checkCorrectness(run, "", checks, signal, true)).toEqual([
+		{ id: "case", status: "incorrect", mismatch },
+	]);
+});
 
 test("reference agrees with the direct specification at boundaries and across seeded distributions", () => {
 	const boundary = [

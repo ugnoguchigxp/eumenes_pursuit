@@ -13,11 +13,15 @@ import { createDirWorkspace } from "../tools/workspace.ts";
 import {
 	absoluteTarget,
 	candidateFile,
+	candidateTimeoutMs,
 	checkCorrectness,
 	measure,
+	measurementEvidence,
+	promotes,
 	repeats,
 	runCandidate,
 	type Runner,
+	type Series,
 } from "./benchmark.ts";
 import { digest, openCandidates } from "./candidates.ts";
 import type { Workload } from "./data.ts";
@@ -63,6 +67,7 @@ interface Options {
 	readonly baselineSource?: string;
 	readonly specification?: string;
 	readonly run?: Runner;
+	readonly selection?: "automatic" | "manual";
 }
 
 function passedTarget(results: Awaited<ReturnType<typeof absoluteTarget>>) {
@@ -71,9 +76,9 @@ function passedTarget(results: Awaited<ReturnType<typeof absoluteTarget>>) {
 		results.every(
 			({ warmup, samples }) =>
 				warmup.status === "ok" &&
-				warmup.ms <= 3000 &&
+				warmup.ms <= candidateTimeoutMs &&
 				samples.length === repeats &&
-				samples.every((s) => s.status === "ok" && s.ms <= 3000),
+				samples.every((s) => s.status === "ok" && s.ms <= candidateTimeoutMs),
 		)
 	);
 }
@@ -89,6 +94,7 @@ export async function openOptimizer(options: Options) {
 	)
 		throw new Error("optimizer_invalid_protocol");
 	const run = options.run ?? runCandidate;
+	const automatic = options.selection !== "manual";
 	const workDir = join(directory, "work");
 	const path = join(workDir, candidateFile);
 	const baseline = options.baselineSource ?? (await loadBaseline());
@@ -108,6 +114,7 @@ export async function openOptimizer(options: Options) {
 			noise,
 			maxMeasurements,
 			environment: options.environment,
+			...(!automatic ? { selection: "manual" } : {}),
 			...(initial === baseline ? {} : { initialVersion: digest(initial) }),
 			...(options.specification === undefined
 				? {}
@@ -166,13 +173,19 @@ export async function openOptimizer(options: Options) {
 			{
 				name: "check_candidate",
 				description:
-					"現行版の出力を固定した正しさ検査で照合する。速度は判定しない。",
+					"現行版を開発用の正しさ検査で照合し、出力不一致では最初に異なる行を返す。速度は判定しない。",
 				permission: "optimizer.check",
 				readsWorkspace: true,
 			},
 			async (_, signal) => {
 				const source = await readFile(path, "utf8");
-				const checks = await checkCorrectness(run, source, correctness, signal);
+				const checks = await checkCorrectness(
+					run,
+					source,
+					correctness,
+					signal,
+					true,
+				);
 				const passed = checks.every((item) => item.status === "ok");
 				const version = candidates.markChecked(source, passed);
 				return ok({ version, passed, checks });
@@ -181,8 +194,9 @@ export async function openOptimizer(options: Options) {
 		defineTool(
 			{
 				name: "measure_candidate",
-				description:
-					"正しさに合格した現行版を最良版と比較する。改善を確認した版だけを自動保存する。",
+				description: automatic
+					? "正しさに合格した現行版を最良版と比較する。改善を確認した版だけを自動保存する。"
+					: "正しさに合格した現行版を最良版と比較する。eligible=true の測定は adopt_candidate で採用できる。",
 				permission: "optimizer.measure",
 				readsWorkspace: true,
 				properties: {
@@ -204,14 +218,20 @@ export async function openOptimizer(options: Options) {
 				);
 				if (trial.kind === "unchanged")
 					return ok({ version, best: version, state: trial.kind });
-				if (trial.kind === "cached")
+				if (trial.kind === "cached") {
+					const result = JSON.parse(trial.record.result!) as Series[];
 					return ok({
 						version,
+						control: trial.record.control,
 						best: candidates.best().version,
 						state: trial.kind,
+						promoted: trial.record.promoted === 1,
+						...(!automatic ? { eligible: promotes(result, noise) } : {}),
 						measurement: trial.record.id,
-						result: JSON.parse(trial.record.result!),
+						evidence: measurementEvidence(result, noise),
+						result: JSON.parse(JSON.stringify(result)),
 					});
+				}
 				if (trial.kind !== "started")
 					return fail(
 						`optimizer_${trial.kind}`,
@@ -226,13 +246,20 @@ export async function openOptimizer(options: Options) {
 						signal,
 					);
 					signal.throwIfAborted();
-					const promoted = candidates.finish(trial.id, result, noise);
+					const promoted = candidates.finish(
+						trial.id,
+						result,
+						noise,
+						automatic,
+					);
 					return ok({
 						version,
 						control: trial.control.version,
 						best: candidates.best().version,
 						promoted,
+						...(!automatic ? { eligible: promotes(result, noise) } : {}),
 						measurement: trial.id,
+						evidence: measurementEvidence(result, noise),
 						result: JSON.parse(JSON.stringify(result)),
 					});
 				} catch (error) {
@@ -277,6 +304,40 @@ export async function openOptimizer(options: Options) {
 			},
 		),
 	);
+	if (!automatic)
+		tools.push(
+			defineTool(
+				{
+					name: "adopt_candidate",
+					description:
+						"測定IDを指定して現行の改善版を採用する。対象版と比較版が一致する場合だけ採用する。",
+					permission: "optimizer.measure",
+					readsWorkspace: true,
+					properties: { measurement: prop("integer", "採用する測定ID") },
+					required: ["measurement"],
+				},
+				async (input, signal) => {
+					const version = digest(await readFile(path, "utf8"));
+					signal.throwIfAborted();
+					const id = Number(input.measurement);
+					if (
+						!Number.isSafeInteger(id) ||
+						id < 1 ||
+						!candidates.adopt(id, version, noise)
+					)
+						return fail(
+							"optimizer_measurement_not_adoptable",
+							"現行版・比較版・測定条件を確認してください",
+						);
+					return ok({
+						version,
+						best: version,
+						measurement: id,
+						promoted: true,
+					});
+				},
+			),
+		);
 	const runtime: PursuitRuntime = {
 		tools: createToolPort(tools),
 		workspace,

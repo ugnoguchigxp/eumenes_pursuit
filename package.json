@@ -19,7 +19,7 @@
 		"check:boundaries": "bun scripts/check-boundaries.ts",
 		"check:results": "bun scripts/check-results.ts",
 		"check:performance": "bun scripts/benchmark.ts",
-		"test": "bun test ./src ./test ./standalone ./eval",
+		"test": "bun test ./src ./test ./standalone ./eval ./examples/optimizer",
 		"pack:core": "bun scripts/pack-core.ts",
 		"build": "tsc -p tsconfig.build.json",
 		"pursuit": "bun standalone/cli.ts",

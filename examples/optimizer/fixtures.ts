@@ -6,6 +6,7 @@ import {
 	measure,
 	percentile,
 	runCandidate,
+	type Series,
 } from "../../eval/optimizer/benchmark.ts";
 import {
 	correctnessSuite,
@@ -60,7 +61,7 @@ export const liveStarters: readonly Starter[] = [
 
 export function selectStarters(
 	selection: string,
-	mode: "inspect" | "api" | "direct" | "compare",
+	mode: "inspect" | "api" | "direct" | "compare" | "compare-selection",
 ): Starter[] {
 	const names = (
 		selection === "all"
@@ -380,6 +381,25 @@ export async function calibrate(
 		]),
 	);
 	return { initial, fast, noise };
+}
+
+// If noise alone can obscure a fifth of the baseline runtime, this setup cannot
+// distinguish an improvement of that size. Keep the original promotion test.
+export function unstableCalibration(
+	initial: readonly Series[],
+	noise: Readonly<Record<string, number>>,
+) {
+	return initial.flatMap(({ id, pairs }) => {
+		const baselineMs = percentile(
+			pairs.flatMap(({ control, candidate }) => [control.ms, candidate.ms]),
+			0.5,
+		);
+		const thresholdMs = noise[id]!;
+		const noiseFraction = thresholdMs / baselineMs;
+		return noiseFraction > 0.2
+			? [{ id, baselineMs, thresholdMs, noiseFraction }]
+			: [];
+	});
 }
 
 export async function heldOut(name: Starter) {
