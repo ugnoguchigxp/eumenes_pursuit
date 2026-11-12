@@ -194,6 +194,12 @@ bun eval/analyze.ts --compare abl1-pursuit-r1 abl1-pursuit-r2 abl1-pursuit-r3 ab
 
 ## 進捗
 
+### Harness Engineer の方針
+
+Harness Engineer は、Pursuit の実行上の問題を診断し、変更候補を現行と比較する専用エージェントです。2026-11-12 に保存済みの実行記録を点検し、M0（対象選定）で開発を見送りました。確認した範囲では、現行版で同じ失敗が別々の実行に発生し、成果への影響と人の手戻りを原記録から確認できる事例を選べませんでした。
+
+実際の利用でこうした問題が繰り返し起き、既存の検査やログで正常と失敗を判別できるようになった時点で、着手を再検討します。比較では現行のモデルと推論設定を固定し、成果の品質と人の作業時間を確認します。 [Harness Engineer の着手判断計画](spec/harness-engineer-validation-plan.md)
+
 ### 計画書のフェーズ（[plan.md](plan.md) §14）
 
 | フェーズ | 中身 | 状態 |
