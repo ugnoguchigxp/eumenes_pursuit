@@ -14,6 +14,7 @@ import {
 	emptyProductiveState,
 	type ProductiveState,
 	type ProductiveChoice,
+	type ProductiveRepairDetail,
 } from "../ledger/productivity.ts";
 import type { PursuitView } from "../ledger/types.ts";
 import {
@@ -638,6 +639,15 @@ export function makeProductive(
 			return wrap(result(v, v.revision + 1, v.status, "interrupted"));
 		}
 		const errors: string[] = [];
+		const repairDetails: ProductiveRepairDetail[] = [];
+		const addRepairDetail = (
+			rule: string,
+			field: string,
+			requirement: string,
+		) => {
+			if (!errors.includes(rule)) errors.push(rule);
+			repairDetails.push({ rule, field, requirement });
+		};
 		const finalizing = c.choice === "complete" || c.choice === "partial";
 		const reusedArtifact = reusePartialArtifact(
 			c,
@@ -666,12 +676,20 @@ export function makeProductive(
 			)
 		)
 			errors.push("evidence_reference");
-		if (
-			!["initial", "none", "blocked"].includes(c.progress.kind) &&
-			(!c.progress.change.trim() ||
-				(c.progress.kind !== "constraint" && !c.progress.criteria.length))
-		)
-			errors.push("missing_semantic_delta");
+		if (!["initial", "none", "blocked"].includes(c.progress.kind)) {
+			if (!c.progress.change.trim())
+				addRepairDetail(
+					"missing_semantic_delta",
+					"progress.change",
+					"Describe what changed in a nonempty string for this progress kind.",
+				);
+			if (c.progress.kind !== "constraint" && !c.progress.criteria.length)
+				addRepairDetail(
+					"missing_semantic_delta",
+					"progress.criteria",
+					"Include at least one affected acceptance criterion ID for this progress kind.",
+				);
+		}
 		if (
 			c.choice === "think" &&
 			(c.progress.kind !== "reasoning" ||
@@ -699,14 +717,29 @@ export function makeProductive(
 			(v.progress ?? []).some((p) => p.status !== "superseded")
 		)
 			errors.push("initial_after_start");
-		if (
-			c.choice === "act" &&
-			(!c.actions.length ||
-				!c.contribution.trim() ||
-				(["none", "blocked"].includes(c.progress.kind) &&
-					c.route === "advance"))
-		)
-			errors.push("no_executable_advance");
+		if (c.choice === "act") {
+			if (!c.actions.length)
+				addRepairDetail(
+					"no_executable_advance",
+					"actions",
+					"Include at least one concrete permitted tool action when choosing act.",
+				);
+			if (!c.contribution.trim())
+				addRepairDetail(
+					"no_executable_advance",
+					"contribution",
+					"Explain in a nonempty string what the proposed action will contribute.",
+				);
+			if (
+				["none", "blocked"].includes(c.progress.kind) &&
+				c.route === "advance"
+			)
+				addRepairDetail(
+					"no_executable_advance",
+					"route",
+					"With progress.kind none or blocked, use alternative, checkpoint, or verify for a useful action.",
+				);
+		}
 		if (
 			c.choice === "act" &&
 			["none", "blocked"].includes(c.progress.kind) &&
@@ -842,6 +875,7 @@ export function makeProductive(
 			errors.push("alternative_without_progress");
 		if (errors.length) {
 			const alreadyRepaired = s.repair?.basis === b;
+			const details = repairDetails.length ? { details: repairDetails } : {};
 			await store.write((db) => {
 				inference(db, v, [llmRow("propose", r)]);
 				ledger.claimOperation(db, {
@@ -856,7 +890,7 @@ export function makeProductive(
 					pursuitId: v.id,
 					kind: "continue",
 					reason: "進捗制御の契約に適合しない応答を実行しなかった",
-					basis: { rules: errors },
+					basis: { rules: errors, ...details },
 					decidedBy: "rules",
 					now: clock.now(),
 				});
@@ -865,7 +899,7 @@ export function makeProductive(
 					request: null,
 					plan: null,
 					waitBasis: null,
-					repair: { basis: b, issues: errors },
+					repair: { basis: b, issues: errors, ...details },
 				});
 				ledger.advancePursuit(db, {
 					id: v.id,

@@ -64,6 +64,7 @@ if __name__ == "__main__":
 `;
 export const wrong = faster.replace("<= time - 3600", "< time - 3600");
 export const slower = "import time\ntime.sleep(0.15)\n" + faster;
+export const slowerThanBaseline = "import time\ntime.sleep(0.6)\n" + faster;
 
 const action = (tool: string, input: JsonObject = {}) => ({
 	tool,
@@ -100,7 +101,23 @@ const script = [
 		change: "速度が悪化したため確認済みの版を復元する",
 	},
 ];
-const fixed: LlmPort = {
+const candidateStateScript = [
+	{
+		actions: [
+			write(slowerThanBaseline),
+			check(),
+			time(),
+			action("restore_best"),
+			action("read_candidate"),
+		],
+		kind: "initial",
+		change: "最初の候補を計測し、採用結果を読み戻す",
+	},
+	{ ...script[0]!, kind: "evidence" },
+	...script.slice(1),
+];
+
+const fixedModel = (showCandidateState: boolean): LlmPort => ({
 	async complete(request) {
 		let value: unknown;
 		if (request.purpose === "plan") {
@@ -127,13 +144,28 @@ const fixed: LlmPort = {
 			const state = JSON.parse(request.prompt.split("\n\n").at(-1)!) as {
 				basis: string;
 				newlyUnassessed: number[];
-				attempts: { seq: number; state: string }[];
+				attempts: { seq: number; state: string; observation: string }[];
 				choiceViolations: string[];
 			};
 			assert.deepEqual(state.choiceViolations, []);
-			const next = [0, 3, 5, 8].indexOf(state.attempts.length);
-			const choice = script[next];
+			const steps = showCandidateState ? candidateStateScript : script;
+			const lastAttempt = state.attempts.at(-1)?.seq ?? 0;
+			let start = 0;
+			const next = steps.findIndex(({ actions }) => {
+				if (start === lastAttempt) return true;
+				start += actions.length;
+				return false;
+			});
+			const choice = steps[next];
 			assert.ok(choice, `unexpected attempt count ${state.attempts.length}`);
+			if (showCandidateState && next === 1) {
+				assert.match(state.attempts[4]!.observation, /"matchesBaseline":true/);
+				assert.match(
+					state.attempts[4]!.observation,
+					/"hasAdoptedImprovement":false/,
+				);
+				assert.match(state.attempts[2]!.observation, /"kind":"relative"/);
+			}
 			value = {
 				basis: state.basis,
 				progress: {
@@ -149,7 +181,7 @@ const fixed: LlmPort = {
 						.map((a) => a.seq),
 					conclusions: [],
 				},
-				choice: next === 3 ? "complete" : "act",
+				choice: next === steps.length - 1 ? "complete" : "act",
 				reason: choice.change,
 				missing: "",
 				contribution: choice.change,
@@ -171,13 +203,15 @@ const fixed: LlmPort = {
 			latencyMs: 0,
 		};
 	},
-};
+});
 
 export async function fixedScenario(
 	directory: string,
 	run: Runner = runCandidate,
 	real = true,
+	presentation?: "candidate-state" | "measurement-summary",
 ) {
+	const showCandidateState = presentation === "candidate-state";
 	await mkdir(directory, { recursive: true });
 	const signal = AbortSignal.timeout(240000);
 	const initial = await loadBaseline();
@@ -215,11 +249,25 @@ export async function fixedScenario(
 		timing,
 		large,
 		noise,
+		...(presentation === "measurement-summary"
+			? { measurementOutput: "summary" as const }
+			: {}),
+		...(showCandidateState
+			? {
+					measurementScope: {
+						unit: "transactions" as const,
+						relativeInputSize: real ? 3000 : 20,
+						acceptanceInputSize: real ? 200000 : 20,
+					},
+				}
+			: {}),
 		environment: real
 			? `${process.platform}-${process.arch}/bun-${Bun.version}/python-${Bun.spawnSync(["/usr/bin/python3", "--version"]).stdout.toString().trim()}`
 			: "deterministic-fixture",
 	};
 	const ledgerPath = join(directory, "ledger.sqlite");
+	const fixed = fixedModel(showCandidateState);
+	const initialAttempts = showCandidateState ? 5 : 0;
 	const makeEngine = (store: ReturnType<typeof openStore>) =>
 		createPursuitEngine({
 			store,
@@ -252,7 +300,7 @@ export async function fixedScenario(
 					budget: {
 						...policy.budget,
 						attempts: 20,
-						attemptsPerHypothesis: 12,
+						attemptsPerHypothesis: showCandidateState ? 20 : 12,
 						wallMs: 240000,
 					},
 				},
@@ -295,7 +343,7 @@ export async function fixedScenario(
 			if (step.done) break;
 			if (
 				!paused &&
-				view.attempts.length === 8 &&
+				view.attempts.length === 8 + initialAttempts &&
 				view.attempts.every((a) => a.state === "settled")
 			) {
 				assert.equal(task.candidates.best().version, digest(faster));
@@ -319,12 +367,12 @@ export async function fixedScenario(
 			JSON.stringify(view?.report ?? view?.productive),
 		);
 		assert.equal(view.report?.verified, true);
-		assert.equal(view.attempts.length, 10);
+		assert.equal(view.attempts.length, 10 + initialAttempts);
 		assert.equal(task.candidates.best().version, digest(faster));
 		const history = task.candidates.history();
 		assert.deepEqual(
 			history.map((m) => m.promoted),
-			[1, 0],
+			showCandidateState ? [0, 1, 0] : [1, 0],
 		);
 		const heldOut = profiles.map((profile) =>
 			workload(

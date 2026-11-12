@@ -16,11 +16,26 @@ test("compiled package is complete, detects tampering, and runs in a clean host"
 		});
 		const errors = await new Response(pack.stderr).text();
 		expect(await pack.exited, errors).toBe(0);
-		const listing = Bun.spawnSync(["tar", "-tzf", tar]);
+		const other = join(base, "repeat.tgz");
+		const repeat = Bun.spawn(
+			[process.execPath, "scripts/pack-core.ts", other],
+			{
+				cwd: root,
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		const repeatErrors = await new Response(repeat.stderr).text();
+		expect(await repeat.exited, repeatErrors).toBe(0);
+		expect((await readFile(other)).equals(await readFile(tar))).toBe(true);
+		const listing = Bun.spawnSync(["tar", "-tzf", tar], {
+			env: { ...process.env, COPYFILE_DISABLE: "1" },
+		});
 		expect(listing.exitCode).toBe(0);
 		for (const file of listing.stdout.toString().trim().split("\n")) {
 			expect(file.startsWith("package/")).toBe(true);
 			expect(file).not.toContain("..");
+			expect(file.split("/").some((part) => part.startsWith("._"))).toBe(false);
 			expect(file).not.toMatch(
 				/(?:standalone|eval|\.env|\.sqlite|node_modules)\//,
 			);

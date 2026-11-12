@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { openSettings, settingSchemas, type SettingKey } from "./settings.ts";
 
 const [group, action, ...rest] = process.argv.slice(2);
-const settings = openSettings();
+const settings = openSettings(process.env.PURSUIT_SETTINGS);
 const isKey = (key: string): key is SettingKey =>
 	Object.hasOwn(settingSchemas, key);
 try {

@@ -38,6 +38,11 @@ import {
 	networkChecks,
 	networkData,
 } from "./network/data.ts";
+import {
+	encodeMoments,
+	momentsChecks,
+	momentsData,
+} from "./range-moments/data.ts";
 
 export const starters = {
 	"all-scan": { expectedCorrect: true, primary: "mixed" },
@@ -50,6 +55,7 @@ export const starters = {
 	"network-parity": { expectedCorrect: false, primary: "mixed" },
 	"network-versions": { expectedCorrect: false, primary: "mixed" },
 	"inventory-branches": { expectedCorrect: false, primary: "mixed" },
+	"range-moments": { expectedCorrect: false, primary: "mixed" },
 } as const;
 
 export type Starter = keyof typeof starters;
@@ -57,11 +63,19 @@ export type Starter = keyof typeof starters;
 export const liveStarters: readonly Starter[] = [
 	"bulk-snapshots",
 	"inventory-branches",
+	"range-moments",
 ];
 
 export function selectStarters(
 	selection: string,
-	mode: "inspect" | "api" | "direct" | "compare" | "compare-selection",
+	mode:
+		| "inspect"
+		| "api"
+		| "direct"
+		| "compare"
+		| "compare-selection"
+		| "compare-state"
+		| "compare-measurement-summary",
 ): Starter[] {
 	const names = (
 		selection === "all"
@@ -110,6 +124,19 @@ const bulkWorkload = (
 	);
 const networkOperations = 60000;
 const inventoryOperations = 50000;
+const momentOperations = 36000;
+const readMoments = (name: string) =>
+	readFile(new URL(`./range-moments/${name}`, import.meta.url), "utf8");
+const momentsWorkload = (
+	reference: string,
+	profile: (typeof profiles)[number],
+	size: number,
+	seed: number,
+	id: string,
+) => {
+	const { n, orders } = momentsData(profile, size, seed);
+	return referenceWorkload(reference, id, encodeMoments(n, orders));
+};
 const readInventory = (name: string) =>
 	readFile(new URL(`./inventory/${name}`, import.meta.url), "utf8");
 const inventoryWorkload = (
@@ -152,12 +179,60 @@ export async function fixture(name: Starter) {
 		),
 		"utf8",
 	);
-	if (name === "inventory-branches") {
-		const reference = await readInventory("reference.py");
+	if (name === "range-moments") {
+		const reference = await readMoments("reference.py");
+		const timingOperations = 1900;
 		const timing = [];
 		for (const profile of profiles)
 			timing.push(
-				await inventoryWorkload(reference, profile, 1400, 4681, profile),
+				await momentsWorkload(
+					reference,
+					profile,
+					timingOperations,
+					39103,
+					profile,
+				),
+			);
+		return {
+			initialSource,
+			baselineSource: initialSource
+				.replace("saved[args[0]] = values", "saved[args[0]] = values.copy()")
+				.replace(
+					"values = saved.get(args[0], values)",
+					"if args[0] in saved:\n                values = saved[args[0]].copy()",
+				),
+			expectedCorrect: false,
+			reference,
+			operationCount: momentOperations,
+			timingOperations,
+			specification: await readMoments("README.md"),
+			goal: "windowsum.py の区間更新と版の復元を修正し、高速化する。README.md の操作仕様と、未使用の36,000操作・3秒の要件を満たす。正しさと速度を検証した最良版を提出する。",
+			correctness: momentsChecks(11173),
+			timing,
+			large: [
+				await momentsWorkload(
+					reference,
+					"distributed",
+					momentOperations,
+					68041,
+					"development-36000",
+				),
+			],
+		};
+	}
+	if (name === "inventory-branches") {
+		const reference = await readInventory("reference.py");
+		const timingOperations = 1400;
+		const timing = [];
+		for (const profile of profiles)
+			timing.push(
+				await inventoryWorkload(
+					reference,
+					profile,
+					timingOperations,
+					4681,
+					profile,
+				),
 			);
 		return {
 			initialSource,
@@ -170,6 +245,7 @@ export async function fixture(name: Starter) {
 			expectedCorrect: false,
 			reference,
 			operationCount: inventoryOperations,
+			timingOperations,
 			specification: await readInventory("README.md"),
 			goal: "windowsum.py の配送網の在庫照会を修正して高速化する。README.md の操作仕様と、未使用の5万操作・3秒の要件を満たす。正しさと速度を検証した最良版を提出する。",
 			correctness: inventoryChecks(1549),
@@ -267,10 +343,17 @@ export async function fixture(name: Starter) {
 				"\n" +
 				(await readLedger("bulk.md"));
 			const reference = await readLedger("bulk-reference.py");
+			const timingOperations = 6000;
 			const timing = [];
 			for (const profile of profiles)
 				timing.push(
-					await bulkWorkload(reference, profile, 6000, 7769, profile),
+					await bulkWorkload(
+						reference,
+						profile,
+						timingOperations,
+						7769,
+						profile,
+					),
 				);
 			return {
 				initialSource,
@@ -281,6 +364,7 @@ export async function fixture(name: Starter) {
 					.replaceAll("200000", "100000"),
 				reference,
 				operationCount: bulkOperations,
+				timingOperations,
 				goal: "windowsum.py の分岐・一括訂正付き取引台帳を修正し、高速化する。README.md の入出力仕様と10万操作・3秒の要件を満たす。正しさを確認して速度を計測し、検証済みの最良版を提出する。",
 				correctness: bulkChecks(2833),
 				timing,
@@ -403,6 +487,21 @@ export function unstableCalibration(
 }
 
 export async function heldOut(name: Starter) {
+	if (name === "range-moments") {
+		const reference = await readMoments("reference.py");
+		const speed = [];
+		for (const profile of profiles)
+			speed.push(
+				await momentsWorkload(
+					reference,
+					profile,
+					momentOperations,
+					70139,
+					profile,
+				),
+			);
+		return { correctness: momentsChecks(27043), speed };
+	}
 	if (name === "inventory-branches") {
 		const reference = await readInventory("reference.py");
 		const speed = [];

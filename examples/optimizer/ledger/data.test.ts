@@ -54,8 +54,9 @@ test("paid runs exclude historical examples, including explicit selections", () 
 	expect(selectStarters("all", "compare")).toEqual([
 		"bulk-snapshots",
 		"inventory-branches",
+		"range-moments",
 	]);
-	expect(selectStarters("all", "inspect")).toHaveLength(10);
+	expect(selectStarters("all", "inspect")).toHaveLength(11);
 	expect(() => selectStarters("all-scan", "api")).toThrow("retired sample");
 	expect(() => selectStarters("snapshots", "compare")).toThrow(
 		"retired sample",

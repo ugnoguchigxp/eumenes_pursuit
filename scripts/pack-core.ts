@@ -6,6 +6,8 @@ import {
 	cp,
 	rm,
 	readdir,
+	chmod,
+	utimes,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -40,6 +42,51 @@ export async function verifyPackage(dir: string) {
 			throw new Error(`package_checksum:${path}`);
 	}
 }
+
+async function writeArchive(
+	stage: string,
+	output: string,
+	entries: readonly string[],
+) {
+	const tarVersion = Bun.spawnSync(["tar", "--version"], { stdout: "pipe" });
+	const version = tarVersion.stdout.toString();
+	const ownership = version.includes("GNU tar")
+		? ["--owner=root:0", "--group=root:0"]
+		: version.includes("bsdtar")
+			? ["--uid", "0", "--gid", "0", "--uname", "root", "--gname", "root"]
+			: null;
+	if (!ownership) throw new Error("package_tar_unsupported");
+	for (const entry of entries) {
+		const path = join(stage, entry);
+		await chmod(path, 0o644);
+		await utimes(path, 0, 0);
+	}
+	const archive = join(stage, "package.tar");
+	const tar = Bun.spawn(
+		[
+			"tar",
+			"-c",
+			"--format",
+			"ustar",
+			"-b",
+			"20",
+			...ownership,
+			"-f",
+			archive,
+			"-C",
+			stage,
+			...entries,
+		],
+		{
+			stdout: "inherit",
+			stderr: "inherit",
+			env: { ...process.env, COPYFILE_DISABLE: "1" },
+		},
+	);
+	if ((await tar.exited) !== 0) throw new Error("package_archive_failed");
+	await writeFile(output, Bun.gzipSync(await readFile(archive)));
+}
+
 if (import.meta.main) {
 	const output = resolve(
 		process.argv[2] ?? join(root, "artifacts/eumenes-pursuit.tgz"),
@@ -122,11 +169,11 @@ if (import.meta.main) {
 		);
 		await verifyPackage(dir);
 		await mkdir(resolve(output, ".."), { recursive: true });
-		const tar = Bun.spawn(["tar", "-czf", output, "-C", stage, "package"], {
-			stdout: "inherit",
-			stderr: "inherit",
-		});
-		if ((await tar.exited) !== 0) throw new Error("package_archive_failed");
+		await writeArchive(
+			stage,
+			output,
+			(await files(dir)).map((file) => `package/${file}`),
+		);
 		console.log(
 			JSON.stringify({
 				archive: output,

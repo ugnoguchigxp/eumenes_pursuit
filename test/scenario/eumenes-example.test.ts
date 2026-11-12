@@ -4,6 +4,7 @@ import { createSteeringInbox } from "eumenes-steer";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ProductiveChoice } from "../../src/domains/ledger/productivity.ts";
 import {
 	openExample,
 	delay,
@@ -291,6 +292,131 @@ test("successful tool without progress cannot repeat the identical action", asyn
 		await host.close();
 	}
 });
+
+const repairCases = [
+	{
+		name: "keeps the first read when its contribution is supplied",
+		phase: "initial",
+		rule: "no_executable_advance",
+		fields: ["contribution"],
+		invalidate: (choice: ProductiveChoice) => ({ ...choice, contribution: "" }),
+		recovers: true,
+	},
+	{
+		name: "keeps the next read when the progress fields are supplied",
+		phase: "evidence",
+		rule: "missing_semantic_delta",
+		fields: ["progress.change", "progress.criteria"],
+		invalidate: (choice: ProductiveChoice) => ({
+			...choice,
+			progress: { ...choice.progress, change: " ", criteria: [] },
+		}),
+		recovers: true,
+	},
+	{
+		name: "reports both missing actions and an incompatible route",
+		phase: "initial",
+		rule: "no_executable_advance",
+		fields: ["actions", "route"],
+		invalidate: (choice: ProductiveChoice) => ({
+			...choice,
+			actions: [],
+			progress: { ...choice.progress, kind: "none" },
+		}),
+		recovers: true,
+	},
+	{
+		name: "stops after the same missing contribution twice",
+		phase: "initial",
+		rule: "no_executable_advance",
+		fields: ["contribution"],
+		invalidate: (choice: ProductiveChoice) => ({ ...choice, contribution: "" }),
+		recovers: false,
+	},
+];
+
+for (const { name, phase, rule, fields, invalidate, recovers } of repairCases) {
+	test(name, async () => {
+		const { options } = await config("museum");
+		const base = options.generator;
+		let remainingRead: ProductiveChoice["actions"][number] | undefined;
+		let repairs = 0;
+		const host = await openExample({
+			...options,
+			generator: {
+				async complete(request, signal) {
+					const response = await base.complete(request, signal);
+					if (request.purpose !== "propose") return response;
+					const packet = JSON.parse(request.prompt);
+					const state = JSON.parse(packet.state.split("\n\n").at(-1));
+					const choice = response.value as ProductiveChoice;
+					if (phase === "evidence" && choice.progress.kind === "initial") {
+						remainingRead = choice.actions[1]!;
+						return {
+							...response,
+							value: request.schema.parse({
+								...choice,
+								actions: choice.actions.slice(0, 1),
+							}),
+						};
+					}
+					if (
+						choice.progress.kind !== phase ||
+						state.attempts.length !== (phase === "initial" ? 0 : 1)
+					) {
+						expect(state.choiceViolationDetails).toBeUndefined();
+						return response;
+					}
+					expect(request.system).toContain("progress.kind=initial");
+					expect(request.system).toContain("at least one progress.criteria ID");
+					const valid = remainingRead
+						? { ...choice, choice: "act" as const, actions: [remainingRead] }
+						: choice;
+					if (state.choiceViolations.length) {
+						repairs++;
+						expect(state.choiceViolations).toEqual([rule]);
+						expect(state.choiceViolationDetails).toEqual(
+							fields.map((field) => ({
+								rule,
+								field,
+								requirement: expect.any(String),
+							})),
+						);
+						if (recovers)
+							return { ...response, value: request.schema.parse(valid) };
+					}
+					return {
+						...response,
+						value: request.schema.parse(invalidate(valid)),
+					};
+				},
+			},
+		});
+		try {
+			const { view } = await host.drive();
+			expect(repairs).toBe(1);
+			expect(view.status).toBe(recovers ? "completed" : "incomplete");
+			const refusals = view.decisions.filter(
+				(d) => Array.isArray(d.basis.rules) && d.basis.rules.includes(rule),
+			);
+			expect(refusals).toHaveLength(recovers ? 1 : 2);
+			expect(refusals[0]?.basis.details).toMatchObject(
+				fields.map((field) => ({ rule, field })),
+			);
+			if (recovers) {
+				expect(view.report?.verified).toBe(true);
+				expect(view.attempts.filter((a) => a.tool === "web_read")).toHaveLength(
+					2,
+				);
+			} else {
+				expect(view.report?.reason).toContain(rule);
+				expect(view.attempts).toHaveLength(0);
+			}
+		} finally {
+			await host.close();
+		}
+	});
+}
 
 test.each([false, true])(
 	"partial finalization reuses a read-back artifact only if its content matches (changed=%s)",

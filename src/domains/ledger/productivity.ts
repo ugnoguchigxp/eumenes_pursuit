@@ -55,6 +55,11 @@ export interface ProductivePlan {
 	owned: string[];
 	awaiting: string | null;
 }
+export type ProductiveRepairDetail = {
+	rule: string;
+	field: string;
+	requirement: string;
+};
 export interface ProductiveState {
 	request: {
 		id: string;
@@ -69,7 +74,11 @@ export interface ProductiveState {
 	thought: number;
 	notes: string[];
 	waitBasis: string | null;
-	repair: { basis: string; issues: string[] } | null;
+	repair: {
+		basis: string;
+		issues: string[];
+		details?: ProductiveRepairDetail[];
+	} | null;
 	plan: ProductivePlan | null;
 	verification: {
 		basis: string;

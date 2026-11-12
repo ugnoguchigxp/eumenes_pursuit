@@ -68,6 +68,12 @@ interface Options {
 	readonly specification?: string;
 	readonly run?: Runner;
 	readonly selection?: "automatic" | "manual";
+	readonly measurementOutput?: "summary";
+	readonly measurementScope?: {
+		readonly unit: "operations" | "transactions";
+		readonly relativeInputSize: number;
+		readonly acceptanceInputSize: number;
+	};
 }
 
 function passedTarget(results: Awaited<ReturnType<typeof absoluteTarget>>) {
@@ -84,7 +90,8 @@ function passedTarget(results: Awaited<ReturnType<typeof absoluteTarget>>) {
 }
 
 export async function openOptimizer(options: Options) {
-	const { directory, correctness, timing, large, noise } = options;
+	const { directory, correctness, timing, large, noise, measurementScope } =
+		options;
 	if (
 		!correctness.length ||
 		!timing.length ||
@@ -115,6 +122,10 @@ export async function openOptimizer(options: Options) {
 			maxMeasurements,
 			environment: options.environment,
 			...(!automatic ? { selection: "manual" } : {}),
+			...(options.measurementOutput
+				? { measurementOutput: options.measurementOutput }
+				: {}),
+			...(measurementScope ? { measurementScope } : {}),
 			...(initial === baseline ? {} : { initialVersion: digest(initial) }),
 			...(options.specification === undefined
 				? {}
@@ -128,6 +139,30 @@ export async function openOptimizer(options: Options) {
 		protocol,
 		maxMeasurements,
 	);
+	const candidateState = (version: string, best: string) =>
+		measurementScope
+			? {
+					baseline: candidates.initial,
+					matchesBaseline: version === candidates.initial,
+					hasAdoptedImprovement: best !== candidates.initial,
+				}
+			: {};
+	const relativeScope = measurementScope
+		? {
+				scope: {
+					kind: "relative",
+					inputSize: measurementScope.relativeInputSize,
+					unit: measurementScope.unit,
+					distributions: timing.map(({ id }) => id),
+				},
+			}
+		: {};
+	const measurementOutput = (result: readonly Series[]) => ({
+		evidence: measurementEvidence(result, noise),
+		...(options.measurementOutput === "summary"
+			? {}
+			: { result: JSON.parse(JSON.stringify(result)) }),
+	});
 	try {
 		await writeFile(path, initial, { flag: "wx" }).catch((error) => {
 			if (error.code !== "EEXIST") throw error;
@@ -194,9 +229,13 @@ export async function openOptimizer(options: Options) {
 		defineTool(
 			{
 				name: "measure_candidate",
-				description: automatic
-					? "正しさに合格した現行版を最良版と比較する。改善を確認した版だけを自動保存する。"
-					: "正しさに合格した現行版を最良版と比較する。eligible=true の測定は adopt_candidate で採用できる。",
+				description:
+					(automatic
+						? "正しさに合格した現行版を最良版と比較する。改善を確認した版だけを自動保存する。"
+						: "正しさに合格した現行版を最良版と比較する。eligible=true の測定は adopt_candidate で採用できる。") +
+					(measurementScope
+						? "この相対計測と大規模入力での受入速度検証は別に行う。"
+						: ""),
 				permission: "optimizer.measure",
 				readsWorkspace: true,
 				properties: {
@@ -217,19 +256,27 @@ export async function openOptimizer(options: Options) {
 					input.retryInterrupted === true,
 				);
 				if (trial.kind === "unchanged")
-					return ok({ version, best: version, state: trial.kind });
+					return ok({
+						version,
+						best: version,
+						state: trial.kind,
+						...candidateState(version, version),
+						...(measurementScope ? { measured: false } : {}),
+					});
 				if (trial.kind === "cached") {
 					const result = JSON.parse(trial.record.result!) as Series[];
+					const best = candidates.best().version;
 					return ok({
 						version,
 						control: trial.record.control,
-						best: candidates.best().version,
+						best,
 						state: trial.kind,
 						promoted: trial.record.promoted === 1,
 						...(!automatic ? { eligible: promotes(result, noise) } : {}),
 						measurement: trial.record.id,
-						evidence: measurementEvidence(result, noise),
-						result: JSON.parse(JSON.stringify(result)),
+						...candidateState(version, best),
+						...relativeScope,
+						...measurementOutput(result),
 					});
 				}
 				if (trial.kind !== "started")
@@ -252,15 +299,17 @@ export async function openOptimizer(options: Options) {
 						noise,
 						automatic,
 					);
+					const best = candidates.best().version;
 					return ok({
 						version,
 						control: trial.control.version,
-						best: candidates.best().version,
+						best,
 						promoted,
 						...(!automatic ? { eligible: promotes(result, noise) } : {}),
 						measurement: trial.id,
-						evidence: measurementEvidence(result, noise),
-						result: JSON.parse(JSON.stringify(result)),
+						...candidateState(version, best),
+						...relativeScope,
+						...measurementOutput(result),
 					});
 				} catch (error) {
 					candidates.interrupt(trial.id);
@@ -271,7 +320,9 @@ export async function openOptimizer(options: Options) {
 		defineTool(
 			{
 				name: "restore_best",
-				description: "保存済みの最良版を windowsum.py に復元する。",
+				description: measurementScope
+					? "保存版を復元する。改善版が未採用なら比較基準版に戻る。"
+					: "保存済みの最良版を windowsum.py に復元する。",
 				permission: "env.write",
 				sideEffect: "workspace",
 			},
@@ -285,14 +336,18 @@ export async function openOptimizer(options: Options) {
 				} finally {
 					await rm(temporary, { force: true });
 				}
-				return ok({ version: best.version });
+				return ok({
+					version: best.version,
+					...candidateState(best.version, best.version),
+				});
 			},
 		),
 		defineTool(
 			{
 				name: "read_candidate",
-				description:
-					"現行の windowsum.py の版を実ファイルから読み戻し、最良版との一致を確認する。",
+				description: measurementScope
+					? "現行版を読み戻し、比較基準版・保存版との一致と改善版の採用有無を確認する。"
+					: "現行の windowsum.py の版を実ファイルから読み戻し、最良版との一致を確認する。",
 				permission: "env.read",
 				readsWorkspace: true,
 				readsBack: true,
@@ -300,7 +355,12 @@ export async function openOptimizer(options: Options) {
 			async () => {
 				const version = digest(await readFile(path, "utf8"));
 				const best = candidates.best().version;
-				return ok({ version, best, matches: version === best });
+				return ok({
+					version,
+					best,
+					matches: version === best,
+					...candidateState(version, best),
+				});
 			},
 		),
 	);
@@ -355,6 +415,7 @@ export async function openOptimizer(options: Options) {
 						? await absoluteTarget(run, source, large, signal)
 						: [];
 				const verified = { targetVersion, usedEvidence: [] } as const;
+				const speedPassed = passedTarget(speeds);
 				return [
 					{
 						id: "correctness",
@@ -364,10 +425,29 @@ export async function openOptimizer(options: Options) {
 					},
 					{
 						id: "speed",
-						passed: passedTarget(speeds),
-						evidence: speeds.length
-							? JSON.stringify(speeds)
-							: "正しさと対象版の一致を確認後に計測する",
+						passed: speedPassed,
+						evidence: measurementScope
+							? JSON.stringify({
+									kind: "absolute",
+									inputSize: measurementScope.acceptanceInputSize,
+									unit: measurementScope.unit,
+									timeLimitMs: candidateTimeoutMs,
+									status: speeds.length
+										? speedPassed
+											? "passed"
+											: "failed"
+										: "not_run",
+									...(speeds.length
+										? { results: speeds }
+										: {
+												reason: !correct
+													? "correctness_failed"
+													: "adopted_improvement_required",
+											}),
+								})
+							: speeds.length
+								? JSON.stringify(speeds)
+								: "正しさと対象版の一致を確認後に計測する",
 						verification: verified,
 					},
 					{

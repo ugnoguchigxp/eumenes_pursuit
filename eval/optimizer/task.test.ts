@@ -6,44 +6,88 @@ import { observationText } from "../../src/domains/generation/prompts.ts";
 import type { Runner } from "./benchmark.ts";
 import { digest } from "./candidates.ts";
 import { correctnessSuite } from "./data.ts";
-import { faster, fixedScenario, slower, wrong } from "./fixed.ts";
+import {
+	faster,
+	fixedScenario,
+	slower,
+	slowerThanBaseline,
+	wrong,
+} from "./fixed.ts";
 import { loadBaseline, openOptimizer } from "./task.ts";
 
 const run: Runner = async (source) => ({
 	status: source === wrong ? "incorrect" : "ok",
-	ms: source === faster ? 20 : source === slower ? 50 : 100,
+	ms:
+		source === faster
+			? 20
+			: source === slower
+				? 50
+				: source === slowerThanBaseline
+					? 200
+					: 100,
 });
 
-test("frozen productive engine promotes, rejects an incorrect and a slower version, reopens and restores", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "optimizer-engine-"));
+test("candidate state survives a rejected measurement, baseline restore, and adoption", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "optimizer-state-"));
 	try {
-		const result = await fixedScenario(dir, run, false);
-		expect(result.status).toBe("completed");
+		const result = await fixedScenario(dir, run, false, "candidate-state");
 		expect(result.audit.passed).toBe(true);
-		expect(result.resumed).toBe(true);
-		expect(result.final).toBe(digest(faster));
-		const measured = result.attempts.filter(
-			({ tool }) => tool === "measure_candidate",
-		);
-		const rejected = measured[1]?.observation?.output;
-		expect(rejected).toMatchObject({
-			version: digest(slower),
-			control: digest(faster),
+		expect(result.attempts[2]?.observation?.output).toMatchObject({
 			promoted: false,
-			evidence: [
-				{ id: "mixed", reason: "primary_regression" },
-				{ id: "concentrated", reason: "secondary_regression" },
-				{ id: "distributed", reason: "secondary_regression" },
-			],
+			hasAdoptedImprovement: false,
+			scope: { kind: "relative", unit: "transactions", inputSize: 20 },
 		});
-		const displayed = observationText(rejected!, 1800, undefined);
-		expect(displayed).toContain('"id":"distributed"');
-		expect(displayed).toContain('"reason":"secondary_regression"');
-		expect(displayed).toContain('"thresholdMs":0');
+		expect(result.attempts[4]?.observation?.output).toMatchObject({
+			matches: true,
+			matchesBaseline: true,
+			hasAdoptedImprovement: false,
+		});
+		expect(result.attempts.at(-1)?.observation?.output).toMatchObject({
+			matches: true,
+			matchesBaseline: false,
+			hasAdoptedImprovement: true,
+		});
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
 });
+
+test.each([undefined, "measurement-summary"] as const)(
+	"frozen productive engine promotes, rejects an incorrect and a slower version, reopens and restores (%s)",
+	async (presentation) => {
+		const dir = await mkdtemp(join(tmpdir(), "optimizer-engine-"));
+		try {
+			const result = await fixedScenario(dir, run, false, presentation);
+			expect(result.status).toBe("completed");
+			expect(result.audit.passed).toBe(true);
+			expect(result.resumed).toBe(true);
+			expect(result.final).toBe(digest(faster));
+			const measured = result.attempts.filter(
+				({ tool }) => tool === "measure_candidate",
+			);
+			const rejected = measured[1]?.observation?.output;
+			if (presentation) expect(rejected).not.toHaveProperty("result");
+			else expect(rejected).toHaveProperty("result");
+			expect(JSON.parse(result.history[1]!.result!)[0].pairs).toHaveLength(7);
+			expect(rejected).toMatchObject({
+				version: digest(slower),
+				control: digest(faster),
+				promoted: false,
+				evidence: [
+					{ id: "mixed", reason: "primary_regression" },
+					{ id: "concentrated", reason: "secondary_regression" },
+					{ id: "distributed", reason: "secondary_regression" },
+				],
+			});
+			const displayed = observationText(rejected!, 1800, undefined);
+			expect(displayed).toContain('"id":"distributed"');
+			expect(displayed).toContain('"reason":"secondary_regression"');
+			expect(displayed).toContain('"thresholdMs":0');
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	},
+);
 
 test("manual selection rejects an old comparison and requires an explicit adoption", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "optimizer-manual-"));
@@ -199,11 +243,23 @@ test("an incorrect starter stays separate from the verified comparison version",
 		environment: "starter-test",
 		initialSource: wrong,
 		run,
+		measurementScope: {
+			unit: "operations",
+			relativeInputSize: 1900,
+			acceptanceInputSize: 36000,
+		},
 	});
 	const signal = new AbortController().signal;
 	try {
 		expect(await readFile(join(dir, "work/windowsum.py"), "utf8")).toBe(wrong);
 		expect(host.candidates.best().version).toBe(digest(await loadBaseline()));
+		const call = (tool: string) =>
+			host.runtime.tools.invoke({ tool, input: {} }, signal);
+		expect((await call("read_candidate")).output).toMatchObject({
+			matches: false,
+			matchesBaseline: false,
+			hasAdoptedImprovement: false,
+		});
 		expect(
 			(
 				await host.runtime.tools.invoke(
@@ -220,6 +276,24 @@ test("an incorrect starter stays separate from the verified comparison version",
 				)
 			).errorCode,
 		).toBe("optimizer_unchecked_version");
+		await call("restore_best");
+		await call("check_candidate");
+		expect((await call("measure_candidate")).output).toMatchObject({
+			state: "unchanged",
+			measured: false,
+			matchesBaseline: true,
+		});
+		const speed = (await host.runtime.acceptance.verify(signal)).find(
+			(result) => result.id === "speed",
+		)!;
+		expect(speed.passed).toBe(false);
+		expect(speed.verification?.targetVersion).toBe(host.candidates.initial);
+		expect(JSON.parse(speed.evidence)).toMatchObject({
+			kind: "absolute",
+			inputSize: 36000,
+			status: "not_run",
+			reason: "adopted_improvement_required",
+		});
 	} finally {
 		host.close();
 		await rm(dir, { recursive: true, force: true });

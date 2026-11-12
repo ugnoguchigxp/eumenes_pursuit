@@ -30,6 +30,7 @@ import {
 	openOptimizer,
 } from "../../eval/optimizer/task.ts";
 import { sandboxAvailable } from "../../eval/tools/sandbox.ts";
+import { recoverableResponsesError } from "./api-recovery.ts";
 import { auditSubmission } from "./audit.ts";
 import { codexBridge, codexModel, emptyCodexUsage } from "./codex-bridge.ts";
 import {
@@ -49,17 +50,28 @@ import {
 
 const [mode, selection, output, option, ...extra] = process.argv.slice(2);
 const resume = option === "--resume";
-const comparison = mode === "compare" || mode === "compare-selection";
+const optimizerFirst = option === "--optimizer-first";
+const reverseOrder = option === "--reverse-order";
+const stateComparison = mode === "compare-state";
+const measurementSummaryComparison = mode === "compare-measurement-summary";
+const presentationComparison = stateComparison || measurementSummaryComparison;
+const comparison =
+	mode === "compare" || mode === "compare-selection" || presentationComparison;
+const canResume = mode === "api" || mode === "compare-selection";
+const campaignLimitUsd = 3;
+const jobLimitUsd = 0.45;
 if (
 	(mode !== "inspect" && mode !== "api" && mode !== "direct" && !comparison) ||
 	!selection ||
 	!output ||
 	(option !== undefined &&
-		(!resume || (mode !== "api" && mode !== "compare-selection"))) ||
+		!(resume && canResume) &&
+		!(optimizerFirst && mode === "compare") &&
+		!(reverseOrder && presentationComparison)) ||
 	extra.length > 0
 ) {
 	throw new Error(
-		"usage: bun examples/optimizer/run.ts <inspect|api|direct|compare|compare-selection> <all|sample[,sample]> <output directory> [--resume (api, compare-selection)]",
+		"usage: bun examples/optimizer/run.ts <inspect|api|direct|compare|compare-selection|compare-state|compare-measurement-summary> <all|sample[,sample]> <output directory> [--resume (api, compare-selection) | --optimizer-first (compare) | --reverse-order (compare-state, compare-measurement-summary)]",
 	);
 }
 if (!sandboxAvailable())
@@ -97,6 +109,10 @@ try {
 		version: 2,
 		mode,
 		names,
+		optimizerFirst,
+		...(presentationComparison
+			? { reverseOrder, campaignLimitUsd, jobLimitUsd }
+			: {}),
 		policy,
 		environment,
 		source: sourceIdentity(fileURLToPath(new URL("../..", import.meta.url)), [
@@ -105,6 +121,13 @@ try {
 		provider: bridgeDirectory
 			? { codexModel, directory: resolve(bridgeDirectory) }
 			: role,
+		...(role?.provider === "openai"
+			? {
+					endpointIdentity: digest(
+						process.env.OPENAI_BASE_URL ?? "sdk-default",
+					),
+				}
+			: {}),
 		settings: settings
 			? resolve(process.env.OPTIMIZER_SETTINGS ?? settingsPath)
 			: null,
@@ -115,7 +138,7 @@ try {
 		resume,
 		contract,
 	);
-	if (settings) settings.setBudget(`campaign:${campaign}`, 3);
+	let campaignBudgetConfigured = false;
 	for (const [caseIndex, name] of names.entries()) {
 		parent.signal.throwIfAborted();
 		const directory = join(root, name);
@@ -193,12 +216,15 @@ try {
 			: undefined;
 		const calibration = previousCalibration ?? (await calibrate(data, setup));
 		if (!previousCalibration) await writeRecord(calibrationPath, calibration);
-		const pair =
-			mode === "compare-selection"
-				? (["manual", "optimizer"] as const)
-				: (["direct", "optimizer"] as const);
+		const pair = stateComparison
+			? (["optimizer", "candidate-state"] as const)
+			: measurementSummaryComparison
+				? (["optimizer", "measurement-summary"] as const)
+				: mode === "compare-selection"
+					? (["manual", "optimizer"] as const)
+					: (["direct", "optimizer"] as const);
 		const arms = comparison
-			? caseIndex % 2 === 0
+			? (caseIndex % 2 === 0) !== (optimizerFirst || reverseOrder)
 				? pair
 				: [...pair].reverse()
 			: [mode === "direct" ? ("direct" as const) : ("optimizer" as const)];
@@ -216,6 +242,17 @@ try {
 				: []),
 		].join("\n");
 		for (const arm of arms) {
+			const { timingOperations, operationCount } = data;
+			if (arm === "candidate-state" && (!timingOperations || !operationCount))
+				throw new Error(`optimizer_missing_measurement_scope:${name}`);
+			const measurementScope =
+				arm === "candidate-state" && timingOperations && operationCount
+					? {
+							unit: "operations" as const,
+							relativeInputSize: timingOperations,
+							acceptanceInputSize: operationCount,
+						}
+					: undefined;
 			const jobDirectory = comparison ? join(directory, arm) : directory;
 			const resultPath = join(jobDirectory, "result.json");
 			const previous = resume
@@ -248,16 +285,28 @@ try {
 				console.log(JSON.stringify(summary));
 				continue;
 			}
+			if (settings && !campaignBudgetConfigured) {
+				if (resume && !Number.isFinite(settings.exposureUsd()))
+					throw new Error(
+						"optimizer_billing_reconciliation_required; see api-pause records and standalone/cli.ts budget show",
+					);
+				settings.setBudget(`campaign:${campaign}`, campaignLimitUsd);
+				campaignBudgetConfigured = true;
+			}
 			const task = await openOptimizer({
 				...data,
 				directory: jobDirectory,
 				noise: calibration.noise,
 				environment,
 				selection: arm === "manual" ? "manual" : "automatic",
+				...(arm === "measurement-summary"
+					? { measurementOutput: "summary" as const }
+					: {}),
+				...(measurementScope ? { measurementScope } : {}),
 			});
 			const store = openStore(join(jobDirectory, "ledger.sqlite"), migrations);
 			const jobId = `${campaign}/${name}/${arm}`;
-			settings?.setBudget(`job:${jobId}`, 0.45);
+			settings?.setBudget(`job:${jobId}`, jobLimitUsd);
 			const scope = {
 				runId: campaign,
 				configId: "optimizer-examples",
@@ -347,6 +396,9 @@ try {
 							goal:
 								commonGoal +
 								"\n最初の act は read_file に path=windowsum.py を指定する1件。この課題で actions が2件以上なら必ず sequence=true で順に実行する。" +
+								(arm === "candidate-state"
+									? "\n保存版は改善版の採用前には比較基準版を指す。matches が true でも matchesBaseline が true なら版の受入条件は未達。measure_candidate は応答の scope に示す入力規模での相対比較。大規模入力の速度要件は別の受入検証で、その検証結果は対象版にのみ適用する。"
+									: "") +
 								(arm === "manual"
 									? "\nmeasure_candidate の eligible が true の改善版を選ぶときは、測定IDを adopt_candidate に渡す。"
 									: ""),
@@ -406,6 +458,40 @@ try {
 							if (step.done) break;
 						}
 					} catch (error) {
+						const recoverable =
+							role?.provider === "openai"
+								? recoverableResponsesError(error)
+								: null;
+						if (recoverable && canResume && !signal.aborted && calls < 17) {
+							const view = (await engine.view(pursuitId))!;
+							if (
+								!terminalStatuses.includes(view.status) &&
+								remainingWallMs(view, Date.now()) > 0
+							) {
+								await writeRecord(
+									join(jobDirectory, `api-pause-${calls}.json`),
+									{
+										pursuitId,
+										reason: recoverable,
+										calls,
+										bestVersion: task.candidates.best().version,
+										unknownUsageCallIds:
+											meter
+												?.events(jobId)
+												.filter(
+													(event) =>
+														event.inputTokens === null &&
+														event.status === "error",
+												)
+												.map((event) => event.callId) ?? [],
+										recordedAt: new Date().toISOString(),
+									},
+								);
+								throw new Error(
+									`optimizer_api_paused:${recoverable}; resume with --resume`,
+								);
+							}
+						}
 						failure =
 							error instanceof Error
 								? error.name + ": " + error.message
@@ -451,6 +537,39 @@ try {
 						best.source,
 					);
 				const usage = totalUsage(meter?.events(jobId) ?? []);
+				const trace =
+					presentationComparison && scope.pursuitId
+						? await store.readSnapshot((db) => {
+								const id = scope.pursuitId!;
+								const baseline = task.candidates.initial;
+								return db
+									.query(`
+								WITH cutoffs AS (
+									SELECT
+										min(CASE WHEN tool = 'restore_best'
+											AND json_extract(observation_json, '$.output.version') = ?2
+											THEN settled_at END) AS restored,
+										min(CASE WHEN tool = 'measure_candidate'
+											AND json_extract(observation_json, '$.output.measurement') IS NOT NULL
+											THEN settled_at END) AS measured
+									FROM pursuit_attempt WHERE pursuit_id = ?1 AND state = 'settled'
+								)
+								SELECT
+									CASE WHEN restored IS NOT NULL THEN
+										(SELECT count(*) FROM pursuit_inference
+										 WHERE pursuit_id = ?1 AND created_at >= restored)
+									END AS recordedCallsAfterBaselineRestore,
+									CASE WHEN measured IS NOT NULL THEN
+										(SELECT coalesce(sum(input_tokens + cache_read_tokens + output_tokens), 0)
+										 FROM pursuit_inference WHERE pursuit_id = ?1 AND created_at >= measured)
+									END AS recordedTokensAfterFirstMeasurement,
+									(SELECT count(*) FROM pursuit_decision d, json_each(d.basis_json, '$.rules') rule
+									 WHERE d.pursuit_id = ?1 AND rule.value = 'unchanged_failed_claim')
+										AS unchangedFailedClaims
+								FROM cutoffs`)
+									.get(id, baseline);
+							})
+						: undefined;
 				const summary = {
 					name,
 					arm,
@@ -459,10 +578,16 @@ try {
 					status,
 					verified: report?.verified ?? false,
 					attempts,
+					...(trace ? { trace } : {}),
+					...(measurementScope ? { measurementScope } : {}),
 					...(!codex
 						? {
 								servedModels: [
-									...new Set(usage.events.map((event) => event.servedModel)),
+									...new Set(
+										usage.events.flatMap((event) =>
+											event.servedModel ? [event.servedModel] : [],
+										),
+									),
 								],
 							}
 						: {}),

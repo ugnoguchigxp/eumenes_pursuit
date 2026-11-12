@@ -23,13 +23,19 @@
 
 [inventory-branches](starters/inventory-branches.py) は、木で表された配送網で、指定の品目と距離範囲に合う在庫のある拠点数・在庫合計を求める。数量の置換や保存・復元を含む。初期版は保存先と現在状態を共有し、照会ごとに配送網を走査する。未使用の5万操作を1実行3秒以内で処理する。 [配送網の仕様](inventory/README.md)
 
+[range-moments](starters/range-moments.py) は、長い配列で区間のアフィン変換、3種類の集計、保存・復元を処理する。初期版は保存先と現在状態を共有し、更新・照会ごとに区間を走査する。未使用の36,000操作を1実行3秒以内で処理する。 [区間更新の仕様](range-moments/README.md)
+
 `compare` は、既存の直接解法（D0）とOptimizerに、同じ初期版・道具・採点器・モデル設定・上限を渡す。D0は一手ずつ操作し、Optimizerは追求ループで仮説と進捗判断を使う。道具が提供する計測と最良候補の保存は両方で使える。作業領域は方式ごとに分け、各方式の提出版を同じ未使用入力で照合する。
 
 ```sh
 bun examples/optimizer/run.ts compare all artifacts/optimizer-examples/hard-1
 ```
 
+1課題を複数回比較するときは、2回目に `--optimizer-first` を指定すると実行順を逆にできる。
+
 ## 実行
+
+OptimizerのCLIはリポジトリのソースから実行する。`pack:core` で生成するコアライブラリのアーカイブにはCLIや評価用の依存は入らない。
 
 LinuxにBun、`/usr/bin/python3`、`/usr/bin/bwrap`、`/usr/bin/prlimit` が必要。候補のPythonはネットワークなしの隔離環境で動く。まず初期状態だけを調べる。
 
@@ -55,10 +61,28 @@ bun examples/optimizer/run.ts api all artifacts/optimizer-examples/api-1 --resum
 
 再開時は候補、測定の校正、台帳、使用済みのモデル呼び出し枠を引き継ぐ。追求の期限は初回起動を基準にする。中断した計測は自動で再実行されず、モデルが明示的に再試行する場合も計測枠を使う。終了済みの課題は結果を読み戻す。プロセス停止などで使用量を取得できなかった呼び出しは `unobservedUsageCalls` に残る。
 
+Responses APIの一時的な接続障害やHTTP 5xxでは、予算と期限が残っていれば `api-pause-<呼び出し番号>.json` に理由、最良版、利用量が不明な呼び出しIDを記録して停止する。障害があった呼び出しも上限に含む。認証エラーやクォータ枯渇は終了として記録する。
+
+利用量が不明な呼び出しは既存の予算ガードで停止する。 `bun standalone/cli.ts budget show` で状態を確認し、請求資料または承認済み上限に基づく `spend reconcile` を行ってから、同じ接続先で `--resume` を使う。 `OPTIMIZER_SETTINGS` で設定DBを変えた場合は、照合CLIの `PURSUIT_SETTINGS` にも同じパスを指定する。 [予算照合の手順](../../README.md#apiの選択と費用の復旧)
+
 候補の自動採用だけを比較する場合は、同じ追求ループを両方式で使う `compare-selection` を実行する。手動側は合格した計測のIDを `adopt_candidate` に渡す。両方式とも最良版の復元、正しさ、速度、公開前の独立監査は共通。
 
 ```sh
 bun examples/optimizer/run.ts compare-selection inventory-branches artifacts/optimizer-examples/selection-1
+```
+
+候補の状態と計測範囲の提示だけを比較する場合は `compare-state` を使う。両方式が同じ追求ループ、採用・受入条件、独立監査を使う。2回目は `--reverse-order` で各課題の実行順を反転する。
+
+```sh
+bun examples/optimizer/run.ts compare-state all artifacts/optimizer-state/r1
+bun examples/optimizer/run.ts compare-state all artifacts/optimizer-state/r2 --reverse-order
+```
+
+`compare-measurement-summary` は、`measure_candidate` がモデルへ返す全測定値だけを省く。採否の根拠は応答に残り、全測定値は候補台帳で確認できる。
+
+```sh
+bun examples/optimizer/run.ts compare-measurement-summary all artifacts/optimizer-measurement-summary/r1
+bun examples/optimizer/run.ts compare-measurement-summary all artifacts/optimizer-measurement-summary/r2 --reverse-order
 ```
 
 ## Codex LunaとWeb検索で比較
