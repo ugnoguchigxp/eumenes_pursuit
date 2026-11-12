@@ -1,5 +1,5 @@
 import { mkdir, readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	createPursuitEngine,
@@ -19,6 +19,7 @@ import { conditionsFor } from "../../eval/conditions.ts";
 import { sourceIdentity } from "../../eval/run-config.ts";
 import {
 	absoluteTarget,
+	candidateFile as defaultCandidateFile,
 	checkCorrectness,
 	runCandidate,
 } from "../../eval/optimizer/benchmark.ts";
@@ -29,6 +30,7 @@ import {
 	grants,
 	openOptimizer,
 } from "../../eval/optimizer/task.ts";
+import { isolatedBunAvailable } from "../../eval/tools/code.ts";
 import { sandboxAvailable } from "../../eval/tools/sandbox.ts";
 import { recoverableResponsesError } from "./api-recovery.ts";
 import { auditSubmission } from "./audit.ts";
@@ -37,6 +39,7 @@ import {
 	calibrate,
 	fixture,
 	heldOut,
+	isRanking,
 	selectStarters,
 	unstableCalibration,
 } from "./fixtures.ts";
@@ -47,6 +50,7 @@ import {
 	readRecord,
 	writeRecord,
 } from "./run-state.ts";
+import { optimizerWorkflow } from "./workflow.ts";
 
 const [mode, selection, output, option, ...extra] = process.argv.slice(2);
 const resume = option === "--resume";
@@ -74,9 +78,14 @@ if (
 		"usage: bun examples/optimizer/run.ts <inspect|api|direct|compare|compare-selection|compare-state|compare-measurement-summary> <all|sample[,sample]> <output directory> [--resume (api, compare-selection) | --optimizer-first (compare) | --reverse-order (compare-state, compare-measurement-summary)]",
 	);
 }
-if (!sandboxAvailable())
-	throw new Error("Linux with bwrap and prlimit is required");
 const names = selectStarters(selection, mode);
+const usesPython = names.some((name) => !isRanking(name));
+if (usesPython && !sandboxAvailable())
+	throw new Error("Linux with bwrap and prlimit is required");
+if (names.some(isRanking) && !isolatedBunAvailable())
+	throw new Error(
+		"ISUCON12 ranking requires sandbox-exec or Linux with bwrap and prlimit",
+	);
 const root = resolve(output);
 if (!resume) {
 	await mkdir(dirname(root), { recursive: true });
@@ -99,7 +108,11 @@ const settings =
 const parent = new AbortController();
 process.on("SIGINT", () => parent.abort(new Error("interrupted")));
 process.on("SIGTERM", () => parent.abort(new Error("interrupted")));
-const environment = `${process.platform}-${process.arch}/bun-${Bun.version}/${Bun.spawnSync(["/usr/bin/python3", "--version"]).stdout.toString().trim()}`;
+const environment =
+	`${process.platform}-${process.arch}/bun-${Bun.version}` +
+	(usesPython
+		? `/${Bun.spawnSync(["/usr/bin/python3", "--version"]).stdout.toString().trim()}`
+		: "");
 const summaries = [];
 let unlock: (() => void) | undefined;
 try {
@@ -144,14 +157,23 @@ try {
 		const directory = join(root, name);
 		await mkdir(directory, { recursive: resume });
 		const data = await fixture(name);
-		const criteria = data.operationCount
+		const run = data.run ?? runCandidate;
+		const candidateFile = data.candidateFile ?? defaultCandidateFile;
+		const { operationCount, correctnessText } = data;
+		const operationLabel =
+			data.operationUnit === "requests" ? "件の照会" : "操作";
+		const criteria = operationCount
 			? acceptance.map((item) =>
 					item.id === "speed"
 						? {
 								...item,
-								text: `${data.operationCount.toLocaleString("ja-JP")}操作を各実行3秒以内に処理する`,
+								text: data.metric
+									? "順位を保ったままランキング照会時のSQL実行回数を初期版より減らす"
+									: `${operationCount.toLocaleString("ja-JP")}${operationLabel}を各実行3秒以内に処理する`,
 							}
-						: item,
+						: item.id === "correctness" && correctnessText
+							? { ...item, text: correctnessText }
+							: item,
 				)
 			: acceptance;
 		const setup = AbortSignal.any([parent.signal, AbortSignal.timeout(120000)]);
@@ -175,7 +197,7 @@ try {
 		const initial =
 			previousInitial?.correctness ??
 			(await checkCorrectness(
-				runCandidate,
+				run,
 				data.initialSource,
 				data.correctness,
 				setup,
@@ -186,12 +208,7 @@ try {
 		const startingSpeed =
 			previousInitial?.speed ??
 			(correct
-				? await absoluteTarget(
-						runCandidate,
-						data.initialSource,
-						data.large,
-						setup,
-					)
+				? await absoluteTarget(run, data.initialSource, data.large, setup)
 				: []);
 		const initialRecord = {
 			version,
@@ -228,27 +245,21 @@ try {
 				? pair
 				: [...pair].reverse()
 			: [mode === "direct" ? ("direct" as const) : ("optimizer" as const)];
-		const unstable = unstableCalibration(
-			calibration.initial,
-			calibration.noise,
-		);
-		const commonGoal = [
-			data.goal ?? goal,
-			"README.md と windowsum.py を読んでから編集する。編集した版は check_candidate の passed を確認してから measure_candidate に渡す。完了前に read_candidate で現行版と最良版を照合する。",
-			...(bridgeDirectory
-				? [
-						"一般的なアルゴリズムや公開資料を確認する際はCodexのWeb検索を使える。検索語に課題のコード、入力、その他の非公開情報を含めない。",
-					]
-				: []),
-		].join("\n");
+		const unstable = data.metric
+			? []
+			: unstableCalibration(calibration.initial, calibration.noise);
+		const taskGoal = data.goal ?? goal;
+		const webGuidance = bridgeDirectory
+			? "\n一般的なアルゴリズムや公開資料を確認する際はCodexのWeb検索を使える。検索語に課題のコード、入力、その他の非公開情報を含めない。"
+			: "";
 		for (const arm of arms) {
-			const { timingOperations, operationCount } = data;
+			const { timingOperations } = data;
 			if (arm === "candidate-state" && (!timingOperations || !operationCount))
 				throw new Error(`optimizer_missing_measurement_scope:${name}`);
 			const measurementScope =
 				arm === "candidate-state" && timingOperations && operationCount
 					? {
-							unit: "operations" as const,
+							unit: data.operationUnit ?? ("operations" as const),
 							relativeInputSize: timingOperations,
 							acceptanceInputSize: operationCount,
 						}
@@ -362,7 +373,7 @@ try {
 					let directAttempts = 0;
 					try {
 						const direct = await runDirect({
-							goal: commonGoal,
+							goal: `${taskGoal}\nREADME.md と ${candidateFile} を読んでから編集する。編集した版は check_candidate の passed を確認してから measure_candidate に渡す。完了前に read_candidate で現行版と最良版を照合する。${webGuidance}`,
 							acceptance: criteria,
 							grant: grants,
 							tools: task.runtime.tools,
@@ -394,8 +405,7 @@ try {
 					const { pursuitId } = await engine.start(
 						{
 							goal:
-								commonGoal +
-								"\n最初の act は read_file に path=windowsum.py を指定する1件。この課題で actions が2件以上なら必ず sequence=true で順に実行する。" +
+								`${taskGoal}\n${optimizerWorkflow(candidateFile)}${webGuidance}` +
 								(arm === "candidate-state"
 									? "\n保存版は改善版の採用前には比較基準版を指す。matches が true でも matchesBaseline が true なら版の受入条件は未達。measure_candidate は応答の scope に示す入力規模での相対比較。大規模入力の速度要件は別の受入検証で、その検証結果は対象版にのみ適用する。"
 									: "") +
@@ -528,12 +538,12 @@ try {
 				const published = audit?.passed && audit.version === best.version;
 				if (published)
 					await publishCandidate(
-						join(jobDirectory, "windowsum.py"),
+						join(jobDirectory, candidateFile),
 						best.source,
 					);
 				else if (best.version !== task.candidates.initial)
 					await publishCandidate(
-						join(jobDirectory, "best-partial.py"),
+						join(jobDirectory, `best-partial${extname(candidateFile)}`),
 						best.source,
 					);
 				const usage = totalUsage(meter?.events(jobId) ?? []);

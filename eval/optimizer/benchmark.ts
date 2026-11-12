@@ -6,8 +6,10 @@ import type { Workload } from "./data.ts";
 
 export const candidateFile = "windowsum.py";
 export const candidateTimeoutMs = 3000;
+export type MeasurementMetric = "sql-statements";
 export type Sample = {
 	readonly ms: number;
+	readonly sqlStatements?: number;
 	readonly status: "ok" | "incorrect" | "timeout" | "failed";
 	readonly mismatch?: {
 		readonly line: number;
@@ -128,6 +130,7 @@ export interface Pair {
 }
 export interface Series {
 	readonly id: string;
+	readonly metric?: MeasurementMetric;
 	readonly warmup: Pair;
 	readonly pairs: readonly Pair[];
 }
@@ -139,6 +142,7 @@ export async function measure(
 	candidate: string,
 	inputs: readonly Workload[],
 	signal: AbortSignal,
+	metric?: MeasurementMetric,
 ): Promise<Series[]> {
 	const result: Series[] = [];
 	for (const input of inputs) {
@@ -148,7 +152,7 @@ export async function measure(
 		};
 		const pairs: Pair[] = [];
 		if (warmup.control.status === "ok" && warmup.candidate.status === "ok") {
-			for (let i = 0; i < repeats; i++) {
+			for (let i = 0; i < (metric ? 1 : repeats); i++) {
 				signal.throwIfAborted();
 				const firstIsControl = i % 2 === 0;
 				const first = await run(
@@ -171,21 +175,28 @@ export async function measure(
 				if (first.status !== "ok" || second.status !== "ok") break;
 			}
 		}
-		result.push({ id: input.id, warmup, pairs });
+		result.push({ id: input.id, ...(metric ? { metric } : {}), warmup, pairs });
 	}
 	signal.throwIfAborted();
 	return result;
 }
 
 export function completeSeries(series: Series): boolean {
+	const validSample = (sample: Sample) =>
+		sample.status === "ok" &&
+		Number.isFinite(sample.ms) &&
+		sample.ms >= 0 &&
+		(!series.metric || validSqlCount(sample.sqlStatements));
 	return (
-		series.pairs.length === repeats &&
+		series.pairs.length === (series.metric ? 1 : repeats) &&
 		[series.warmup, ...series.pairs].every(({ control, candidate }) =>
-			[control, candidate].every(
-				(s) => s.status === "ok" && Number.isFinite(s.ms) && s.ms >= 0,
-			),
+			[control, candidate].every(validSample),
 		)
 	);
+}
+
+export function validSqlCount(count: number | undefined): count is number {
+	return count !== undefined && Number.isSafeInteger(count) && count >= 0;
 }
 
 export function percentile(values: readonly number[], p: number): number {
@@ -193,8 +204,10 @@ export function percentile(values: readonly number[], p: number): number {
 }
 
 export function improvements(series: Series) {
-	return series.pairs.map(
-		({ control, candidate }) => control.ms - candidate.ms,
+	return series.pairs.map(({ control, candidate }) =>
+		series.metric
+			? control.sqlStatements! - candidate.sqlStatements!
+			: control.ms - candidate.ms,
 	);
 }
 
@@ -228,6 +241,22 @@ export function measurementEvidence(
 		const differences = improvements(series);
 		const medianGainMs = percentile(differences, 0.5);
 		const fasterPairs = differences.filter((n) => n > 0).length;
+		if (
+			series.metric &&
+			["control", "candidate"].some((side) => {
+				const key = side as keyof Pair;
+				return (
+					series.warmup[key].sqlStatements !==
+					series.pairs[0]![key].sqlStatements
+				);
+			})
+		)
+			return {
+				id: series.id,
+				primary,
+				metric: series.metric,
+				reason: "unstable_statement_count" as const,
+			};
 		const reason =
 			medianGainMs < -threshold
 				? primary
@@ -236,7 +265,7 @@ export function measurementEvidence(
 				: primary
 					? medianGainMs <= threshold
 						? "gain_within_noise"
-						: fasterPairs < 6
+						: fasterPairs < (series.metric ? 1 : 6)
 							? "too_few_faster_pairs"
 							: "passed"
 					: "passed";
@@ -244,9 +273,13 @@ export function measurementEvidence(
 			id: series.id,
 			primary,
 			reason,
-			medianGainMs,
-			thresholdMs: threshold,
-			fasterPairs,
+			...(series.metric
+				? {
+						metric: series.metric,
+						controlStatements: series.pairs[0]!.control.sqlStatements!,
+						candidateStatements: series.pairs[0]!.candidate.sqlStatements!,
+					}
+				: { medianGainMs, thresholdMs: threshold, fasterPairs }),
 		};
 	});
 }

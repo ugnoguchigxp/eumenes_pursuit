@@ -37,11 +37,13 @@ bun examples/optimizer/run.ts compare all artifacts/optimizer-examples/hard-1
 
 OptimizerのCLIはリポジトリのソースから実行する。`pack:core` で生成するコアライブラリのアーカイブにはCLIや評価用の依存は入らない。
 
-LinuxにBun、`/usr/bin/python3`、`/usr/bin/bwrap`、`/usr/bin/prlimit` が必要。候補のPythonはネットワークなしの隔離環境で動く。まず初期状態だけを調べる。
+取引台帳・配送網などのPython課題には、Linux、Bun、`/usr/bin/python3`、`/usr/bin/bwrap`、`/usr/bin/prlimit` が必要。候補のPythonはネットワークなしの隔離環境で動く。まず初期状態だけを調べる。
 
 ```sh
 bun examples/optimizer/run.ts inspect all artifacts/optimizer-examples/inspect-1
 ```
+
+ISUCON12予選のランキング課題は [macOS向けの実行手順](isucon12/README.md) を参照。課題名 `isucon12-ranking` を指定すると、この課題だけを実行する。
 
 実モデルを使う場合は、Pursuitの単独実行用設定で `llm.generator` と使用量上限を設定し、対応するAPI認証を用意する。既定の設定データベースを使う。別の設定ファイルは `OPTIMIZER_SETTINGS` で指定できる。
 

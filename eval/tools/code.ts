@@ -24,6 +24,12 @@ export interface BunRun {
 
 const sandboxExec = "/usr/bin/sandbox-exec";
 
+export function isolatedBunAvailable() {
+	return process.platform === "darwin"
+		? existsSync(sandboxExec)
+		: process.platform === "linux" && sandboxAvailable();
+}
+
 /**
  * macOS sandbox for agent-written code: reads are limited to the snapshot,
  * Bun and public OS runtime files. Writes stay in the snapshot; no network.

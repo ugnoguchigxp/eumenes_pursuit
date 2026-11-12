@@ -1,5 +1,5 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { CriterionResult, PursuitRuntime } from "../../src/index.ts";
 import { createEnvTools } from "../tasks/e/env.ts";
 import {
@@ -12,7 +12,7 @@ import {
 import { createDirWorkspace } from "../tools/workspace.ts";
 import {
 	absoluteTarget,
-	candidateFile,
+	candidateFile as defaultCandidateFile,
 	candidateTimeoutMs,
 	checkCorrectness,
 	measure,
@@ -20,6 +20,7 @@ import {
 	promotes,
 	repeats,
 	runCandidate,
+	type MeasurementMetric,
 	type Runner,
 	type Series,
 } from "./benchmark.ts";
@@ -28,7 +29,7 @@ import type { Workload } from "./data.ts";
 
 const fixture = join(import.meta.dir, "../tasks/e/env-work/hz10e-window-sums");
 export const loadBaseline = () =>
-	readFile(join(fixture, candidateFile), "utf8");
+	readFile(join(fixture, defaultCandidateFile), "utf8");
 export const acceptance = [
 	{
 		id: "correctness",
@@ -66,11 +67,13 @@ interface Options {
 	readonly initialSource?: string;
 	readonly baselineSource?: string;
 	readonly specification?: string;
+	readonly candidateFile?: string;
 	readonly run?: Runner;
+	readonly metric?: MeasurementMetric;
 	readonly selection?: "automatic" | "manual";
 	readonly measurementOutput?: "summary";
 	readonly measurementScope?: {
-		readonly unit: "operations" | "transactions";
+		readonly unit: "operations" | "transactions" | "requests";
 		readonly relativeInputSize: number;
 		readonly acceptanceInputSize: number;
 	};
@@ -90,8 +93,24 @@ function passedTarget(results: Awaited<ReturnType<typeof absoluteTarget>>) {
 }
 
 export async function openOptimizer(options: Options) {
-	const { directory, correctness, timing, large, noise, measurementScope } =
-		options;
+	const {
+		directory,
+		correctness,
+		timing,
+		large,
+		noise,
+		measurementScope,
+		metric,
+	} = options;
+	const candidateFile = options.candidateFile ?? defaultCandidateFile;
+	if (
+		options.candidateFile !== undefined &&
+		(!options.run ||
+			candidateFile !== basename(candidateFile) ||
+			!candidateFile ||
+			[".", "..", "readme.md"].includes(candidateFile.toLowerCase()))
+	)
+		throw new Error("optimizer_invalid_candidate_file");
 	if (
 		!correctness.length ||
 		!timing.length ||
@@ -112,6 +131,30 @@ export async function openOptimizer(options: Options) {
 	const maxMeasurements = options.maxMeasurements ?? 6;
 	if (!Number.isSafeInteger(maxMeasurements) || maxMeasurements < 1)
 		throw new Error("optimizer_invalid_budget");
+	async function verifyPerformance(
+		source: string,
+		inputs: readonly Workload[],
+		signal: AbortSignal,
+	) {
+		if (metric) {
+			const results = await measure(
+				run,
+				baseline,
+				source,
+				inputs,
+				signal,
+				metric,
+			);
+			const thresholds = Object.fromEntries(inputs.map(({ id }) => [id, 0]));
+			return {
+				passed: promotes(results, thresholds),
+				speeds: [],
+				sql: measurementEvidence(results, thresholds),
+			};
+		}
+		const speeds = await absoluteTarget(run, source, inputs, signal);
+		return { passed: passedTarget(speeds), speeds };
+	}
 	const protocol = digest(
 		JSON.stringify({
 			repeats,
@@ -121,6 +164,8 @@ export async function openOptimizer(options: Options) {
 			noise,
 			maxMeasurements,
 			environment: options.environment,
+			...(metric ? { metric } : {}),
+			...(options.candidateFile === undefined ? {} : { candidateFile }),
 			...(!automatic ? { selection: "manual" } : {}),
 			...(options.measurementOutput
 				? { measurementOutput: options.measurementOutput }
@@ -197,7 +242,7 @@ export async function openOptimizer(options: Options) {
 							if (input.path !== candidateFile)
 								return fail(
 									"optimizer_protected_path",
-									"変更できるのは windowsum.py だけです",
+									`変更できるのは ${candidateFile} だけです`,
 								);
 							return tool.run(input, signal);
 						},
@@ -233,6 +278,7 @@ export async function openOptimizer(options: Options) {
 					(automatic
 						? "正しさに合格した現行版を最良版と比較する。改善を確認した版だけを自動保存する。"
 						: "正しさに合格した現行版を最良版と比較する。eligible=true の測定は adopt_candidate で採用できる。") +
+					(metric ? "比較指標はSQLの実行回数。" : "") +
 					(measurementScope
 						? "この相対計測と大規模入力での受入速度検証は別に行う。"
 						: ""),
@@ -291,6 +337,7 @@ export async function openOptimizer(options: Options) {
 						source,
 						timing,
 						signal,
+						metric,
 					);
 					signal.throwIfAborted();
 					const promoted = candidates.finish(
@@ -322,7 +369,7 @@ export async function openOptimizer(options: Options) {
 				name: "restore_best",
 				description: measurementScope
 					? "保存版を復元する。改善版が未採用なら比較基準版に戻る。"
-					: "保存済みの最良版を windowsum.py に復元する。",
+					: `保存済みの最良版を ${candidateFile} に復元する。`,
 				permission: "env.write",
 				sideEffect: "workspace",
 			},
@@ -347,7 +394,7 @@ export async function openOptimizer(options: Options) {
 				name: "read_candidate",
 				description: measurementScope
 					? "現行版を読み戻し、比較基準版・保存版との一致と改善版の採用有無を確認する。"
-					: "現行の windowsum.py の版を実ファイルから読み戻し、最良版との一致を確認する。",
+					: `現行の ${candidateFile} の版を実ファイルから読み戻し、最良版との一致を確認する。`,
 				permission: "env.read",
 				readsWorkspace: true,
 				readsBack: true,
@@ -410,12 +457,13 @@ export async function openOptimizer(options: Options) {
 					targetVersion !== candidates.initial;
 				const checks = await checkCorrectness(run, source, correctness, signal);
 				const correct = checks.every(({ status }) => status === "ok");
-				const speeds =
+				const performance =
 					correct && matches
-						? await absoluteTarget(run, source, large, signal)
-						: [];
+						? await verifyPerformance(source, large, signal)
+						: null;
+				const speeds = performance?.speeds ?? [];
 				const verified = { targetVersion, usedEvidence: [] } as const;
-				const speedPassed = passedTarget(speeds);
+				const speedPassed = performance?.passed ?? false;
 				return [
 					{
 						id: "correctness",
@@ -426,28 +474,30 @@ export async function openOptimizer(options: Options) {
 					{
 						id: "speed",
 						passed: speedPassed,
-						evidence: measurementScope
-							? JSON.stringify({
-									kind: "absolute",
-									inputSize: measurementScope.acceptanceInputSize,
-									unit: measurementScope.unit,
-									timeLimitMs: candidateTimeoutMs,
-									status: speeds.length
-										? speedPassed
-											? "passed"
-											: "failed"
-										: "not_run",
-									...(speeds.length
-										? { results: speeds }
-										: {
-												reason: !correct
-													? "correctness_failed"
-													: "adopted_improvement_required",
-											}),
-								})
-							: speeds.length
-								? JSON.stringify(speeds)
-								: "正しさと対象版の一致を確認後に計測する",
+						evidence: performance?.sql
+							? JSON.stringify(performance.sql)
+							: measurementScope
+								? JSON.stringify({
+										kind: "absolute",
+										inputSize: measurementScope.acceptanceInputSize,
+										unit: measurementScope.unit,
+										timeLimitMs: candidateTimeoutMs,
+										status: speeds.length
+											? speedPassed
+												? "passed"
+												: "failed"
+											: "not_run",
+										...(speeds.length
+											? { results: speeds }
+											: {
+													reason: !correct
+														? "correctness_failed"
+														: "adopted_improvement_required",
+												}),
+									})
+								: speeds.length
+									? JSON.stringify(speeds)
+									: "正しさと対象版の一致を確認後に計測する",
 						verification: verified,
 					},
 					{
@@ -484,15 +534,16 @@ export async function openOptimizer(options: Options) {
 				correctness.every(({ status }) => status === "ok");
 			const matches =
 				version === candidates.best().version && version !== candidates.initial;
-			const speeds =
+			const performance =
 				correct && matches
-					? await absoluteTarget(run, source, heldOutSpeed, signal)
-					: [];
+					? await verifyPerformance(source, heldOutSpeed, signal)
+					: null;
 			return {
 				version,
 				correctness,
-				speeds,
-				passed: correct && matches && passedTarget(speeds),
+				speeds: performance?.speeds ?? [],
+				...(performance?.sql ? { sql: performance.sql } : {}),
+				passed: correct && matches && (performance?.passed ?? false),
 			};
 		},
 		close: candidates.close,

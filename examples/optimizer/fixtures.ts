@@ -6,6 +6,8 @@ import {
 	measure,
 	percentile,
 	runCandidate,
+	type MeasurementMetric,
+	type Runner,
 	type Series,
 } from "../../eval/optimizer/benchmark.ts";
 import {
@@ -13,6 +15,7 @@ import {
 	eventsFor,
 	profiles,
 	workload,
+	type Workload,
 } from "../../eval/optimizer/data.ts";
 import { faster } from "../../eval/optimizer/fixed.ts";
 import { loadBaseline } from "../../eval/optimizer/task.ts";
@@ -22,6 +25,12 @@ import {
 	inventoryChecks,
 	inventoryData,
 } from "./inventory/data.ts";
+import {
+	rankingFixture,
+	rankingHeldOut,
+	rankingName,
+	rankingSqlName,
+} from "./isucon12/fixture.ts";
 import {
 	bulkChecks,
 	bulkOrders,
@@ -58,7 +67,33 @@ export const starters = {
 	"range-moments": { expectedCorrect: false, primary: "mixed" },
 } as const;
 
-export type Starter = keyof typeof starters;
+export type Starter =
+	| keyof typeof starters
+	| typeof rankingName
+	| typeof rankingSqlName;
+
+export const isRanking = (name: Starter) =>
+	name === rankingName || name === rankingSqlName;
+
+interface FixtureData {
+	readonly initialSource: string;
+	readonly baselineSource: string;
+	readonly expectedCorrect: boolean;
+	readonly correctness: readonly Workload[];
+	readonly timing: readonly Workload[];
+	readonly large: readonly Workload[];
+	readonly candidateFile?: string;
+	readonly run?: Runner;
+	readonly metric?: MeasurementMetric;
+	readonly specification?: string;
+	readonly reference?: string;
+	readonly goal?: string;
+	readonly correctnessText?: string;
+	readonly operationCount?: number;
+	readonly timingOperations?: number;
+	readonly operationUnit?: "requests";
+	readonly calibrationRounds?: number;
+}
 
 export const liveStarters: readonly Starter[] = [
 	"bulk-snapshots",
@@ -85,11 +120,14 @@ export function selectStarters(
 			: selection.split(",")
 	) as Starter[];
 	if (
-		!names.every((name) => Object.hasOwn(starters, name)) ||
+		!names.every((name) => isRanking(name) || Object.hasOwn(starters, name)) ||
 		new Set(names).size !== names.length
 	)
 		throw new Error("invalid sample selection");
-	if (mode !== "inspect" && names.some((name) => !liveStarters.includes(name)))
+	if (
+		mode !== "inspect" &&
+		names.some((name) => !isRanking(name) && !liveStarters.includes(name))
+	)
 		throw new Error("retired sample: use inspect for historical starters");
 	return names;
 }
@@ -170,7 +208,9 @@ const networkWorkload = (
 	return referenceWorkload(reference, id, encodeNetwork(vertices, orders));
 };
 
-export async function fixture(name: Starter) {
+export async function fixture(name: Starter): Promise<FixtureData> {
+	if (name === rankingName) return rankingFixture();
+	if (name === rankingSqlName) return rankingFixture("sql-statements");
 	const versioned = name === "network-versions";
 	const initialSource = await readFile(
 		new URL(
@@ -434,37 +474,68 @@ export async function fixture(name: Starter) {
 	};
 }
 
-export async function calibrate(
-	data: Awaited<ReturnType<typeof fixture>>,
-	signal: AbortSignal,
-) {
-	const initial = await measure(
-		runCandidate,
-		data.baselineSource,
-		data.baselineSource,
-		data.timing,
-		signal,
-	);
+export async function calibrate(data: FixtureData, signal: AbortSignal) {
+	const run = data.run ?? runCandidate;
+	if (data.metric) {
+		const initial = await measure(
+			run,
+			data.baselineSource,
+			data.baselineSource,
+			data.timing,
+			signal,
+			data.metric,
+		);
+		if (
+			!initial.every(completeSeries) ||
+			initial.some((series) => {
+				const values = [series.warmup, ...series.pairs].flatMap(
+					({ control, candidate }) => [
+						control.sqlStatements,
+						candidate.sqlStatements,
+					],
+				);
+				return new Set(values).size !== 1;
+			})
+		)
+			throw new Error("optimizer_sql_count_unstable");
+		return {
+			initial,
+			fast: [],
+			noise: Object.fromEntries(initial.map(({ id }) => [id, 0])),
+		};
+	}
 	const reference = data.reference ?? faster;
-	const fast = await measure(
-		runCandidate,
-		reference,
-		reference,
-		data.timing,
-		signal,
-	);
-	if (![...initial, ...fast].every(completeSeries))
-		throw new Error("optimizer_calibration_incomplete");
+	async function round() {
+		const initial = await measure(
+			run,
+			data.baselineSource,
+			data.baselineSource,
+			data.timing,
+			signal,
+		);
+		const fast = await measure(run, reference, reference, data.timing, signal);
+		if (![...initial, ...fast].every(completeSeries))
+			throw new Error("optimizer_calibration_incomplete");
+		return { initial, fast };
+	}
+	const first = await round();
+	const additional: (typeof first)[] = [];
+	for (let i = 1; i < (data.calibrationRounds ?? 1); i++)
+		additional.push(await round());
 	const noise = Object.fromEntries(
-		initial.map(({ id }, i) => [
+		first.initial.map(({ id }, i) => [
 			id,
 			percentile(
-				[...improvements(initial[i]!), ...improvements(fast[i]!)].map(Math.abs),
+				[first, ...additional].flatMap(({ initial, fast }) =>
+					[...improvements(initial[i]!), ...improvements(fast[i]!)].map(
+						Math.abs,
+					),
+				),
 				0.95,
 			),
 		]),
 	);
-	return { initial, fast, noise };
+	return { ...first, noise, ...(additional.length ? { additional } : {}) };
 }
 
 // If noise alone can obscure a fifth of the baseline runtime, this setup cannot
@@ -487,6 +558,7 @@ export function unstableCalibration(
 }
 
 export async function heldOut(name: Starter) {
+	if (isRanking(name)) return rankingHeldOut();
 	if (name === "range-moments") {
 		const reference = await readMoments("reference.py");
 		const speed = [];
