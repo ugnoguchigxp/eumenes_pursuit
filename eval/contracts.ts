@@ -66,6 +66,8 @@ export interface TaskDiagnostics {
 	/** horizon-10e: hidden checks passed of total in the latest check. */
 	readonly hiddenPassed?: number;
 	readonly hiddenTotal?: number;
+	/** Tiered env tasks: whether every hidden check of each tier passed, in tier order. */
+	readonly tiersPassed?: readonly boolean[];
 }
 
 export interface OutcomeFacts {

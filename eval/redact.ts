@@ -69,6 +69,10 @@ export function redactTools(
 				throw redactError(error, secrets);
 			}
 		},
+		// A host-deferred tool (the advisor) must stay deferrable behind this wrapper.
+		...(tools.deferInTransaction
+			? { deferInTransaction: tools.deferInTransaction.bind(tools) }
+			: {}),
 	};
 }
 

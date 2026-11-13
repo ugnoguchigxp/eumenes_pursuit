@@ -774,11 +774,14 @@ export function makeProductive(
 			)
 		)
 			errors.push("tool_permission");
+		// A batch that touches the workspace cannot run concurrently. Running it in
+		// the order given is always safe, so the host does that instead of refusing.
+		let inOrder = false;
 		if (c.choice === "act" && c.actions.length > 1 && !c.sequence) {
 			const descriptors = c.actions.map((a) =>
 				tools.find((t) => t.name === a.tool),
 			);
-			if (
+			inOrder =
 				descriptors.filter((t) => t?.sideEffect === "workspace").length > 1 ||
 				descriptors.some(
 					(t) =>
@@ -786,9 +789,7 @@ export function makeProductive(
 						t.readsWorkspace ||
 						t.readsBack ||
 						!["none", "workspace"].includes(t.sideEffect),
-				)
-			)
-				errors.push("dependent_actions");
+				);
 		}
 
 		if (finalizing && c.actions.length > 1 && !c.sequence)
@@ -890,7 +891,20 @@ export function makeProductive(
 					pursuitId: v.id,
 					kind: "continue",
 					reason: "進捗制御の契約に適合しない応答を実行しなかった",
-					basis: { rules: errors, ...details },
+					// What was proposed, so a refusal can be diagnosed from the ledger.
+					basis: {
+						rules: errors,
+						...details,
+						proposal: {
+							choice: c.choice,
+							progress: c.progress.kind,
+							route: c.route,
+							sequence: c.sequence,
+							tools: c.actions.map((a) => a.tool),
+							renewsHypothesis: c.renewHypothesis !== null,
+							renewsStrategy: c.renewStrategy !== null,
+						},
+					},
 					decidedBy: "rules",
 					now: clock.now(),
 				});
@@ -962,7 +976,7 @@ export function makeProductive(
 				c.actions.length || c.choice === "complete" || c.choice === "partial"
 					? {
 							actions: reusedArtifact ? [] : c.actions,
-							sequence: finalizing || c.sequence,
+							sequence: finalizing || c.sequence || inOrder,
 							...(waitForCheckpoint
 								? { waitForCheckpoint: true as const }
 								: {}),
@@ -975,7 +989,10 @@ export function makeProductive(
 							reason: c.reason,
 							cancelPending: c.cancelPending,
 							waitAfterDispatch:
-								c.choice === "act" && !c.sequence && c.waitAfterDispatch,
+								c.choice === "act" &&
+								!c.sequence &&
+								!inOrder &&
+								c.waitAfterDispatch,
 							digest: ws,
 							toolsDigest: digest(tools),
 							facts: facts(v),

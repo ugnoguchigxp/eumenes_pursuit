@@ -23,7 +23,7 @@ import { listFiles, replaceTree } from "../../tools/fs-util.ts";
 import { resolveInside } from "../../tools/paths.ts";
 import {
 	runSandboxed,
-	sandboxAvailable,
+	commandSandboxAvailable,
 	scrubTree,
 } from "../../tools/sandbox.ts";
 import { clipText } from "../../tools/text.ts";
@@ -61,6 +61,11 @@ export interface EnvTaskSpec {
 	readonly traps: readonly string[];
 	/** Work paths whose change counts as touching the checks (visible tests). */
 	readonly protectedPrefixes: readonly string[];
+	/**
+	 * Number of tiers. Hidden cases named t<k>… belong to tier k and each tier is its own
+	 * acceptance criterion, so the tiers reached are recorded and can be kept as a partial result.
+	 */
+	readonly tiers?: number;
 	/** A host-side device the executor may query (the oracle named in the secret). */
 	readonly probe?: { readonly maxCalls: number; readonly maxInputs: number };
 }
@@ -133,14 +138,26 @@ export interface EnvToolOptions {
 	};
 }
 
+/** macOS has no mount namespace: the command runs in the real work directory, not at /work. */
+const place = (text: string) =>
+	process.platform === "darwin"
+		? text
+				.replaceAll("（work、サンドボックス内では /work）", "（work）")
+				.replaceAll("work（サンドボックス内では /work）", "work")
+				.replaceAll("/work（= work）", "work")
+				.replaceAll("/work 以外", "work 以外")
+				.replaceAll("（/usr は読み取り専用、/tmp は実行ごとに空）", "")
+		: text;
+
 export function createEnvTools(options: EnvToolOptions): ToolDef[] {
 	const { workDir } = options;
 	const tools: ToolDef[] = [
 		defineTool(
 			{
 				name: "list_files",
-				description:
+				description: place(
 					"作業ディレクトリ（work、サンドボックス内では /work）のファイルを相対パスとサイズで一覧する。path で部分ディレクトリを指定できる。",
+				),
 				permission: "env.read",
 				readsWorkspace: true,
 				properties: {
@@ -247,8 +264,9 @@ export function createEnvTools(options: EnvToolOptions): ToolDef[] {
 		defineTool(
 			{
 				name: "run",
-				description:
+				description: place(
 					"bash のコマンド行を、サンドボックスの中で /work（= work）を作業ディレクトリとして実行する。ネットワークはなく、/work 以外のホストのファイルは見えない（/usr は読み取り専用、/tmp は実行ごとに空）。python3（sqlite3 モジュールを含む）・bash・coreutils などが使える。awk と sqlite3 コマンドは無い（集計や SQLite の読み出しは python3 で）。標準出力・標準エラー（それぞれ先頭と末尾 6000 文字まで）・終了コード・所要時間を返す。終了コードが 0 でないか時間切れなら error になる。",
+				),
 				permission: "env.run",
 				sideEffect: "workspace",
 				properties: {
@@ -260,7 +278,7 @@ export function createEnvTools(options: EnvToolOptions): ToolDef[] {
 				fingerprintFields: ["command"],
 			},
 			async (input, signal) => {
-				if (!sandboxAvailable())
+				if (!commandSandboxAvailable())
 					return fail(
 						"sandbox_unavailable",
 						"このホストではサンドボックスが使えません",
@@ -358,9 +376,14 @@ function goal(spec: EnvTaskSpec): string {
 	return [
 		spec.statement,
 		"",
-		"作業環境: work（サンドボックス内では /work）に初期ファイルがある。list_files・read_file・write_file で読み書きし、run で bash コマンドを実行できる（ネットワークなし、/work 以外のホストのファイルは見えない）。",
+		place(
+			"作業環境: work（サンドボックス内では /work）に初期ファイルがある。list_files・read_file・write_file で読み書きし、run で bash コマンドを実行できる（ネットワークなし、/work 以外のホストのファイルは見えない）。",
+		),
 		spec.probe ? "probe で装置に問い合わせられる（回数に上限あり）。" : "",
 		"完了を宣言すると、ホスト側の隠された検査（work の写しの上でコマンドを実行し、出力を照合する）で判定される。検査の内容は見られない。返るのは通過した検査の数だけ。",
+		spec.tiers
+			? "受入条件は段階ごとに分かれ、段階ごとに通過した検査の数が返る。すべての段階に届かない場合も、解けた段階の答えを出すプログラムを残すこと。届いた段階は成果として記録される。"
+			: "",
 		"インターネットは使えません。",
 	]
 		.filter(Boolean)
@@ -376,13 +399,19 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 		group: "E",
 		level: spec.level,
 		title: spec.title,
-		acceptance: [
-			{
-				id: CRITERION,
-				text: "ホスト側の隠された検査（work の写しの上で実行し、出力を照合）をすべて通る",
-				method: "machine",
-			},
-		],
+		acceptance: spec.tiers
+			? Array.from({ length: spec.tiers }, (_, i) => ({
+					id: `tier-${i + 1}`,
+					text: `段階${i + 1}の隠された検査（work の写しの上で実行し、出力を照合）をすべて通る`,
+					method: "machine" as const,
+				}))
+			: [
+					{
+						id: CRITERION,
+						text: "ホスト側の隠された検査（work の写しの上で実行し、出力を照合）をすべて通る",
+						method: "machine",
+					},
+				],
 		consultAnswer:
 			"問題文と作業環境以上の情報はありません。環境で確かめながら進めてください。",
 		expected: "completed",
@@ -457,15 +486,25 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 			let verifyCount = 0;
 			let diagnostics: TaskDiagnostics = {};
 			async function verify(signal: AbortSignal): Promise<CriterionResult[]> {
-				if (!context.secretDir)
-					return [criterion(CRITERION, false, "照合の準備がありません")];
-				if (!sandboxAvailable())
-					return [criterion(CRITERION, false, "サンドボックスが使えません")];
+				const unavailable = (reason: string) =>
+					spec.tiers
+						? Array.from({ length: spec.tiers }, (_, i) =>
+								criterion(`tier-${i + 1}`, false, reason),
+							)
+						: [criterion(CRITERION, false, reason)];
+				if (!context.secretDir) return unavailable("照合の準備がありません");
+				if (!commandSandboxAvailable())
+					return unavailable("サンドボックスが使えません");
 				const s = await getSecret();
 				let passed = 0;
 				let total = 0;
 				let timedOut = 0;
+				const byTier = Array.from({ length: spec.tiers ?? 0 }, () => ({
+					passed: 0,
+					total: 0,
+				}));
 				for (const c of s.cases) {
+					const tier = byTier[Number(/^t(\d+)/.exec(c.name)?.[1]) - 1];
 					const expected = await readFile(
 						secretPath(context.secretDir, spec.id, c.expected),
 						"utf8",
@@ -484,6 +523,7 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 						);
 					for (const seed of c.seeds ?? [null]) {
 						total += 1;
+						if (tier) tier.total += 1;
 						verifyCount += 1;
 						const snap = join(directory, "verify", String(verifyCount));
 						await replaceTree(workDir, snap);
@@ -502,16 +542,36 @@ export function defineEnvTask(spec: EnvTaskSpec): EvalTask {
 								signal,
 							});
 							if (r.timedOut) timedOut += 1;
-							if (r.exitCode === 0 && sameOutput(r.stdout, expected))
+							if (r.exitCode === 0 && sameOutput(r.stdout, expected)) {
 								passed += 1;
+								if (tier) tier.passed += 1;
+							}
 						} finally {
 							await rm(snap, { recursive: true, force: true });
 						}
 					}
 				}
 				const all = passed === total;
-				diagnostics = { hiddenPassed: passed, hiddenTotal: total };
+				diagnostics = {
+					hiddenPassed: passed,
+					hiddenTotal: total,
+					...(spec.tiers
+						? {
+								tiersPassed: byTier.map(
+									(t) => t.total > 0 && t.passed === t.total,
+								),
+							}
+						: {}),
+				};
 				// Counts only: names, inputs and outputs of the hidden checks stay on the host.
+				if (spec.tiers)
+					return byTier.map((t, i) =>
+						criterion(
+							`tier-${i + 1}`,
+							t.total > 0 && t.passed === t.total,
+							`段階${i + 1}: 隠された検査 ${t.passed}/${t.total} 通過`,
+						),
+					);
 				return [
 					criterion(
 						CRITERION,

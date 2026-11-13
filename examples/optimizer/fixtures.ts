@@ -21,6 +21,12 @@ import { faster } from "../../eval/optimizer/fixed.ts";
 import { loadBaseline } from "../../eval/optimizer/task.ts";
 
 import {
+	frontierFixture,
+	frontierHeldOut,
+	isFrontier,
+	type FrontierStarter,
+} from "./frontier.ts";
+import {
 	encodeInventory,
 	inventoryChecks,
 	inventoryData,
@@ -69,6 +75,7 @@ export const starters = {
 
 export type Starter =
 	| keyof typeof starters
+	| FrontierStarter
 	| typeof rankingName
 	| typeof rankingSqlName;
 
@@ -89,6 +96,7 @@ interface FixtureData {
 	readonly reference?: string;
 	readonly goal?: string;
 	readonly correctnessText?: string;
+	readonly speedText?: string;
 	readonly operationCount?: number;
 	readonly timingOperations?: number;
 	readonly operationUnit?: "requests";
@@ -120,13 +128,19 @@ export function selectStarters(
 			: selection.split(",")
 	) as Starter[];
 	if (
-		!names.every((name) => isRanking(name) || Object.hasOwn(starters, name)) ||
+		!names.every(
+			(name) =>
+				isRanking(name) || isFrontier(name) || Object.hasOwn(starters, name),
+		) ||
 		new Set(names).size !== names.length
 	)
 		throw new Error("invalid sample selection");
 	if (
 		mode !== "inspect" &&
-		names.some((name) => !isRanking(name) && !liveStarters.includes(name))
+		names.some(
+			(name) =>
+				!isRanking(name) && !isFrontier(name) && !liveStarters.includes(name),
+		)
 	)
 		throw new Error("retired sample: use inspect for historical starters");
 	return names;
@@ -211,6 +225,7 @@ const networkWorkload = (
 export async function fixture(name: Starter): Promise<FixtureData> {
 	if (name === rankingName) return rankingFixture();
 	if (name === rankingSqlName) return rankingFixture("sql-statements");
+	if (isFrontier(name)) return frontierFixture(name);
 	const versioned = name === "network-versions";
 	const initialSource = await readFile(
 		new URL(
@@ -559,6 +574,7 @@ export function unstableCalibration(
 
 export async function heldOut(name: Starter) {
 	if (isRanking(name)) return rankingHeldOut();
+	if (isFrontier(name)) return frontierHeldOut(name);
 	if (name === "range-moments") {
 		const reference = await readMoments("reference.py");
 		const speed = [];

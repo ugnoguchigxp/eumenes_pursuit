@@ -95,6 +95,7 @@ export interface RunRecord {
 	readonly answerCorrect?: boolean;
 	readonly hiddenPassed?: number;
 	readonly hiddenTotal?: number;
+	readonly tiersPassed?: TaskDiagnostics["tiersPassed"];
 	/** Budget label (policy file) and the corpus served to this run, for fairness checks. */
 	readonly budgetTag?: string;
 	readonly corpus?: { readonly url: string; readonly log: string };
@@ -113,6 +114,7 @@ export function withDiagnostics<R extends object>(
 		| "answerCorrect"
 		| "hiddenPassed"
 		| "hiddenTotal"
+		| "tiersPassed"
 	> {
 	if (!d) return record;
 	return { ...record, ...d };

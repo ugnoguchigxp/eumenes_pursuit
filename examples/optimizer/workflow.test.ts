@@ -46,6 +46,7 @@ const edit = (content: string) => [write(content), check, ...measureAndRead];
 
 async function fixedWorkflow(
 	batches: readonly (readonly ReturnType<typeof action>[])[],
+	declareSequence = true,
 ) {
 	const directory = await mkdtemp(join(tmpdir(), "optimizer-workflow-"));
 	const store = openStore(":memory:", migrations);
@@ -125,7 +126,7 @@ async function fixedWorkflow(
 							contribution: change,
 							route: "advance",
 							actions,
-							sequence: actions.length > 1,
+							sequence: declareSequence && actions.length > 1,
 							cancelPending: false,
 							waitAfterDispatch: false,
 							renewHypothesis: null,
@@ -254,4 +255,14 @@ test("a failed check blocks measurement and returns to a fixed repair decision",
 	).toEqual(["development-check"]);
 	expect(result.measurements).toHaveLength(1);
 	expect(result.measurements[0]).toMatchObject({ promoted: 1 });
+});
+
+test("a batch that depends on the workspace runs in order even when it is declared concurrent", async () => {
+	const declared = await fixedWorkflow([reads, edit(correct), []]);
+	const concurrent = await fixedWorkflow([reads, edit(correct), []], false);
+	expect(concurrent.decisions).toBe(declared.decisions);
+	expect(
+		concurrent.attempts.map(({ tool, input }) => ({ tool, input })),
+	).toEqual(declared.attempts.map(({ tool, input }) => ({ tool, input })));
+	expect(concurrent.executions).toEqual(declared.executions);
 });

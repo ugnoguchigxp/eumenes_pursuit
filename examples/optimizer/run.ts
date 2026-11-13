@@ -159,18 +159,20 @@ try {
 		const data = await fixture(name);
 		const run = data.run ?? runCandidate;
 		const candidateFile = data.candidateFile ?? defaultCandidateFile;
-		const { operationCount, correctnessText } = data;
+		const { operationCount, correctnessText, speedText } = data;
 		const operationLabel =
 			data.operationUnit === "requests" ? "件の照会" : "操作";
-		const criteria = operationCount
+		const speed =
+			speedText ??
+			(operationCount
+				? data.metric
+					? "順位を保ったままランキング照会時のSQL実行回数を初期版より減らす"
+					: `${operationCount.toLocaleString("ja-JP")}${operationLabel}を各実行3秒以内に処理する`
+				: undefined);
+		const criteria = speed
 			? acceptance.map((item) =>
 					item.id === "speed"
-						? {
-								...item,
-								text: data.metric
-									? "順位を保ったままランキング照会時のSQL実行回数を初期版より減らす"
-									: `${operationCount.toLocaleString("ja-JP")}${operationLabel}を各実行3秒以内に処理する`,
-							}
+						? { ...item, text: speed }
 						: item.id === "correctness" && correctnessText
 							? { ...item, text: correctnessText }
 							: item,

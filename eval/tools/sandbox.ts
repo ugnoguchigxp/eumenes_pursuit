@@ -1,5 +1,6 @@
-import { existsSync } from "node:fs";
-import { chmod, lstat, readdir, unlink } from "node:fs/promises";
+import { existsSync, mkdtempSync, realpathSync, symlinkSync } from "node:fs";
+import { chmod, lstat, mkdtemp, readdir, rm, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stripAnsi } from "./text.ts";
 
@@ -16,6 +17,95 @@ export const PRLIMIT = "/usr/bin/prlimit";
 
 export function sandboxAvailable(): boolean {
 	return existsSync(BWRAP) && existsSync(PRLIMIT);
+}
+
+const SANDBOX_EXEC = "/usr/bin/sandbox-exec";
+let macPython: { prefix: string; bin: string } | null | undefined;
+/**
+ * The base interpreter behind the host's python3, so a virtualenv's packages stay
+ * out, with a directory that offers it under the names python3 and python.
+ */
+function macPythonHome() {
+	if (macPython !== undefined) return macPython;
+	const host = Bun.which("python3");
+	const found = host
+		? Bun.spawnSync([
+				host,
+				"-c",
+				"import os, sys; print(sys.base_prefix); print(os.path.realpath(sys._base_executable))",
+			])
+		: null;
+	const [prefix, executable] =
+		found?.exitCode === 0 ? found.stdout.toString().trim().split("\n") : [];
+	if (!prefix || !executable || !existsSync(executable))
+		return (macPython = null);
+	const bin = mkdtempSync(join(tmpdir(), "sandbox-python-"));
+	for (const name of ["python3", "python"])
+		symlinkSync(executable, join(bin, name));
+	return (macPython = { prefix: realpathSync(prefix), bin });
+}
+
+/** Commands can be isolated here: bubblewrap on Linux, sandbox-exec on macOS. */
+export function commandSandboxAvailable(): boolean {
+	return process.platform === "darwin"
+		? existsSync(SANDBOX_EXEC) && macPythonHome() !== null
+		: sandboxAvailable();
+}
+
+/**
+ * macOS: no namespaces, so the command runs in the real work directory under a
+ * sandbox-exec profile. No network; file contents are readable only in the work
+ * directory, a private temporary directory, the Python installation and public
+ * system paths; writes only in the first two. Read-only mounts are not supported.
+ */
+function macCommand(options: SandboxOptions, scratch: string): string[] {
+	const q = (path: string) => JSON.stringify(realpathSync(path));
+	const python = macPythonHome()!;
+	const readable = [
+		"/System/Library",
+		"/Library/Apple/System/Library",
+		"/usr/lib",
+		"/usr/share",
+		"/usr/bin",
+		"/bin",
+		"/private/etc",
+		"/private/var/db/timezone",
+		"/opt/homebrew/Cellar",
+		"/opt/homebrew/opt",
+		"/opt/homebrew/lib",
+	].filter((path) => existsSync(path));
+	const profile = [
+		"(version 1)",
+		"(allow default)",
+		"(deny network*)",
+		"(deny file-write*)",
+		"(deny file-read-data)",
+		...[options.workDir, scratch, python.prefix, python.bin].map(
+			(path) =>
+				`(allow file-read-data (subpath ${q(path)}) (path-ancestors ${q(path)}))`,
+		),
+		...readable.map(
+			(path) => `(allow file-read-data (subpath ${JSON.stringify(path)}))`,
+		),
+		'(allow file-read-data (literal "/") (literal "/dev/null") (literal "/dev/urandom") (literal "/dev/random"))',
+		existsSync("/System/Library/Sandbox/Profiles/dyld-support.sb")
+			? '(import "dyld-support.sb")'
+			: "",
+		`(allow file-write* (subpath ${q(options.workDir)}) (subpath ${q(scratch)}) (literal "/dev/null"))`,
+	].join("");
+	const limits = `ulimit -t ${Math.ceil(options.timeoutMs / 1000) + 5}; ulimit -f 131072; ulimit -n 512; `;
+	// Its own process group, so a timeout can stop every process the command started.
+	return [
+		SANDBOX_EXEC,
+		"-p",
+		profile,
+		"/usr/bin/perl",
+		"-e",
+		"setpgrp(0, 0); exec @ARGV",
+		"/bin/bash",
+		"-c",
+		limits + options.command,
+	];
 }
 
 export interface SandboxRun {
@@ -126,23 +216,65 @@ export async function readCapped(
 export async function runSandboxed(
 	options: SandboxOptions,
 ): Promise<SandboxRun> {
-	if (!sandboxAvailable()) throw new Error("sandbox_unavailable");
+	if (!commandSandboxAvailable()) throw new Error("sandbox_unavailable");
+	const mac = process.platform === "darwin";
+	if (mac && Object.keys(options.readOnly ?? {}).length)
+		throw new Error("sandbox_mount_unsupported");
+	const scratch = mac ? await mkdtemp(join(tmpdir(), "sandbox-tmp-")) : null;
+	try {
+		return await execute(options, scratch);
+	} finally {
+		if (scratch) await rm(scratch, { recursive: true, force: true });
+	}
+}
+
+async function execute(
+	options: SandboxOptions,
+	scratch: string | null,
+): Promise<SandboxRun> {
 	const started = performance.now();
 	const max = options.maxOutput ?? 1_000_000;
-	const proc = Bun.spawn(bwrapArgs(options), {
-		env: {},
-		stdin: options.stdin === undefined ? "ignore" : new Blob([options.stdin]),
-		stdout: "pipe",
-		stderr: "pipe",
-		timeout: options.timeoutMs,
-		killSignal: "SIGKILL",
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	});
+	const proc = Bun.spawn(
+		scratch ? macCommand(options, scratch) : bwrapArgs(options),
+		{
+			...(scratch
+				? {
+						cwd: options.workDir,
+						env: {
+							PATH: `${macPythonHome()!.bin}:/usr/bin:/bin`,
+							HOME: options.workDir,
+							TMPDIR: scratch,
+							LANG: "C.UTF-8",
+							...options.env,
+						},
+					}
+				: { env: {} }),
+			stdin: options.stdin === undefined ? "ignore" : new Blob([options.stdin]),
+			stdout: "pipe",
+			stderr: "pipe",
+			timeout: options.timeoutMs,
+			killSignal: "SIGKILL",
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+		},
+	);
+	const stopGroup = () => {
+		try {
+			process.kill(-proc.pid, "SIGKILL");
+		} catch {
+			// The group has already exited.
+		}
+	};
+	const timer = scratch ? setTimeout(stopGroup, options.timeoutMs) : null;
+	if (scratch) options.signal?.addEventListener("abort", stopGroup);
 	const [stdout, stderr, exitCode] = await Promise.all([
 		readCapped(proc.stdout, max),
 		readCapped(proc.stderr, max),
 		proc.exited,
-	]);
+	]).finally(() => {
+		if (timer) clearTimeout(timer);
+		options.signal?.removeEventListener("abort", stopGroup);
+		if (scratch) stopGroup();
+	});
 	const ms = performance.now() - started;
 	const timedOut =
 		proc.signalCode === "SIGKILL" && ms >= options.timeoutMs - 50;
