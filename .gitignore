@@ -22,3 +22,4 @@ eval/results/**
 !eval/results/PUBLISHED
 
 .venv/
+__pycache__/
